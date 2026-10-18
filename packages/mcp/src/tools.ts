@@ -57,6 +57,14 @@ export function registerTools(
 	requestHeaders: Headers,
 	authentication?: RequestAuthentication,
 ) {
+	server.registerTool(
+		T.compileResumeLatex,
+		TOOL_META[T.compileResumeLatex],
+		withErrorHandling("compiling LaTeX resume", async ({ id }: { id: string }) => {
+			const result = await client.resume.latex.compile({ id });
+			return json({ success: result.success, log: result.log });
+		}),
+	);
 	// ── List Resumes ──────────────────���───────────────────────────
 	server.registerTool(
 		T.listResumes,

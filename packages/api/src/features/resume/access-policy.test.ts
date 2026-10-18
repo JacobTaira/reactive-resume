@@ -19,6 +19,20 @@ describe("assertCanView", () => {
 });
 
 describe("redactResumeForViewer", () => {
+	it("shares a LaTeX marker without leaking comments or unused project files", () => {
+		const data = structuredClone(defaultResumeData);
+		data.latex = {
+			engine: "pdflatex", entrypoint: "main.tex",
+			files: [{ path: "main.tex", encoding: "utf-8", content: "% PRIVATE NOTES\nResume" }],
+		};
+		const resume = { name: "Private application title", data };
+		const publicData = redactResumeForViewer(resume, false).data;
+		expect(publicData.latex).toBeDefined();
+		expect(JSON.stringify(publicData)).not.toContain("PRIVATE NOTES");
+		expect(redactResumeForViewer(resume, true).data.latex).toEqual(data.latex);
+		expect(data.latex.files[0]?.content).toContain("PRIVATE NOTES");
+	});
+
 	it("replaces name with placeholder for non-owner", () => {
 		const resume = {
 			name: "Senior Eng @ Foo — final draft",

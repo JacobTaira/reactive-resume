@@ -1,0 +1,95 @@
+---
+title: LaTeX resumes
+description: Edit original PDFLaTeX source, compile PDFs, and tailor copies through MCP.
+---
+
+LaTeX resumes keep their source files as part of the document. The source determines the PDF's contents and formatting. The standard form editor and design controls do not synchronize with arbitrary LaTeX.
+
+## Run the local application
+
+Install Docker Desktop with Docker Compose. From the repository root, copy `.env.example` to `.env` if you do not already have an environment file. Configure these settings in `.env`:
+
+```dotenv
+APP_URL=http://localhost:3000
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+AUTH_SECRET=replace-with-a-random-secret
+LATEX_COMPILER_TOKEN=replace-with-a-different-random-secret-at-least-32-characters-long
+```
+
+Generate each secret separately, for example with `openssl rand -hex 32`. Keep the template's container hostnames for PostgreSQL, Redis, and SeaweedFS. Leave AI providers unconfigured when an external assistant will write the resume.
+
+Start the application and compiler:
+
+```sh
+docker compose -f compose.yml -f compose.latex.yml up -d --build
+```
+
+Open `http://localhost:3000`, create your local account, and import your resume under Documents. The first build downloads the application dependencies and TeX packages. Subsequent compilations run without internet access in the compiler container.
+
+The compiler is private to the application network and has no published host port. It runs without root privileges, shell escape, or application credentials. The container also limits memory, processes, output files, and compilation time. Do not expose the worker directly to the internet.
+
+## Import and edit
+
+Import a standalone `.tex` file, or download your Overleaf project as a source ZIP and import that ZIP. A `.txt` file containing `\documentclass` near its beginning is also recognized as LaTeX.
+
+The editor offers:
+
+- Syntax highlighting, project file selection, and main-document selection.
+- Automatic saving through the existing resume store, plus Undo and Redo.
+- Compile PDF, a PDF preview, and a compiler log when compilation fails.
+- Download PDF, Download source ZIP, and individual file downloads.
+- Read extracted text to check that the PDF's text can be recovered.
+- The existing document menu, duplication, application links, and version history.
+
+After changing source, compile again before downloading from the editor. A successful PDF from an earlier source revision is not offered as the current download. Inspect the rendered PDF after tailoring: changed content can change wrapping and pagination.
+
+Use Documents' existing copy-for-a-job action to create a tailored resume linked to an application. History can show and restore a previous source version. Recording an application as submitted and attaching the version actually sent remains a separate action.
+
+## Connect Claude Code
+
+Connect Claude Code to your local installation rather than the hosted Reactive Resume service:
+
+```sh
+claude mcp add --transport http reactive-resume-local --scope user http://localhost:3000/mcp
+claude
+```
+
+Use `/mcp` to complete browser authentication against the local account. An already-installed Claude client may have different connection controls; use its HTTP MCP setup for this endpoint. A cloud-hosted connector cannot reach your computer's `localhost` without an additional connection mechanism.
+
+Give Claude your background files and job description. Ask it to:
+
+1. Find the base resume with `list_resumes` and inspect it with `read_resume`.
+2. Duplicate the base with `duplicate_resume`, preserving the original.
+3. Read the `latex` project and use `apply_resume_patch` to edit the appropriate `/latex/files/{index}/content` fields. Preserve the template's formatting commands and supporting files.
+4. Run `compile_resume_latex`, resolve any errors, and request `download_resume_pdf`.
+5. Associate the tailored copy with the relevant application through the ordinary application/document tools.
+
+These operations do not call Reactive Resume's AI provider. The existing `tailor_resume_for_application` action is a different, provider-backed operation and does not tailor the LaTeX source. External assistants must use the general document editing tools described above.
+
+The compiler's availability can be checked with `api_resume_latex_status`. `api_resume_latex_unpack` converts a base64 source ZIP into the project structure without saving a resume. For an initial import, the browser UI is usually easier.
+
+## Supported projects and limits
+
+The initial compiler supports PDFLaTeX, with two passes for links and cross-references. It supports `.tex`, common LaTeX style/class/configuration files, image assets, Type 1 font support files, and bibliography source/output files. It does not run BibTeX, Biber, MakeIndex, latexmk configuration, or uploaded scripts. Include a generated `.bbl` when your document needs one. XeLaTeX and LuaLaTeX projects need another compiler implementation.
+
+Limits: 100 project files, 2 MiB per file, 8 MiB for the total decoded project or uploaded source ZIP, and 30 seconds per compilation. Paths must be relative, without hidden files, parent directories, symlinks, or the reserved `rr-build` directory. Unsupported files such as `.latexmkrc` are omitted when importing a ZIP.
+
+PDF and source exports preserve the LaTeX workflow. JSON exports also preserve the project. DOCX, ODT, and Markdown exports are unavailable for LaTeX documents because converting arbitrary TeX would discard formatting or content. Structured-field analysis and provider-backed tailoring do not understand the source automatically; an external assistant should read the source and compiled output.
+
+Public links serve the compiled PDF. Source comments and bundled project files are not included in public resume responses. Keep master resumes private if their rendered contents should not be shared.
+
+## Matching Overleaf's output
+
+Preserving the source does not guarantee identical page breaks across TeX distributions. Compare the compiler and package versions with your Overleaf project. The default worker installs Debian's TeX packages; it is not a pinned copy of Overleaf's environment.
+
+For installations requiring the same typesetting environment, set `LATEX_BASE_IMAGE` in `.env` to a trusted, pinned Debian-based TeX Live image matching that environment, then rebuild the compiler. If the image already provides PDFLaTeX, the worker keeps its installed TeX distribution. Custom images must provide the required fonts and packages; the running compiler does not download them.
+
+## Developer checks
+
+With PDFLaTeX installed, the worker tests run independently of the application:
+
+```sh
+python3 -m unittest discover -s containers/latex -p test_worker.py -v
+```
+
+For application checks, install the repository's Node/pnpm prerequisites and run its normal typecheck, lint, format, and build commands. Focused regression tests cover source round trips, unsafe paths, imports, compiler errors, public-source redaction, and MCP compilation. Use a disposable local account/database for browser verification.

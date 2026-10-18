@@ -4,6 +4,7 @@ export const MCP_TOOL_NAME = {
 	listResumeTags: "list_resume_tags",
 	getResume: "read_resume",
 	downloadResumePdf: "download_resume_pdf",
+	compileResumeLatex: "compile_resume_latex",
 	createResume: "create_resume",
 	importResume: "import_resume",
 	duplicateResume: "duplicate_resume",

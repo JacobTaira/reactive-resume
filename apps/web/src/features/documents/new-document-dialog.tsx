@@ -39,13 +39,13 @@ export type NewDocumentDialogData = {
 type Step =
 	| { name: "choose" }
 	| { name: "importing"; file: File; stage: number; notes: string[] }
-	| { name: "imported"; file: File; resumeId: string; sections: number; entries: number; flagged: number }
+	| { name: "imported"; file: File; resumeId: string; sections: number; entries: number; flagged: number; latex?: boolean }
 	| { name: "failed"; file: File; message: string }
 	| { name: "copy" };
 
 type OpenResumeOptions = { withAssistant?: boolean; importedFrom?: string };
 
-const ACCEPT = ".pdf,.docx,.json,.zip,application/pdf,application/json,application/zip";
+const ACCEPT = ".tex,.txt,.pdf,.docx,.json,.zip,application/pdf,application/json,application/zip,application/x-tex,text/x-tex";
 
 const formatSize = (bytes: number) =>
 	bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -53,7 +53,7 @@ const formatSize = (bytes: number) =>
 function requireImportKind(kind: ImportKind | null): ImportKind {
 	if (!kind) {
 		throw new ImportError(
-			t`This file type can't be imported. Use a PDF, Word, Reactive Resume or JSON Resume file, or a LinkedIn export (.zip).`,
+			t`Use LaTeX source (.tex), an Overleaf source ZIP, PDF, Word, Reactive Resume JSON, JSON Resume, or a LinkedIn export.`,
 		);
 	}
 	return kind;
@@ -118,7 +118,7 @@ function useResumeImport(
 			if (!current()) return;
 			const summary = summarizeImport(resume);
 			advance(1, t`file read`);
-			advance(2, t`${summary.sections} sections`);
+			advance(2, resume.latex ? t`LaTeX project preserved` : t`${summary.sections} sections`);
 
 			const resumeId = await client.resume.import({ data: resume });
 			if (!current()) return;
@@ -126,7 +126,7 @@ function useResumeImport(
 			if (!current()) return;
 			markNew(resumeId);
 			void refreshDocuments();
-			setStep({ name: "imported", file, resumeId, ...summary });
+			setStep({ name: "imported", file, resumeId, ...summary, latex: Boolean(resume.latex) });
 		} catch (error) {
 			if (!current()) return;
 			const message =
@@ -267,8 +267,8 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 							</span>
 							<span className="text-[13px] leading-[19px] text-ink-2">
 								<Trans>
-									Drop a file here or browse. PDF, Word, Reactive Resume or JSON Resume. We fill in every section and
-									flag anything we're unsure of.
+										Drop a file here or browse. LaTeX, Overleaf ZIP, PDF, Word, Reactive Resume or JSON Resume.
+										LaTeX projects keep their original source and formatting.
 								</Trans>
 							</span>
 						</span>
@@ -358,7 +358,7 @@ function ImportStep({ step, creating, onCancel, onStartBlank, onChooseFile, onCl
 					stage={step.name === "imported" ? 3 : step.stage}
 					notes={
 						step.name === "imported"
-							? [t`file read`, t`${step.sections} sections`, t`${step.entries} entries`]
+							? step.latex ? [t`source read`, t`project preserved`, t`ready to compile`] : [t`file read`, t`${step.sections} sections`, t`${step.entries} entries`]
 							: step.notes
 					}
 				/>
@@ -396,9 +396,7 @@ function ImportStep({ step, creating, onCancel, onStartBlank, onChooseFile, onCl
 							className="text-accent-text transition-[opacity,scale] duration-standard ease-enter starting:scale-80 starting:opacity-0"
 						/>
 						<span>
-							<Trans>
-								{step.sections} sections and {step.entries} entries found.
-							</Trans>{" "}
+							{step.latex ? <Trans>LaTeX source preserved. Open the editor to compile and review the PDF.</Trans> : <Trans>{step.sections} sections and {step.entries} entries found.</Trans>}{" "}
 							{step.flagged > 0 && <Trans>{step.flagged} fields are flagged for a quick look in the editor.</Trans>}
 						</span>
 					</p>

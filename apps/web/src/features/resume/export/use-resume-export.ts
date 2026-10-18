@@ -77,6 +77,9 @@ export async function createExportFile(
 	if (format === "json") {
 		return new Blob([JSON.stringify(resume.data, null, 2)], { type: "application/json" });
 	}
+	if (target === "resume" && resume.data.latex && format !== "pdf") {
+		throw new Error(t`LaTeX resumes support PDF and source exports. Download the source ZIP from the LaTeX editor.`);
+	}
 
 	const data = getResumeExportData(resume.data, target);
 	if (format === "pdf") {

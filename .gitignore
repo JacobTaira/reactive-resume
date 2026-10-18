@@ -1,4 +1,7 @@
 # Dependencies
+__pycache__/
+*.pyc
+/.local-latex/
 node_modules
 .pnpm-store
 

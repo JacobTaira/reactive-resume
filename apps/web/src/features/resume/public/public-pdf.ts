@@ -20,6 +20,7 @@ export async function resolvePublicResumePdfBlob({
 	data,
 	publicResume,
 }: PublicResumePdfOptions & { data: ResumeData }): Promise<Blob> {
+	if (data.latex) return fetchPublicResumePdf(publicResume);
 	try {
 		return await createResumePdfBlob(data);
 	} catch {

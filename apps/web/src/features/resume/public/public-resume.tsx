@@ -99,7 +99,7 @@ export function PublicResumePage({ resume, username, slug, flags, isRoot = false
 			)}
 
 			<div className={downloads ? "contents" : "contents print:hidden"}>
-				{phone ? (
+				{phone && !resume.data.latex ? (
 					<>
 						<main id="main-content" className="flex-1">
 							<h1 className="sr-only">{basics.name || resume.name}</h1>

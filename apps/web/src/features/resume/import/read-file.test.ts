@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { strToU8, zipSync } from "fflate";
 import { i18n } from "@lingui/core";
 import { sampleResumeData } from "@reactive-resume/schema/resume/sample";
-import { detectImportKind, detectJsonImportKind, parseResumeJson } from "./read-file";
+import { detectImportKind, detectJsonImportKind, parseResumeJson, readResumeFile } from "./read-file";
 
 beforeAll(() => i18n.loadAndActivate({ locale: "en-US", messages: {} }));
 
@@ -32,6 +33,20 @@ describe("detectJsonImportKind", () => {
 
 describe("detectImportKind", () => {
 	const file = (bytes: BlobPart, name: string, type = "") => new File([bytes], name, { type });
+
+	it("distinguishes source ZIPs from LinkedIn exports", async () => {
+		const source = "\\documentclass{article}\n\\begin{document}Example\\end{document}";
+		const zipped = new Uint8Array(zipSync({ "main.tex": strToU8(source) }));
+		expect(await detectImportKind(file(zipped, "overleaf.zip"))).toBe("latex-zip");
+		expect(await detectImportKind(file(source, "resume.tex"))).toBe("latex");
+		expect(await detectImportKind(file(source, "resume.txt"))).toBe("latex");
+	});
+
+	it("imports LaTeX without an AI provider and preserves its source exactly", async () => {
+		const source = "\\documentclass{article}\n% Original template comment.\n\\begin{document}Example\\end{document}\n";
+		const data = await readResumeFile(file(source, "resume.tex"), "latex", { aiAvailable: false });
+		expect(data.latex?.files[0]?.content).toBe(source);
+	});
 
 	it("prefers LinkedIn for .zip and Word for other ZIP containers", async () => {
 		const zip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);

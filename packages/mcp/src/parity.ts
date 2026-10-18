@@ -16,6 +16,8 @@ export const MCP_ROUTER = { ...router, rest: restAliases };
 
 // Explicit allowlist: adding an API procedure never silently grants MCP access.
 const PARITY_PROCEDURES = {
+	"resume.latex.status": router.resume.latex.status,
+	"resume.latex.unpack": router.resume.latex.unpack,
 	"resume.listVersions": router.resume.listVersions,
 	"resume.getVersion": router.resume.getVersion,
 	"resume.createVersion": router.resume.createVersion,
@@ -116,6 +118,7 @@ function parityToolName(path: string): string {
 
 const streamingPaths = new Set(["coverLetters.draft", "agent.messages.send", "agent.messages.resume"]);
 const readOnlyPosts = new Set([
+	"resume.latex.unpack",
 	"ai.parsePdf",
 	"ai.parseDocx",
 	"ai.atsReview",

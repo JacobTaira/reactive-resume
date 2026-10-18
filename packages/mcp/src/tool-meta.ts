@@ -22,6 +22,8 @@ import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
 
 // Contracts remain derived from the allowlisted API procedures in parity.ts.
 export const PARITY_TOOL_DESCRIPTIONS: Record<string, string> = {
+	"resume.latex.status": "Check whether this installation has a configured LaTeX compiler. No secrets are returned.",
+	"resume.latex.unpack": "Read a base64 Overleaf source ZIP into a validated LaTeX project. Does not save a resume or invoke an AI provider. Import the returned project under ResumeData.latex using import_resume, or add it to an owned resume with apply_resume_patch.",
 	"agent.threads.start":
 		"Start a document, application, or general career conversation using a tested saved AI provider. For scope=document, choose exactly one resumeId or coverLetterId. For scope=application, provide applicationId. For scope=career, omit document and application IDs.",
 	"career.profile":
@@ -241,6 +243,13 @@ const messageOutput = z.object({ message: z.string() });
 const idOutput = z.object({ id: z.string() });
 
 const BASE_TOOL_META = {
+	[T.compileResumeLatex]: {
+		title: "Compile LaTeX Resume",
+		description: "Compile a saved LaTeX resume using its original PDFLaTeX source. Returns success and a bounded compiler log, without changing the resume. Use read_resume and apply_resume_patch to edit /latex/files/{index}/content, preserving template macros. Then use download_resume_pdf for the compiled PDF. No AI provider is invoked.",
+		inputSchema: wireInput(z.strictObject({ id: resumeIdSchema })),
+		outputSchema: z.object({ success: z.boolean(), log: z.string() }),
+		annotations: READ_IDEMPOTENT,
+	},
 	[T.listResumes]: {
 		title: "List Resumes",
 		description: [
@@ -290,6 +299,7 @@ const BASE_TOOL_META = {
 			"Returns the complete resume data as JSON, including: basics (name, headline, email, phone,",
 			"location, website), summary, picture settings, all sections (experience, education, skills,",
 			"projects, etc.), custom sections, and metadata (template, layout, typography, colors).",
+			"LaTeX resumes include a latex project with engine, entrypoint, and files (path, encoding, content). The LaTeX source controls their PDF; structured section fields do not.",
 			"",
 			`Use \`${T.listResumes}\` first to find valid IDs.`,
 			"The `resume://_meta/schema` resource describes the full data structure for JSON Patch paths.",
@@ -404,6 +414,7 @@ const BASE_TOOL_META = {
 			"  /sections/experience/items/0/company   — Update first experience's company",
 			"  /sections/skills/items/-               — Append a new skill",
 			"  /metadata/template                     — Change the template (e.g. 'azurill', 'bronzor', 'onyx')",
+			"  /latex/files/0/content                  — Edit a LaTeX source file; read the file list first. Preserve the formatting macros and compile_resume_latex after edits.",
 			"  /metadata/design/colors/primary        — Change the primary color (rgba string)",
 			"  /sections/interests/hidden              — Hide/show a section",
 			"  /sections/experience/items/0/dates      — Set dates: { start, end, present } with years or",

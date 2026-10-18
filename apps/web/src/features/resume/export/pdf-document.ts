@@ -2,6 +2,7 @@ import type { PageMap } from "@reactive-resume/pdf/page-map";
 import type { ResumeData } from "@reactive-resume/schema/resume/data";
 import type { Template } from "@reactive-resume/schema/templates";
 import { createSectionTitleResolverForLocale } from "@/libs/resume/section-title-locale";
+import { compileLatexBlob } from "@/features/resume/latex/files";
 
 type ResumePdfRenderOptions = {
 	includeCoverLetterHeader?: boolean;
@@ -97,6 +98,7 @@ export const createResumePdfBlob = async (
 	renderOptions?: ResumePdfRenderOptions,
 	{ onPageMap, onLostCharacters }: CreateResumePdfBlobExtras = {},
 ) => {
+	if (data.latex) return compileLatexBlob(data.latex);
 	const { blob, pageMap, lostCharacters } = await render({
 		data,
 		template,

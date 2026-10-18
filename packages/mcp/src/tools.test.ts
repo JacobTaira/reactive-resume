@@ -51,6 +51,7 @@ const makeFakeServer = () => {
 
 const clientMock = {
 	resume: {
+		latex: { compile: vi.fn() },
 		getById: vi.fn(),
 		list: vi.fn(),
 		tags: { list: vi.fn() },
@@ -105,6 +106,18 @@ const clientMock = {
 describe("registerTools", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+	});
+
+	it("compiles LaTeX using document tools without returning PDF bytes to the model", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		clientMock.resume.latex.compile.mockResolvedValueOnce({ success: true, pdf: "private-pdf-bytes", log: "done" });
+		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.compileResumeLatex)!;
+		const result = await tool.handler({ id: "r1" });
+		expect(clientMock.resume.latex.compile).toHaveBeenCalledWith({ id: "r1" });
+		expect(result.structuredContent).toEqual({ success: true, log: "done" });
+		expect(JSON.stringify(result)).not.toContain("private-pdf-bytes");
+		expect(clientMock.resume.update).not.toHaveBeenCalled();
 	});
 
 	it("creates and duplicates with an automatically generated address", async () => {

@@ -6,6 +6,7 @@ import { protectedProcedure } from "../../context";
 import { consumePdfExportLimit } from "../../middleware/rate-limit";
 import { parseStoredResumeData } from "./resume-data-validation";
 import { resumeService } from "./service";
+import { renderResumePdf } from "./render-pdf";
 
 export { createResumePdfDownloadUrl, verifyResumePdfDownloadToken } from "./pdf-download-url";
 
@@ -25,8 +26,7 @@ export async function createResumePdfDownload(input: CreateResumePdfDownloadInpu
 		// Lazy-load the PDF renderer (@reactive-resume/pdf → the Forme WASM engine and
 		// the icon drawings) only when a PDF is actually exported, instead of at server
 		// boot. Keeps cold starts light on constrained/slow-disk hosts.
-		const { createResumePdfFile } = await import("@reactive-resume/pdf/server");
-		const body = await createResumePdfFile({ data, filename, uploadOrigin: env.APP_URL });
+		const body = await renderResumePdf({ data, filename, uploadOrigin: env.APP_URL });
 
 		return {
 			headers: {

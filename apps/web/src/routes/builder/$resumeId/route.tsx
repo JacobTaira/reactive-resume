@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect } from "react";
 import z from "zod";
 import { EditorShell } from "./-components/editor-shell";
+import { LatexWorkspace } from "@/features/resume/latex/workspace";
 import { useBuilderResumeUpdateSubscription, useResumeCleanup, useResumeStore } from "@/features/resume/builder/draft";
 import { EDITOR_MODES } from "@/features/resume/editor/store";
 import { orpc } from "@/libs/orpc/client";
@@ -78,5 +79,5 @@ function RouteComponent() {
 
 	if (!isInitialized) return null;
 
-	return <EditorShell />;
+	return resume.data.latex ? <LatexWorkspace /> : <EditorShell />;
 }
