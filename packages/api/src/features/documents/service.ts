@@ -3,6 +3,7 @@ import { ORPCError } from "@orpc/client";
 import { and, count, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@reactive-resume/db/client";
 import * as schema from "@reactive-resume/db/schema";
+import { resumeProfileSchema } from "../../dto/library";
 import { applicationService } from "../applications/service";
 import { coverLetterService } from "../cover-letters/service";
 import { resumeService } from "../resume/service";
@@ -31,6 +32,7 @@ async function assertOwnedApplication(userId: string, applicationId: string) {
 		.select({
 			id: schema.application.id,
 			company: schema.application.company,
+			role: schema.application.role,
 			resumeId: schema.application.resumeId,
 			status: schema.application.status,
 			sentResumeVersionId: schema.application.sentResumeVersionId,
@@ -137,6 +139,10 @@ export const documentsService = {
 					trashedAt: schema.resume.trashedAt,
 					createdAt: schema.resume.createdAt,
 					updatedAt: schema.resume.updatedAt,
+					folderId: schema.resume.folderId,
+					sourceResumeId: schema.resume.sourceResumeId,
+					companyId: schema.resume.companyId,
+					profile: schema.resume.profile,
 					applicationId: schema.application.id,
 					company: schema.application.company,
 					role: schema.application.role,
@@ -160,6 +166,10 @@ export const documentsService = {
 					trashedAt: schema.coverLetter.trashedAt,
 					createdAt: schema.coverLetter.createdAt,
 					updatedAt: schema.coverLetter.updatedAt,
+					folderId: sql<string | null>`null`,
+					sourceResumeId: sql<string | null>`null`,
+					companyId: sql<string | null>`null`,
+					profile: sql<Partial<schema.ResumeProfile> | null>`null`,
 					applicationId: schema.application.id,
 					company: schema.application.company,
 					role: schema.application.role,
@@ -179,6 +189,7 @@ export const documentsService = {
 			({ applicationId, company, role, ...row }: (typeof resumes | typeof letters)[number]): DocumentSummary => ({
 				type,
 				...row,
+				profile: row.profile ? resumeProfileSchema.parse(row.profile) : null,
 				application: applicationId ? { id: applicationId, company: company ?? "", role: role ?? "" } : null,
 			});
 
@@ -276,10 +287,16 @@ export const documentsService = {
 
 		const id = await resumeService.create({
 			userId: input.userId,
+			copyFromResumeId: input.resumeId,
 			name: input.name ?? suggestCopyName(source.name, application?.company),
 			tags: source.tags,
 			locale: source.data.metadata.page.locale as never,
 			data: source.data,
+		});
+
+		await update({ userId: input.userId, type: "resume", id }, {
+			sourceResumeId: input.resumeId,
+			profile: resumeProfileSchema.parse({ purpose: "tailored", company: application?.company ?? "", targetRole: application?.role ?? "" }),
 		});
 
 		if (application) {
@@ -291,3 +308,4 @@ export const documentsService = {
 		return id;
 	},
 };
+

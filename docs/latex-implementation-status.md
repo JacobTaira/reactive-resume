@@ -15,6 +15,10 @@ This feature preserves a resume's PDFLaTeX source instead of converting it into 
 - Structured cover-letter exports do not inherit the resume's LaTeX source.
 - Regression tests for schema round trips, imports, compiler requests, export selection, redaction, and MCP compilation.
 - Local setup and Claude Code instructions in `docs/guides/using-latex.mdx`.
+- Adjustable source/PDF panes with keyboard controls, saved sizing, theme-aware highlighting, and a visible caret.
+- Owned nested resume folders, master/tailored metadata, source lineage, dated evaluations, and compact related-resume/job discovery.
+- A separate company research area with one revision-protected document per company, dated sources, and matching MCP tools.
+- Account export includes organization, company research, and resume library metadata. The library fields remain private on public resume routes.
 
 ## Verified
 
@@ -22,6 +26,8 @@ This feature preserves a resume's PDFLaTeX source instead of converting it into 
 - The supplied source compiles and preserves the original text (ignoring whitespace), Charter font faces, and US Letter size. Private inputs and validation output are excluded from commits.
 - Modified TypeScript and TSX files parse successfully with the available Babel parser. This is a syntax check, not a TypeScript typecheck.
 - `git diff --check` passes.
+- Offline native checks exercise folder navigation, metadata patch behavior, lexical ranking, stale evaluations, and the external tailoring instructions. DTO checks use an available bundled Zod 4.4.3 rather than the project's locked 4.6.7; they do not establish compatibility with every installed dependency.
+- The additive library migration's SQL and snapshot have been checked for existing-schema preservation and matching tables, columns, constraints, and indexes. PostgreSQL execution remains unverified.
 
 ## Remaining verification
 

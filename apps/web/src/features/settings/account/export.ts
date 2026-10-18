@@ -18,6 +18,7 @@ export function buildAccountZip(data: AccountExport): Uint8Array {
 		"account.json": json({ exportedAt: data.exportedAt, user: data.user }),
 		"applications.json": json(data.applications),
 		"career.json": json(data.career),
+		"library.json": json(data.library ?? { folders: [], companies: [] }),
 	};
 	for (const resume of data.resumes) files[`resumes/${fileName(resume.name, resume.id)}`] = json(resume);
 	for (const letter of data.coverLetters) {
@@ -29,3 +30,4 @@ export function buildAccountZip(data: AccountExport): Uint8Array {
 	}
 	return zipSync(files);
 }
+

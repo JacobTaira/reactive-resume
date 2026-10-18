@@ -50,6 +50,12 @@ const makeFakeServer = () => {
 };
 
 const clientMock = {
+	library: {
+		folders: { list: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+		companies: { list: vi.fn(), getById: vi.fn(), save: vi.fn(), delete: vi.fn() },
+		resumes: { getMetadata: vi.fn(), setMetadata: vi.fn(), index: vi.fn() },
+		jobs: { index: vi.fn() },
+	},
 	resume: {
 		latex: { compile: vi.fn() },
 		getById: vi.fn(),
@@ -118,6 +124,69 @@ describe("registerTools", () => {
 		expect(result.structuredContent).toEqual({ success: true, log: "done" });
 		expect(JSON.stringify(result)).not.toContain("private-pdf-bytes");
 		expect(clientMock.resume.update).not.toHaveBeenCalled();
+	});
+
+	it("reads the saved master's LaTeX source without filtering it by folder", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const data = {
+			latex: { engine: "pdflatex", entrypoint: "main.tex", files: [{ path: "main.tex", content: "Master evidence" }] },
+		};
+		clientMock.resume.getById.mockResolvedValueOnce({ id: "master", data });
+		const result = await registered.find((tool) => tool.name === MCP_TOOL_NAME.getResume)!.handler({ id: "master" });
+		expect(JSON.parse(result.content[0]!.text)).toEqual(data);
+		expect(clientMock.resume.getById).toHaveBeenCalledWith({ id: "master" });
+		expect(clientMock.library.resumes.index).not.toHaveBeenCalled();
+	});
+
+	it("uses compact library discovery and requires full reads separately", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const index = [{ id: "related", company: "Example", similarity: 70, reuseHints: ["Shared role terms"] }];
+		clientMock.library.resumes.index.mockResolvedValueOnce(index);
+		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.findRelatedResumes)!;
+		const result = await tool.handler({ company: "Example", keywords: ["robotics"], limit: 10 });
+		expect(clientMock.library.resumes.index).toHaveBeenCalledWith({ company: "Example", keywords: ["robotics"], limit: 10 });
+		expect(result.structuredContent).toEqual({ items: index });
+		expect(clientMock.resume.getById).not.toHaveBeenCalled();
+	});
+
+	it("moves a resume without overwriting its profile or content", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		clientMock.library.resumes.setMetadata.mockResolvedValueOnce({ resumeId: "resume-1", folderId: "folder-1" });
+		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.moveResume)!;
+		await tool.handler({ resumeId: "resume-1", folderId: "folder-1" });
+		expect(clientMock.library.resumes.setMetadata).toHaveBeenCalledWith({ resumeId: "resume-1", folderId: "folder-1" });
+		expect(clientMock.resume.patch).not.toHaveBeenCalled();
+		expect(clientMock.resume.update).not.toHaveBeenCalled();
+		expect(TOOL_META[MCP_TOOL_NAME.moveResume].inputSchema.safeParse({ resumeId: "resume-1" }).success).toBe(false);
+	});
+
+	it("finds related saved jobs even when they have no linked resume", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const jobs = [{ id: "job-1", company: "Example", role: "Robotics Engineer", resumeId: null, similarity: 70 }];
+		clientMock.library.jobs.index.mockResolvedValueOnce(jobs);
+		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.findRelatedJobs)!;
+		const result = await tool.handler({ company: "Example", keywords: ["robotics"] });
+		expect(clientMock.library.jobs.index).toHaveBeenCalledWith({ company: "Example", keywords: ["robotics"], limit: 30 });
+		expect(result.structuredContent).toEqual({ items: jobs });
+		expect(clientMock.applications.getById).not.toHaveBeenCalled();
+	});
+
+	it("requires a company revision and surfaces stale research updates for rereading", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.saveCompanyNote)!;
+		const missingRevision = await tool.handler({ id: "company-1", company: "Example", notes: "Replace" });
+		expect(missingRevision.isError).toBe(true);
+		expect(clientMock.library.companies.save).not.toHaveBeenCalled();
+		clientMock.library.companies.save.mockRejectedValueOnce(new ORPCError("CONFLICT"));
+		const staleRevision = await tool.handler({ id: "company-1", company: "Example", expectedRevision: 2, notes: "Merged" });
+		expect(clientMock.library.companies.save).toHaveBeenCalledWith({ id: "company-1", company: "Example", expectedRevision: 2, notes: "Merged" });
+		expect(staleRevision.isError).toBe(true);
+		expect(staleRevision.content[0]!.text).toContain("Reread the document");
 	});
 
 	it("creates and duplicates with an automatically generated address", async () => {
@@ -215,3 +284,4 @@ describe("registerTools", () => {
 		});
 	});
 });
+

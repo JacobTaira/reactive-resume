@@ -18,6 +18,7 @@ import {
 import { coverLetterDocumentSchema } from "@reactive-resume/schema/cover-letter/data";
 import { templateSchema } from "@reactive-resume/schema/templates";
 import { toWireObjectSchema, toWireSchema } from "./contracts";
+import { LIBRARY_TOOL_META } from "./library-tool-meta";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
 
 // Contracts remain derived from the allowlisted API procedures in parity.ts.
@@ -261,6 +262,7 @@ const BASE_TOOL_META = {
 			"",
 			`Call this before \`${T.getResume}\`, \`${T.patchResume}\`, prompts, or \`resources/read\` with \`resume://{id}\`.`,
 			"Results can be filtered by tags and sorted by last updated date, creation date, or name.",
+			`For master discovery, folder membership and reusable job variants, start with \`${T.findRelatedResumes}\` instead; then read selected documents in full.`,
 		].join("\n"),
 		outputSchema: toWireObjectSchema(resumeDto.list.output),
 		inputSchema: wireInput(
@@ -300,6 +302,7 @@ const BASE_TOOL_META = {
 			"location, website), summary, picture settings, all sections (experience, education, skills,",
 			"projects, etc.), custom sections, and metadata (template, layout, typography, colors).",
 			"LaTeX resumes include a latex project with engine, entrypoint, and files (path, encoding, content). The LaTeX source controls their PDF; structured section fields do not.",
+			"A master resume remains readable through this tool when moved into any owned folder. Find saved masters and related variants with find_related_resumes; read_resume_metadata holds their separate job profiles and lineage.",
 			"",
 			`Use \`${T.listResumes}\` first to find valid IDs.`,
 			"The `resume://_meta/schema` resource describes the full data structure for JSON Patch paths.",
@@ -935,6 +938,7 @@ function withAnnotationTitles<T extends Record<string, { title: string; annotati
 
 export const TOOL_META = withAnnotationTitles({
 	...BASE_TOOL_META,
+	...LIBRARY_TOOL_META,
 	[T.listResumes]: {
 		...BASE_TOOL_META[T.listResumes],
 		inputSchema: wireInput(BASE_TOOL_META[T.listResumes].inputSchema.extend(pagination)),
@@ -1048,3 +1052,4 @@ export const TOOL_META = withAnnotationTitles({
 		outputSchema: toWireObjectSchema(applicationDto.bulkDelete.output),
 	},
 } as const);
+

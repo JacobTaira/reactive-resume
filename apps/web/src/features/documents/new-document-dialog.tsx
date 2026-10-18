@@ -26,6 +26,8 @@ import { ENTER_CLASS, POP_CLASS } from "@/libs/motion";
 import { client, orpc } from "@/libs/orpc/client";
 
 export type NewDocumentDialogData = {
+	/** Place newly created or imported resumes in this folder. */
+	folderId?: string | undefined;
 	/** Open on a step other than the three choices. */
 	step?: "copy";
 	/** Copy for a job: the resume to start from. */
@@ -64,6 +66,7 @@ function useResumeImport(
 	setStep: Dispatch<SetStateAction<Step>>,
 	openLetter: (coverLetterId: string) => void,
 	applicationId?: string,
+	folderId?: string,
 ) {
 	const queryClient = useQueryClient();
 	const markNew = useNewDocumentsStore((state) => state.markNew);
@@ -121,6 +124,7 @@ function useResumeImport(
 			advance(2, resume.latex ? t`LaTeX project preserved` : t`${summary.sections} sections`);
 
 			const resumeId = await client.resume.import({ data: resume });
+			await placeResumeInFolder(resumeId, folderId);
 			if (!current()) return;
 			if (applicationId) await client.documents.linkApplication({ type: "resume", id: resumeId, applicationId });
 			if (!current()) return;
@@ -181,7 +185,7 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 		void navigate({ to: "/builder/letter/$coverLetterId", params: { coverLetterId } });
 	};
 
-	const { importFile, cancel, refreshDocuments } = useResumeImport(setStep, openLetter, data?.applicationId);
+	const { importFile, cancel, refreshDocuments } = useResumeImport(setStep, openLetter, data?.applicationId, data?.folderId);
 
 	// A file dropped on the page starts importing as soon as the dialog opens.
 	const dropped = useRef(data?.file);
@@ -192,7 +196,7 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 		void importFile(file);
 	});
 
-	const { startBlank, trySample, newLetter, creating } = useStartDocument(data?.applicationId);
+	const { startBlank, trySample, newLetter, creating } = useStartDocument(data?.applicationId, data?.folderId);
 
 	const chooseFile = () => inputRef.current?.click();
 
@@ -217,6 +221,7 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 					<CopyForJob
 						initialSourceId={data?.sourceResumeId}
 						initialJobId={data?.applicationId}
+						folderId={data?.folderId}
 						onBack={() => setStep({ name: "choose" })}
 						onCreated={(resumeId, forJob) => {
 							markNew(resumeId);
@@ -415,7 +420,7 @@ function ImportStep({ step, creating, onCancel, onStartBlank, onChooseFile, onCl
 }
 
 /** Start blank, try a sample, or a new letter: each creates the document at once and opens it. */
-export function useStartDocument(applicationId?: string) {
+export function useStartDocument(applicationId?: string, folderId?: string) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const closeDialog = useDialogStore((state) => state.closeDialog);
@@ -424,6 +429,7 @@ export function useStartDocument(applicationId?: string) {
 	const { mutateAsync: createLetter } = useMutation(orpc.coverLetters.create.mutationOptions());
 
 	const created = async (id: string, type: "resume" | "letter") => {
+		if (type === "resume") await placeResumeInFolder(id, folderId);
 		if (applicationId) await client.documents.linkApplication({ type, id, applicationId });
 		markNew(id);
 		void queryClient.invalidateQueries({ queryKey: orpc.documents.key() });
@@ -556,6 +562,7 @@ function ImportProgress({ stage, notes }: { stage: number; notes: string[] }) {
 }
 
 type CopyForJobProps = {
+	folderId?: string | undefined;
 	initialSourceId?: string | undefined;
 	initialJobId?: string | undefined;
 	onBack: () => void;
@@ -564,7 +571,7 @@ type CopyForJobProps = {
 };
 
 /** Pick a resume and a job; the copy is named from both and linked to the application. */
-function CopyForJob({ initialSourceId, initialJobId, onBack, onCreated }: CopyForJobProps) {
+function CopyForJob({ initialSourceId, initialJobId, folderId, onBack, onCreated }: CopyForJobProps) {
 	const { i18n } = useLingui();
 	const nameId = useId();
 	const { data: documents } = useQuery(orpc.documents.list.queryOptions({ input: { trashed: false } }));
@@ -592,6 +599,7 @@ function CopyForJob({ initialSourceId, initialJobId, onBack, onCreated }: CopyFo
 		const message = job ? t`Created and linked to ${job.company}` : t`Created “${finalName}”`;
 		try {
 			const resumeId = await copyForJob(input);
+			await placeResumeInFolder(resumeId, folderId);
 			toast.add({ description: message });
 			onCreated(resumeId, Boolean(job));
 		} catch (error) {
@@ -708,4 +716,15 @@ function CopyForJob({ initialSourceId, initialJobId, onBack, onCreated }: CopyFo
 			</div>
 		</>
 	);
+}
+
+
+/** A folder assignment failure must not hide a successfully created/imported resume. */
+async function placeResumeInFolder(resumeId: string, folderId?: string) {
+	if (folderId === undefined) return;
+	try {
+		await client.library.resumes.setMetadata({ resumeId, folderId: folderId || null });
+	} catch {
+		toast.add({ type: "error", description: t`Resume created, but it couldn't be moved to the folder. Use Folder and resume details to move it.` });
+	}
 }

@@ -19,6 +19,7 @@
 		"./dto/resume": "./src/dto/resume.ts",
 		"./dto/application": "./src/dto/application.ts",
 		"./dto/cover-letter": "./src/dto/cover-letter.ts",
+		"./dto/library": "./src/dto/library.ts",
 		"./pagination": "./src/pagination.ts",
 		"./features/mcp/transport": "./src/features/mcp/transport.ts",
 		"./features/career/jobs": "./src/features/career/jobs.ts"
@@ -88,3 +89,4 @@
 		"typescript": "catalog:"
 	}
 }
+

@@ -81,9 +81,10 @@ describe("copyForJob", () => {
 
 		expect(id).toBe("copy");
 		expect(resumeServiceMock.create).toHaveBeenCalledWith(
-			expect.objectContaining({ name: "Product Designer — Orbital", tags: ["design"] }),
+			expect.objectContaining({ name: "Product Designer — Orbital", tags: ["design"], copyFromResumeId: "r1" }),
 		);
 		expect(set).toHaveBeenCalledWith({ applicationId: "a1" });
+		expect(set).toHaveBeenCalledWith(expect.objectContaining({ sourceResumeId: "r1", profile: expect.objectContaining({ purpose: "tailored", company: "Orbital", score: null }) }));
 		expect(applicationServiceMock.update).toHaveBeenCalledWith({ userId: "u1", id: "a1", resumeId: "copy" });
 	});
 
@@ -98,7 +99,7 @@ describe("copyForJob", () => {
 			await documentsService.copyForJob({ userId: "u1", resumeId: "r1", applicationId: "a1", name: "Mine" });
 
 			expect(resumeServiceMock.create).toHaveBeenCalledWith(expect.objectContaining({ name: "Mine" }));
-			expect(set).toHaveBeenCalledTimes(1);
+			expect(set).toHaveBeenCalledTimes(2);
 			if (status === "saved")
 				expect(applicationServiceMock.update).toHaveBeenCalledWith({ userId: "u1", id: "a1", resumeId: "copy" });
 			else expect(applicationServiceMock.update).not.toHaveBeenCalled();
@@ -125,3 +126,4 @@ describe("linkApplication", () => {
 		else expect(applicationServiceMock.update).not.toHaveBeenCalled();
 	});
 });
+

@@ -4,7 +4,7 @@ import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useMatchRoute } from "@tanstack/react-router";
+import { Link, useMatchRoute, useSearch } from "@tanstack/react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@reactive-resume/ui/components/avatar";
 import { BrandIcon } from "@reactive-resume/ui/components/brand-icon";
 import { Button } from "@reactive-resume/ui/components/button";
@@ -28,6 +28,7 @@ type NavItem = {
 	icon: IconName;
 	label: string;
 	count?: number;
+	area?: "companies";
 };
 
 function useNavItems() {
@@ -41,6 +42,12 @@ function useNavItems() {
 			icon: "file-text",
 			label: t`Documents`,
 			...(counts ? { count: counts.resume + counts.letter } : {}),
+		},
+		{
+			to: "/dashboard",
+			area: "companies",
+			icon: "building-office",
+			label: t`Companies`,
 		},
 		{
 			to: "/dashboard/applications",
@@ -63,7 +70,10 @@ function useNavItems() {
 /** Whether the item is the current page: Documents is exact, the others match their section. */
 function useIsCurrent() {
 	const matchRoute = useMatchRoute();
-	return (to: NavItem["to"]) => Boolean(matchRoute({ to, fuzzy: to !== "/dashboard" }));
+	const { area: currentArea } = useSearch({ strict: false });
+	return (to: NavItem["to"], area?: "companies") =>
+		Boolean(matchRoute({ to, fuzzy: to !== "/dashboard" })) &&
+		(to !== "/dashboard" || (currentArea === "companies") === (area === "companies"));
 }
 
 /**
@@ -146,7 +156,7 @@ function Sidebar() {
 
 			<nav aria-label={t`App`} className="grid gap-0.5">
 				{items.map((item) => (
-					<NavLink key={item.to} item={item} current={isCurrent(item.to)} />
+					<NavLink key={`${item.to}:${item.area ?? ""}`} item={item} current={isCurrent(item.to, item.area)} />
 				))}
 				<div className="mt-2 border-t border-line pt-2">
 					<NavLink item={settings} current={isCurrent(settings.to)} />
@@ -195,6 +205,7 @@ function NavLink({ item, current }: { item: NavItem; current: boolean }) {
 	return (
 		<Link
 			to={item.to}
+			search={item.area ? { area: item.area } : {}}
 			aria-current={current ? "page" : undefined}
 			className={cn(
 				"flex h-[34px] items-center gap-2.5 rounded-lg px-2.5 text-sm transition-[background-color,color,scale] duration-quick ease-enter active:scale-[0.97]",
@@ -233,14 +244,15 @@ function Rail() {
 			</RailTip>
 			<nav aria-label={t`App`} className="grid gap-1">
 				{[...items, settings].map((item) => (
-					<RailTip key={item.to} label={item.label} icon={item.icon} filled={isCurrent(item.to)}>
+					<RailTip key={`${item.to}:${item.area ?? ""}`} label={item.label} icon={item.icon} filled={isCurrent(item.to, item.area)}>
 						<Link
 							to={item.to}
+							search={item.area ? { area: item.area } : {}}
 							aria-label={item.label}
-							aria-current={isCurrent(item.to) ? "page" : undefined}
+							aria-current={isCurrent(item.to, item.area) ? "page" : undefined}
 							className={cn(
 								"grid size-10 place-items-center rounded-lg transition-[background-color,color,scale] duration-quick ease-enter active:scale-[0.97]",
-								isCurrent(item.to) ? "bg-sunken text-ink" : "text-ink-2 hover:bg-hover",
+								isCurrent(item.to, item.area) ? "bg-sunken text-ink" : "text-ink-2 hover:bg-hover",
 							)}
 						/>
 					</RailTip>
@@ -316,11 +328,12 @@ function MobileTabs() {
 		>
 			<Link
 				to="/dashboard"
-				aria-current={isCurrent("/dashboard") ? "page" : undefined}
+				search={{}}
+				aria-current={isCurrent("/dashboard") || isCurrent("/dashboard", "companies") ? "page" : undefined}
 				viewTransition={false}
 				className="relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 transition-[scale] duration-quick ease-enter active:scale-[0.97]"
 			>
-				{tab("file-text", t`Documents`, isCurrent("/dashboard"))}
+				{tab("file-text", t`Documents`, isCurrent("/dashboard") || isCurrent("/dashboard", "companies"))}
 			</Link>
 			<Link
 				to="/dashboard/applications"
@@ -361,3 +374,4 @@ function MobileTabs() {
 		</nav>
 	);
 }
+

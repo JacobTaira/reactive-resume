@@ -87,7 +87,7 @@ export function useDocumentActions() {
 		},
 
 		copyForJob: (document: DocumentSummary) =>
-			openDialog("document.new", { step: "copy", sourceResumeId: document.id }),
+			openDialog("document.new", { step: "copy", sourceResumeId: document.id, folderId: document.folderId ?? undefined }),
 
 		setLocked: (document: DocumentSummary, isLocked: boolean) => setLocked.mutate({ ...ref(document), isLocked }),
 
@@ -220,6 +220,7 @@ type DocumentMenuProps = {
 	onRename: () => void;
 	onTags: () => void;
 	onLink: () => void;
+	onDetails?: (() => void) | undefined;
 	/** Starts a selection with this document; absent in the list, which always shows its checkboxes, and in Trash. */
 	onSelect?: (() => void) | undefined;
 	/** The same items as a context menu (right-click and long-press) instead of the ⋯ menu. */
@@ -233,6 +234,7 @@ export function DocumentMenuContent({
 	onRename,
 	onTags,
 	onLink,
+	onDetails,
 	onSelect,
 	variant = "dropdown",
 }: DocumentMenuProps) {
@@ -262,6 +264,11 @@ export function DocumentMenuContent({
 		document.type === "resume"
 			? { icon: "briefcase", label: t`Copy for a job…`, onSelect: () => actions.copyForJob(document) }
 			: { icon: "briefcase", label: t`Link to application…`, onSelect: onLink, disabled: document.isLocked },
+		...(document.type === "resume" && onDetails ? [{
+			icon: "folder",
+			label: t`Folder and resume details…`,
+			onSelect: onDetails,
+		} satisfies MenuEntry] : []),
 		{ icon: "tag", label: t`Tags…`, onSelect: onTags, disabled: document.isLocked },
 		document.isLocked
 			? { icon: "lock-open", label: t`Unlock`, onSelect: () => actions.setLocked(document, false) }
@@ -455,3 +462,4 @@ export function LinkApplicationDialog({ document: requested, onClose }: LinkAppl
 		</Dialog>
 	);
 }
+

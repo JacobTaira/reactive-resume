@@ -20,6 +20,7 @@ export function registerResources(server: McpServer, client: RouterClient<typeof
 			mimeType: "application/json",
 			description: [
 				"Full resume data as JSON, including basics, summary, sections, custom sections, and metadata.",
+				"LaTeX projects include their authoritative source files. Owned resumes remain readable inside folders; library metadata and company notes are available through the library tools.",
 				`Discover resume IDs with the \`${T.listResumes}\` tool, then read \`resume://{id}\` or use \`${T.getResume}\`.`,
 				"Appears in `resources/templates/list`; not enumerated in `resources/list`.",
 				"Embedded as context in MCP prompts (build_resume, improve_resume, etc.).",
@@ -84,3 +85,4 @@ export function registerResources(server: McpServer, client: RouterClient<typeof
 		},
 	);
 }
+

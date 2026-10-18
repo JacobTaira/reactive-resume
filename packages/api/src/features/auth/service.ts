@@ -5,6 +5,7 @@ import { isCustomOAuthProviderEnabled } from "@reactive-resume/auth/config";
 import { db } from "@reactive-resume/db/client";
 import * as schema from "@reactive-resume/db/schema";
 import { env } from "@reactive-resume/env/server";
+import { resumeProfileSchema } from "../../dto/library";
 import { careerService } from "../career/service";
 import { coverLetterService } from "../cover-letters/service";
 import { getStorageService } from "../storage/service";
@@ -54,6 +55,10 @@ export const authService = {
 				name: schema.resume.name,
 				slug: schema.resume.slug,
 				tags: schema.resume.tags,
+				folderId: schema.resume.folderId,
+				sourceResumeId: schema.resume.sourceResumeId,
+				companyId: schema.resume.companyId,
+				profile: schema.resume.profile,
 				data: schema.resume.data,
 				isPublic: schema.resume.isPublic,
 				showDownloadButtons: schema.resume.showDownloadButtons,
@@ -66,14 +71,20 @@ export const authService = {
 
 		const coverLetters = await db.select().from(schema.coverLetter).where(eq(schema.coverLetter.userId, input.userId));
 		const applications = await db.select().from(schema.application).where(eq(schema.application.userId, input.userId));
+		const folders = await db.select().from(schema.resumeFolder).where(eq(schema.resumeFolder.userId, input.userId));
+		const companies = await db.select().from(schema.companyResearch).where(eq(schema.companyResearch.userId, input.userId));
 		return {
 			exportedAt: new Date().toISOString(),
 			user: userRecord,
-			resumes,
+			resumes: resumes.map((resume) => ({ ...resume, profile: resumeProfileSchema.parse(resume.profile ?? {}) })),
 			coverLetters: await Promise.all(
 				coverLetters.map(({ id }) => coverLetterService.getById({ id, userId: input.userId })),
 			),
 			applications: applications.map(({ userId: _userId, ...application }) => application),
+			library: {
+				folders: folders.map(({ userId: _userId, ...folder }) => folder),
+				companies: companies.map(({ userId: _userId, companyKey: _companyKey, ...company }) => company),
+			},
 			career: await careerService.exportData(input.userId),
 		};
 	},
@@ -99,3 +110,4 @@ export const authService = {
 		}
 	},
 };
+

@@ -34,7 +34,7 @@ function errorHint(error: unknown): string {
 	// Every tool shares this handler, so the wording stays entity-agnostic: `NOT_FOUND` is
 	// thrown by the application procedures too, and resume-flavoured advice misdirects there.
 	if (code === "NOT_FOUND" || status === 404)
-		return `\n\nHint: Not found. Check the ID — \`${listResumes}\`, \`${MCP_TOOL_NAME.listCoverLetters}\`, and \`${listApplications}\` return valid ones.`;
+		return `\n\nHint: Not found. Check the ID — \`${listResumes}\`, \`${MCP_TOOL_NAME.listCoverLetters}\`, and \`${listApplications}\` return valid ones. For library records, use \`${MCP_TOOL_NAME.listResumeFolders}\` or \`${MCP_TOOL_NAME.listCompanyNotes}\`.`;
 	if (code === "FORBIDDEN" || status === 403)
 		return "\n\nHint: Permission denied. This account cannot access that record.";
 	if (code === "CONFLICT" || status === 409)
@@ -103,3 +103,4 @@ export function safeMcpError(error: unknown, operation: string): McpError {
 		},
 	);
 }
+

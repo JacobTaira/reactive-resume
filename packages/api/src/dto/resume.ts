@@ -22,7 +22,15 @@ const resumeSchema = createSelectSchema(schema.resume, {
 })
 	// Trash and automatic naming stay internal to the documents API. getById exposes the application link
 	// explicitly because the editor uses it to select the application a tailored copy belongs to.
-	.omit({ applicationId: true, trashedAt: true, autoName: true });
+	.omit({
+		applicationId: true,
+		trashedAt: true,
+		autoName: true,
+		folderId: true,
+		sourceResumeId: true,
+		companyId: true,
+		profile: true,
+	});
 
 const versionSchema = z.object({
 	id: z.string().describe("The ID of the version."),
@@ -218,3 +226,4 @@ export const resumeDto = {
 		output: resumeSchema.omit({ password: true, userId: true }).extend({ hasPassword: z.boolean() }),
 	},
 };
+

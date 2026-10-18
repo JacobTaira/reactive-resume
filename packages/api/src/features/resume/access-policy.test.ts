@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultResumeData } from "@reactive-resume/schema/resume/default";
 import { sampleResumeData } from "@reactive-resume/schema/resume/sample";
+import { resumeDto } from "../../dto/resume";
 import { assertCanView, redactResumeForViewer } from "./access-policy";
 
 describe("assertCanView", () => {
@@ -19,6 +20,11 @@ describe("assertCanView", () => {
 });
 
 describe("redactResumeForViewer", () => {
+	it("keeps private library metadata out of public resume response contracts", () => {
+		for (const field of ["folderId", "sourceResumeId", "companyId", "profile"]) {
+			expect(Object.keys(resumeDto.getBySlug.output.shape)).not.toContain(field);
+		}
+	});
 	it("shares a LaTeX marker without leaking comments or unused project files", () => {
 		const data = structuredClone(defaultResumeData);
 		data.latex = {
@@ -77,3 +83,4 @@ describe("redactResumeForViewer", () => {
 		expect(shared.sections.education).toEqual(data.sections.education);
 	});
 });
+

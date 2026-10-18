@@ -22,6 +22,7 @@ export type DocumentItemProps = {
 	document: DocumentSummary;
 	onTags: (document: DocumentSummary) => void;
 	onLink: (document: DocumentSummary) => void;
+	onDetails?: ((document: DocumentSummary) => void) | undefined;
 	/** Position in the library's first appearance, which staggers in; undefined afterwards and in Trash. */
 	introIndex?: number | undefined;
 	/** Whether the document is in the selection; Trash has no selection. */
@@ -136,6 +137,7 @@ export function DocumentCard({
 	document,
 	onTags,
 	onLink,
+	onDetails,
 	introIndex,
 	selected = false,
 	onSelectedChange,
@@ -151,6 +153,7 @@ export function DocumentCard({
 		onRename: () => setRenaming(true),
 		onTags: () => onTags(document),
 		onLink: () => onLink(document),
+		onDetails: onDetails ? () => onDetails(document) : undefined,
 		onSelect: onSelectedChange && !selected ? () => onSelectedChange(true) : undefined,
 	};
 
@@ -217,6 +220,7 @@ export function DocumentCard({
 							<h3 className="truncate text-sm leading-5 font-semibold">{document.name}</h3>
 						)}
 						<span className="truncate text-xs text-ink-3">{meta}</span>
+						<ResumeProfileSummary document={document} />
 						{document.application && (
 							<span className="flex min-w-0 items-center gap-1 text-xs text-ink-2">
 								<Icon name="briefcase" size={14} />
@@ -249,6 +253,7 @@ export function DocumentRow({
 	document,
 	onTags,
 	onLink,
+	onDetails,
 	introIndex,
 	selected = false,
 	onSelectedChange,
@@ -263,6 +268,7 @@ export function DocumentRow({
 		onRename: () => setRenaming(true),
 		onTags: () => onTags(document),
 		onLink: () => onLink(document),
+		onDetails: onDetails ? () => onDetails(document) : undefined,
 	};
 
 	return (
@@ -315,9 +321,9 @@ export function DocumentRow({
 					</span>
 				</td>
 				<td className="px-2 text-sm text-ink-2 max-sm:hidden">
-					{document.type === "resume" ? <Trans>Resume</Trans> : <Trans>Letter</Trans>}
+					{document.type === "resume" ? document.profile?.purpose === "master" ? <Trans>Master</Trans> : <Trans>Resume</Trans> : <Trans>Letter</Trans>}
 				</td>
-				<td className="truncate px-2 text-sm text-ink-2 max-sm:hidden">{document.application?.company ?? "—"}</td>
+				<td className="truncate px-2 text-sm text-ink-2 max-sm:hidden">{document.profile?.company || document.application?.company || "—"}</td>
 				<td className="px-2 text-sm whitespace-nowrap text-ink-3">
 					{document.trashedAt ? (
 						<Trans>{daysLeftInTrash(document.trashedAt)} days left</Trans>
@@ -357,4 +363,39 @@ function useOpenDocument() {
 		}
 		void navigate({ to: "/builder/$resumeId", params: { resumeId: document.id } });
 	};
+}
+
+
+/** A compact agent index below each resume, with full details kept in the menu. */
+function ResumeProfileSummary({ document }: { document: DocumentSummary }) {
+	if (document.type !== "resume" || !document.profile) return null;
+	const profile = document.profile;
+	const stale = profile.score !== null && (
+		!profile.evaluatedResumeUpdatedAt ||
+		Date.parse(profile.evaluatedResumeUpdatedAt) < document.updatedAt.getTime()
+	);
+	return (
+		<>
+			{(profile.purpose === "master" || profile.score !== null) && (
+				<span className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-2">
+					{profile.purpose === "master" && (
+						<span className="rounded bg-accent-soft px-1.5 py-0.5 font-medium text-accent-text">
+							<Trans>Master resume</Trans>
+						</span>
+					)}
+					{profile.score !== null && (
+						<span title={profile.scoreNotes || undefined} className="rounded bg-sunken px-1.5 py-0.5">
+							<Trans>Fit {profile.score}/100</Trans>
+							{stale && <span> · <Trans>Needs review</Trans></span>}
+						</span>
+					)}
+				</span>
+			)}
+			{(profile.company || profile.targetRole) && (
+				<span className="truncate text-xs text-ink-2" title={[profile.company, profile.targetRole].filter(Boolean).join(" · ")}>
+					{[profile.company, profile.targetRole].filter(Boolean).join(" · ")}
+				</span>
+			)}
+		</>
+	);
 }

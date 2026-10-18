@@ -11,6 +11,7 @@ import { resumeDto } from "@reactive-resume/api/dto/resume";
 import { createResumePdfDownloadUrl } from "@reactive-resume/api/features/resume/export";
 import { env } from "@reactive-resume/env/server";
 import { readMcpFile } from "./files";
+import { registerLibraryTools } from "./library-tools";
 import { MCP_TOOL_NAME } from "./mcp-tool-names";
 import { json, text, withErrorHandling } from "./results";
 import { TOOL_META } from "./tool-meta";
@@ -618,4 +619,7 @@ export function registerTools(
 				json(await client.applications.ai.draftMessage({ id, kind })),
 		),
 	);
+
+	registerLibraryTools(server, client);
 }
+

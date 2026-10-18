@@ -25,7 +25,7 @@ export function filterDocuments(documents: readonly DocumentSummary[], filters: 
 		.filter((document) => !filters.public || document.isPublic)
 		.filter((document) => {
 			if (!query) return true;
-			const haystack = [document.name, ...document.tags, document.application?.company, document.application?.role];
+			const haystack = [document.name, ...document.tags, document.application?.company, document.application?.role, document.profile?.company, document.profile?.targetRole, ...(document.profile?.keywords ?? [])];
 			return haystack.some((text) => text?.toLocaleLowerCase().includes(query));
 		})
 		.sort((a, b) => {
@@ -50,3 +50,4 @@ export const publicResumeUrl = (document: DocumentSummary, username: string | un
 	document.type === "resume" && document.isPublic && document.slug && username
 		? `${window.location.origin}/${username}/${document.slug}`
 		: null;
+

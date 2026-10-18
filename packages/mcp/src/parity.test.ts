@@ -179,3 +179,40 @@ it("embeds actual resume JSON in prompts and propagates inaccessible-document er
 		"credential secret",
 	);
 });
+
+it("includes the selected master's full LaTeX source in the job-tailoring prompt", async () => {
+	const data = {
+		latex: { engine: "pdflatex", entrypoint: "main.tex", files: [{ path: "main.tex", content: "Verified master source" }] },
+	};
+	calls.resume.getById.mockResolvedValueOnce({ data });
+	const prompt = await client.getPrompt({
+		name: "tailor_resume_for_job",
+		arguments: { masterResumeId: "master-1", jobDescription: "A robotics engineer posting", company: "Example" },
+	});
+	expect(calls.resume.getById).toHaveBeenCalledWith({ id: "master-1" });
+	const resource = prompt.messages.find(
+		(message) => message.content.type === "resource" && message.content.resource.uri === "resume://master-1",
+	)?.content;
+	if (resource?.type !== "resource" || !("text" in resource.resource)) throw new Error("Prompt lacks master source");
+	expect(JSON.parse(resource.resource.text).latex.files[0].content).toBe("Verified master source");
+	const instruction = prompt.messages.find((message) => message.content.type === "text")?.content;
+	if (instruction?.type !== "text") throw new Error("Prompt lacks workflow");
+	expect(instruction.text).toContain("A robotics engineer posting");
+	expect(instruction.text).toContain("find_related_resumes");
+	expect(instruction.text).toContain("save_company_note");
+});
+
+it("discovers a master through library tools when the tailoring prompt has no master ID", async () => {
+	const prompt = await client.getPrompt({
+		name: "tailor_resume_for_job",
+		arguments: { jobDescription: "A robotics engineer posting" },
+	});
+	expect(calls.resume.getById).not.toHaveBeenCalled();
+	expect(prompt.messages).toHaveLength(1);
+	const { prompts } = await client.listPrompts();
+	const args = prompts.find((item) => item.name === "tailor_resume_for_job")?.arguments;
+	expect(args?.find((arg) => arg.name === "jobDescription")?.required).toBe(true);
+	expect(args?.find((arg) => arg.name === "masterResumeId")?.required).toBe(false);
+	expect(buildMcpServerCard("1.0.0").prompts.find((item) => item.name === "tailor_resume_for_job")?.arguments).toEqual(args);
+});
+

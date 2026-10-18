@@ -23,6 +23,9 @@ vi.mock("./document-actions", () => ({
 	LinkApplicationDialog: () => null,
 	useBatchActions: () => ({}),
 }));
+vi.mock("./folder-navigation", () => ({ FolderNavigation: () => null }));
+vi.mock("./companies-library", () => ({ CompaniesLibrary: () => null }));
+vi.mock("./resume-details-dialog", () => ({ ResumeDetailsDialog: () => null }));
 vi.mock("./document-card", () => ({ DocumentCard: () => null, DocumentRow: () => null }));
 vi.mock("./new-document-dialog", () => ({
 	useStartDocument: () => ({ startBlank: vi.fn(), trySample: vi.fn(), creating: false }),
@@ -55,3 +58,4 @@ it.each(["documents", "trash"])("keeps %s load failures distinct from empty stat
 	view.unmount();
 	queryClient.clear();
 });
+

@@ -14,6 +14,8 @@ vi.mock("@reactive-resume/db/schema", () => ({
 	resume: { userId: "resume.userId" },
 	coverLetter: { userId: "coverLetter.userId" },
 	application: { userId: "application.userId" },
+	resumeFolder: { userId: "resumeFolder.userId" },
+	companyResearch: { userId: "companyResearch.userId" },
 }));
 vi.mock("drizzle-orm", () => ({ eq: (column: unknown, value: unknown) => ({ column, value }) }));
 vi.mock("@reactive-resume/env/server", () => ({ env: {} }));
@@ -81,6 +83,8 @@ describe("account backup", () => {
 				[{ id: "resume", data: defaultResumeData }],
 				[letter],
 				[application],
+				[{ id: "folder", name: "Robotics", userId: "owner" }],
+				[{ id: "company", company: "Lumen", companyKey: "lumen", userId: "owner", notes: "Hiring priorities" }],
 			]) {
 				mocks.select.mockReturnValueOnce({
 					from: () => ({
@@ -98,6 +102,13 @@ describe("account backup", () => {
 			expect(mocks.predicates).toContainEqual({ column: "coverLetter.userId", value: "owner" });
 			expect(mocks.exportCareer).toHaveBeenCalledExactlyOnceWith("owner");
 			expect(exported.career).toEqual(career);
+			expect(exported.library).toEqual({
+				folders: [{ id: "folder", name: "Robotics" }],
+				companies: [{ id: "company", company: "Lumen", notes: "Hiring priorities" }],
+			});
+			expect(mocks.predicates).toContainEqual({ column: "resumeFolder.userId", value: "owner" });
+			expect(mocks.predicates).toContainEqual({ column: "companyResearch.userId", value: "owner" });
 		},
 	);
 });
+

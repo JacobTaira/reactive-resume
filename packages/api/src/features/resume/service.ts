@@ -566,6 +566,8 @@ export const resumeService = {
 		origin?: "created" | "import";
 		/** The name follows the headline until someone renames the resume. */
 		autoName?: boolean;
+		/** Internal duplication context: inherit the owned source's folder and record lineage atomically. */
+		copyFromResumeId?: string;
 	}) => {
 		const id = input.id ?? generateId();
 		const data = parseWritableResumeData(structuredClone(input.data ?? defaultResumeData));
@@ -574,6 +576,17 @@ export const resumeService = {
 		try {
 			const slug = input.slug ?? (await findFreeSlug(db, input.userId, input.name));
 			await db.transaction(async (tx) => {
+				let copyContext: { folderId: string | null; sourceResumeId: string } | undefined;
+				if (input.copyFromResumeId) {
+					await lockDocumentOwner(tx, input.userId);
+					const [original] = await tx.select({ folderId: schema.resume.folderId }).from(schema.resume).where(and(
+						eq(schema.resume.id, input.copyFromResumeId),
+						eq(schema.resume.userId, input.userId),
+						isNull(schema.resume.trashedAt),
+					)).for("key share");
+					if (!original) throw new ORPCError("NOT_FOUND");
+					copyContext = { folderId: original.folderId, sourceResumeId: input.copyFromResumeId };
+				}
 				// The resume row comes first: letters an imported file carried are saved linked to it.
 				const stored = structuredClone(data);
 				detachEmbeddedLetters(stored);
@@ -585,6 +598,7 @@ export const resumeService = {
 					tags: input.tags,
 					userId: input.userId,
 					data: stored,
+					...copyContext,
 				});
 				await adoptEmbeddedLetters(tx, { userId: input.userId, resumeId: id, resumeName: input.name, data });
 			});
@@ -604,6 +618,7 @@ export const resumeService = {
 
 			return id;
 		} catch (error) {
+			if (error instanceof ORPCError) throw error;
 			const constraint = uniqueConstraint(error);
 
 			if (constraint === "resume_slug_user_id_unique") {
@@ -838,3 +853,4 @@ export const resumeService = {
 		});
 	},
 };
+

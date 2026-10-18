@@ -26,6 +26,7 @@ import {
 	BrainIcon,
 	BriefcaseIcon,
 	BugIcon,
+	BuildingOfficeIcon,
 	CalendarBlankIcon,
 	CalendarDotIcon,
 	CalendarDotsIcon,
@@ -67,6 +68,7 @@ import {
 	FilePlusIcon,
 	FileTextIcon,
 	FingerprintIcon,
+	FolderIcon,
 	GearSixIcon,
 	GlobeHemisphereWestIcon,
 	GlobeIcon,
@@ -196,6 +198,7 @@ const icons = {
 	brain: BrainIcon,
 	briefcase: BriefcaseIcon,
 	bug: BugIcon,
+	"building-office": BuildingOfficeIcon,
 	"calendar-blank": CalendarBlankIcon,
 	"calendar-dot": CalendarDotIcon,
 	"calendar-dots": CalendarDotsIcon,
@@ -237,6 +240,7 @@ const icons = {
 	"file-plus": FilePlusIcon,
 	"file-text": FileTextIcon,
 	fingerprint: FingerprintIcon,
+	folder: FolderIcon,
 	"gear-six": GearSixIcon,
 	globe: GlobeIcon,
 	"globe-hemisphere-west": GlobeHemisphereWestIcon,
@@ -380,3 +384,4 @@ function Icon({ name, filled = false, size = 20, className, style, ...props }: I
 }
 
 export { Icon, type IconName, type IconProps };
+

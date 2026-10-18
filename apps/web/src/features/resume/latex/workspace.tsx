@@ -11,6 +11,7 @@ import { toast } from "@reactive-resume/ui/components/toast";
 import { downloadWithAnchor } from "@reactive-resume/utils/file";
 import { LatexCodeEditor } from "./code-editor";
 import { base64Bytes, projectArchive } from "./files";
+import { LatexSplitPanes } from "./split-panes";
 import { useCurrentResume, useResumeStore, useUpdateResumeData } from "@/features/resume/builder/draft";
 import { BackLink } from "@/features/resume/editor/chrome";
 import { useEditorStore } from "@/features/resume/editor/store";
@@ -125,8 +126,8 @@ function LatexDocument({ project, readOnly }: LatexDocumentProps) {
 		} catch (error) { toast.add({ type: "error", description: error instanceof Error ? error.message : t`Could not add these files.` }); }
 	};
 
-	return <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(340px,1fr)_minmax(0,1fr)] lg:grid-rows-1">
-		<section aria-label={t`LaTeX source`} className="flex min-h-0 min-w-0 flex-col border-b border-line lg:border-e lg:border-b-0">
+	return <LatexSplitPanes source={
+		<section aria-label={t`LaTeX source`} className="flex min-h-0 min-w-0 flex-1 flex-col">
 			<div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
 				<label className="flex items-center gap-2 text-xs"><Trans>File</Trans>
 					<select aria-label={t`Project file`} value={file?.path ?? ""} onChange={(event) => setSelected(event.target.value)} className="max-w-64 rounded border border-line bg-surface p-1.5 text-sm">
@@ -160,7 +161,8 @@ function LatexDocument({ project, readOnly }: LatexDocumentProps) {
 				<Button variant="ghost" disabled={readOnly || !canRedo} onClick={() => useResumeStore.getState().redo()}><Trans>Redo</Trans></Button>
 			</div>
 		</section>
-		<section aria-label={t`Compiled PDF`} className="flex min-h-0 min-w-0 flex-col bg-sunken">
+	} preview={
+		<section aria-label={t`Compiled PDF`} className="flex min-h-0 min-w-0 flex-1 flex-col bg-sunken">
 			<div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface p-3">
 				<Button onClick={compile} disabled={result.isFetching}>{result.isFetching ? <Trans>Compiling…</Trans> : <Trans>Compile PDF</Trans>}</Button>
 				<Button variant="secondary" disabled={!blob || stale || failed || result.isFetching} onClick={downloadPdf}><Trans>Download PDF</Trans></Button>
@@ -173,7 +175,7 @@ function LatexDocument({ project, readOnly }: LatexDocumentProps) {
 			{parserOpen && <div className="max-h-64 shrink-0 overflow-auto border-b border-line bg-surface p-4"><Button variant="ghost" size="sm" onClick={() => setParserOpen(false)}><Trans>Close extracted text</Trans></Button><pre className="mt-2 text-xs whitespace-pre-wrap">{parserText}</pre></div>}
 			{blob && !failed ? <CompiledPdf blob={blob} /> : !failed && <p role="status" className="p-6 text-sm text-ink-2"><Trans>Preparing PDF preview…</Trans></p>}
 		</section>
-	</div>;
+	} />;
 }
 
 type CompiledPdfProps = { blob: Blob };

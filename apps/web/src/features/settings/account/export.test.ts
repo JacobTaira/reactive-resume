@@ -74,6 +74,10 @@ describe("buildAccountZip", () => {
 			],
 			coverLetters: [{ id: "01a0ec71-a410-71da-9156-b347210cf72b", name: "Product Designer" }],
 			applications: [{ id: "app-1", company: "Lumen", role: "Designer" }],
+			library: {
+				folders: [{ id: "folder-1", name: "Design", parentId: null }],
+				companies: [{ id: "company-1", company: "Lumen", notes: "Keep impact examples concrete.", revision: 2 }],
+			},
 			career: {
 				...emptyCareer,
 				facts: [
@@ -111,6 +115,7 @@ describe("buildAccountZip", () => {
 			"applications.json",
 			"career.json",
 			"letters/product-designer-01a0ec71-a410-71da-9156-b347210cf72b.json",
+			"library.json",
 			"resumes/product-designer-01a0ec71-03e8-77b1-a5e4-ce04be126204.json",
 			"resumes/product-designer-01a0ec71-32c8-728b-b43b-b760a673b825.json",
 		]);
@@ -122,6 +127,10 @@ describe("buildAccountZip", () => {
 			{ id: "app-1", company: "Lumen", role: "Designer" },
 		]);
 		const career = JSON.parse(strFromU8(files["career.json"] as Uint8Array));
+		expect(JSON.parse(strFromU8(files["library.json"] as Uint8Array))).toEqual({
+			folders: [{ id: "folder-1", name: "Design", parentId: null }],
+			companies: [{ id: "company-1", company: "Lumen", notes: "Keep impact examples concrete.", revision: 2 }],
+		});
 		expect(career.facts).toEqual([
 			{
 				id: "fact-1",
@@ -147,3 +156,4 @@ describe("buildAccountZip", () => {
 		]);
 	});
 });
+

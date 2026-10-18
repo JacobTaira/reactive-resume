@@ -1,0 +1,73 @@
+---
+title: Organize resumes and company research
+description: Reuse saved resumes, job context, and company notes through the website or MCP.
+---
+
+## Set up your master and folders
+
+Open Documents and use **New folder** to create a folder. Creating another folder while one is selected creates a subfolder. Use the folder selector to navigate, or select **All documents** to search across the library.
+
+Open a resume's menu and choose **Folder and resume details…**. Select its folder and mark its purpose as **Master resume**, **General resume**, or **Tailored for a job**. Mark the resume containing your complete, verified background as the master. Folders organize resumes; they do not change which owned resumes your connected assistant can read.
+
+The details also store the target company and role, skills and keywords, original job description and URL, the resume used as a starting point, reuse notes, and a score explanation. This context stays outside the printable resume and public responses. Moving a resume never rewrites its LaTeX source. Duplicating a resume keeps the copy in the same folder and records its source; a copy starts without an inherited master designation or score.
+
+Deleting a folder moves its resumes and immediate subfolders to the parent. It does not delete resumes. The company research area is separate from resume folders.
+
+## Keep reusable company research
+
+Choose **Companies** in navigation or on the Documents page. Each company has one research document containing a summary, core values, culture and working style, hiring priorities, general notes, and source links with access dates.
+
+You and a connected assistant edit the same saved document. Keep verified facts separate from interpretations and record which source supports a useful finding. The source date is when you or the assistant actually checked it. An assistant without browsing access can save supplied information, but should not claim it researched a page.
+
+Company documents use revision checks. If another conversation updates a document while you are editing, the older save is rejected so it cannot silently replace newer research. Read the latest document and merge the useful notes before saving again. Deleting company research leaves its resumes intact.
+
+## Give Claude a job description
+
+Connect your client to this installation's `/mcp` endpoint and sign in to the account containing your master. A connector pointing to another hosted installation uses that installation's accounts and documents.
+
+The `tailor_resume_for_job` MCP prompt describes this workflow:
+
+1. Find the master and related resumes with `find_related_resumes`, and related saved applications with `find_related_jobs`.
+   Reuse the exact posting's saved job record or save a new one, so later conversations can find the original job and its resume. Similar roles are useful comparisons, but are not automatically duplicate postings.
+2. Read the selected master and a few useful previous versions using `read_resume`. For LaTeX resumes this includes the original `latex.files[].content`, not merely the empty structured fields.
+3. Read the company's saved research, then choose the best starting resume. Preserve the master and earlier versions by duplicating the selected base.
+4. Edit supported evidence to suit the posting, compile the LaTeX, and review the PDF and extracted text where the client supports it.
+5. Store the folder, source resume, job context, reuse notes, and evaluation with `update_resume_metadata`. Save useful new company research after reading its current revision.
+6. Return the PDF and an explanation for your review. Application submission remains your action.
+
+The index lists concise metadata and lexical similarity hints. It does not return the whole resume or job description, and its similarity number is not the resume's evaluation score. Read promising matches before reusing their claims. The full application remains available through `read_application`.
+
+`read_resume_metadata` reads the full saved job context and evaluation. Use `list_resume_folders`, `create_resume_folder`, `update_resume_folder`, and `move_resume` to organize documents. Company tools are `list_company_notes`, `read_company_note`, and `save_company_note`. These tools use the same authenticated API as the website and do not need a Reactive Resume AI provider.
+
+## Understand the score
+
+The prompt asks the assistant for a transparent editorial score out of 100:
+
+| Criterion | Maximum |
+| --- | ---: |
+| Supported match to required qualifications | 40 |
+| Relevance and evidence of achievements | 25 |
+| Clarity and concision | 15 |
+| Accurate job terminology | 10 |
+| Formatting and readability | 10 |
+
+Ask for evidence and gaps alongside each criterion. Never add unsupported experience to raise the score. If the assistant could not inspect the rendered PDF, it should mark its formatting assessment as provisional. This is a review aid, not a measured ATS score or hiring probability.
+
+Evaluations record the version's edit timestamp. Later resume edits make the old evaluation stale; the compact index signals that it needs another review. Moving folders alone does not make an old score current. Changing the target job context without a new evaluation also invalidates its freshness.
+
+## Connect to a local installation
+
+Claude Code can connect directly from the computer running the app:
+
+```sh
+claude mcp add --transport http reactive-resume-local --scope user http://localhost:3000/mcp
+claude
+```
+
+Use `/mcp` to finish authentication. Claude Desktop can use a local MCP connection through its local server/extension setup; the client must support this HTTP server directly or through a local transport adapter. Its remote **Connectors** screen is a different connection path.
+
+Custom remote connectors in Claude's website and Desktop connect from Anthropic's servers, so they cannot access your Surface's `localhost`. Browser chat needs an authenticated HTTPS endpoint reachable by that connector. Local setup details and source editing are in [LaTeX resumes](./using-latex.mdx). Anthropic documents the distinction in its [remote connector network requirements](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) and [desktop versus web connector guide](https://support.claude.com/en/articles/11725091-when-to-use-desktop-and-web-connectors).
+
+## Back up your notes
+
+Account **Export data** includes `library.json` with folders and company research. Individual resume exports retain their library metadata in the account archive. These files record the organization; importing an individual resume does not automatically restore cross-document folder and company references.

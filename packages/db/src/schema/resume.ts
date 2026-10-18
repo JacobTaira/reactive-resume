@@ -1,11 +1,13 @@
 import type { ResumeData } from "@reactive-resume/schema/resume/data";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import type { ResumeProfile } from "./library";
 import { sql } from "drizzle-orm";
 import * as pg from "drizzle-orm/pg-core";
 import { defaultResumeData } from "@reactive-resume/schema/resume/default";
 import { generateId } from "@reactive-resume/utils/string";
 import { application } from "./applications";
 import { user } from "./auth";
+import { companyResearch, resumeFolder } from "./library";
 
 export const resume = pg.pgTable(
 	"resume",
@@ -29,6 +31,11 @@ export const resume = pg.pgTable(
 		trashedAt: pg.timestamp("trashed_at", { withTimezone: true }),
 		// A blank resume's name follows its headline until the user renames it.
 		autoName: pg.boolean("auto_name").notNull().default(false),
+		folderId: pg.text("folder_id").references(() => resumeFolder.id, { onDelete: "set null" }),
+		sourceResumeId: pg.text("source_resume_id").references((): AnyPgColumn => resume.id, { onDelete: "set null" }),
+		companyId: pg.text("company_id").references(() => companyResearch.id, { onDelete: "set null" }),
+		// Agent indexing lives outside resume data so organizing cannot replace LaTeX source or printable content.
+		profile: pg.jsonb("profile").notNull().$type<Partial<ResumeProfile>>().default({}),
 		data: pg
 			.jsonb("data")
 			.notNull()
@@ -49,6 +56,7 @@ export const resume = pg.pgTable(
 		pg.unique().on(t.slug, t.userId),
 		pg.index().on(t.createdAt.asc()),
 		pg.index().on(t.userId, t.updatedAt.desc()),
+		pg.index().on(t.userId, t.folderId),
 		pg.index().on(t.isPublic, t.slug, t.userId),
 	],
 );
@@ -176,3 +184,4 @@ export const resumeStatisticsDaily = pg.pgTable(
 	},
 	(t) => [pg.unique().on(t.resumeId, t.date), pg.index().on(t.resumeId, t.date.desc())],
 );
+
