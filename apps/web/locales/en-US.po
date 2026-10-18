@@ -1252,6 +1252,10 @@ msgstr "Add field"
 msgid "Add figures where you have them: volumes, percentages, timeframes, team sizes."
 msgstr "Add figures where you have them: volumes, percentages, timeframes, team sizes."
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Add files"
+msgstr "Add files"
+
 #: src/features/resume/editor/write/outline.tsx
 msgid "Add interest"
 msgstr "Add interest"
@@ -1291,6 +1295,10 @@ msgstr "Add profile"
 #: src/features/resume/editor/write/outline.tsx
 msgid "Add project"
 msgstr "Add project"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Add project files"
+msgstr "Add project files"
 
 #: src/features/settings/ai/providers.tsx
 msgid "Add provider"
@@ -2168,6 +2176,10 @@ msgstr "Bengali"
 msgid "Best for applying"
 msgstr "Best for applying"
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Binary asset. It is preserved in the project and included in source exports."
+msgstr "Binary asset. It is preserved in the project and included in source exports."
+
 #: src/features/ats-checker/messages.ts
 msgid "Blocker"
 msgstr "Blocker"
@@ -2410,6 +2422,10 @@ msgstr "Changed your mind? Rename your resume to something more descriptive."
 #: src/features/homepage/footer.tsx
 msgid "Changelog"
 msgstr "Changelog"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Changes save automatically"
+msgstr "Changes save automatically"
 
 #: src/features/resume/editor/design/style-groups.tsx
 msgid "Changes section titles and date words only, not your content."
@@ -2655,6 +2671,10 @@ msgstr "Close application"
 msgid "Close application…"
 msgstr "Close application…"
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Close extracted text"
+msgstr "Close extracted text"
+
 #: src/features/assistant/assistant-panel.tsx
 msgid "Close the assistant"
 msgstr "Close the assistant"
@@ -2754,6 +2774,34 @@ msgstr "Compared with your stories and the posting."
 #: src/features/assistant/assistant-panel.tsx
 msgid "Compares your resume with the posting"
 msgstr "Compares your resume with the posting"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Compilation failed. Check the compiler log below."
+msgstr "Compilation failed. Check the compiler log below."
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Compile PDF"
+msgstr "Compile PDF"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Compiled PDF"
+msgstr "Compiled PDF"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Compiled resume PDF"
+msgstr "Compiled resume PDF"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Compiler log"
+msgstr "Compiler log"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Compiler output"
+msgstr "Compiler output"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Compiling…"
+msgstr "Compiling…"
 
 #: src/features/resume/share/download-tab.tsx
 msgid "Complete data backup. Imports back into Reactive Resume or JSON Resume tools."
@@ -3069,9 +3117,17 @@ msgstr "Correct this fact"
 msgid "Corrected {correctedOn} · original kept"
 msgstr "Corrected {correctedOn} · original kept"
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Could not add these files."
+msgstr "Could not add these files."
+
 #: src/features/auth/pages/consent.tsx
 msgid "Could not complete this connection. Restart the connection from your client and try again."
 msgstr "Could not complete this connection. Restart the connection from your client and try again."
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Could not extract text from this PDF."
+msgstr "Could not extract text from this PDF."
 
 #: src/features/resume/export/use-resume-export.ts
 msgid "Could not generate the DOCX. Please try again."
@@ -3093,6 +3149,10 @@ msgstr "Could not generate the PDF. Please try again."
 #: src/features/settings/ai/connected-apps.tsx
 msgid "Could not load connected applications."
 msgstr "Could not load connected applications."
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Could not load this version."
+msgstr "Could not load this version."
 
 #: src/features/resume/export/use-resume-export.ts
 msgid "Could not prepare your resume for printing. Please try again."
@@ -4105,6 +4165,10 @@ msgstr "Download CSV"
 msgid "Download failed."
 msgstr "Download failed."
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Download file"
+msgstr "Download file"
+
 #: src/features/resume/public/public-resume.tsx
 #: src/routes/builder/$resumeId/-components/editor-bar.tsx
 #: src/routes/builder/letter/-components/letter-bar.tsx
@@ -4114,6 +4178,10 @@ msgstr "Download PDF"
 #: src/features/resume/share/download-tab.tsx
 msgid "Download PDF instead"
 msgstr "Download PDF instead"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Download source ZIP"
+msgstr "Download source ZIP"
 
 #: src/features/applications/components/import-applications-sheet.tsx
 msgid "Download them"
@@ -4227,6 +4295,10 @@ msgid "Drag to reposition and use the slider to zoom before uploading."
 msgstr "Drag to reposition and use the slider to zoom before uploading."
 
 #: src/features/documents/new-document-dialog.tsx
+msgid "Drop a file here or browse. LaTeX, Overleaf ZIP, PDF, Word, Reactive Resume or JSON Resume. LaTeX projects keep their original source and formatting."
+msgstr "Drop a file here or browse. LaTeX, Overleaf ZIP, PDF, Word, Reactive Resume or JSON Resume. LaTeX projects keep their original source and formatting."
+
+#: src/features/documents/new-document-dialog.tsx
 msgid "Drop a file here or browse. PDF, Word, Reactive Resume or JSON Resume. We fill in every section and flag anything we're unsure of."
 msgstr "Drop a file here or browse. PDF, Word, Reactive Resume or JSON Resume. We fill in every section and flag anything we're unsure of."
 
@@ -4278,6 +4350,10 @@ msgstr "Dutch"
 #: src/features/career/workspace/practise.tsx
 msgid "Each answer you get feedback on is kept here, newest first."
 msgstr "Each answer you get feedback on is kept here, newest first."
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Each file must be 2 MiB or smaller."
+msgstr "Each file must be 2 MiB or smaller."
 
 #: src/features/career/workspace/fit.tsx
 msgid "Each requirement in the posting is checked against the facts and stories in your Knowledge. Gaps show as missing evidence, never missing ability."
@@ -4820,6 +4896,10 @@ msgstr "Figma"
 #: src/features/homepage/sheet.tsx
 msgid "Figma, HTML and CSS"
 msgstr "Figma, HTML and CSS"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "File"
+msgstr "File"
 
 #: src/features/resume/share/download-tab.tsx
 msgid "File name"
@@ -6140,6 +6220,35 @@ msgstr "Last edited"
 msgid "Last used"
 msgstr "Last used"
 
+#: src/features/resume/import/read-file.ts
+msgid "LaTeX files must be at most 2 MiB; source ZIPs must be at most 8 MiB."
+msgstr "LaTeX files must be at most 2 MiB; source ZIPs must be at most 8 MiB."
+
+#: src/features/documents/new-document-dialog.tsx
+msgid "LaTeX project preserved"
+msgstr "LaTeX project preserved"
+
+#: src/features/resume/export/use-resume-export.ts
+msgid "LaTeX resumes support PDF and source exports. Download the source ZIP from the LaTeX editor."
+msgstr "LaTeX resumes support PDF and source exports. Download the source ZIP from the LaTeX editor."
+
+#: src/features/resume/latex/workspace.tsx
+msgid "LaTeX source"
+msgstr "LaTeX source"
+
+#: src/features/resume/import/read-file.ts
+msgid "LaTeX source preserved"
+msgstr "LaTeX source preserved"
+
+#: src/features/documents/new-document-dialog.tsx
+msgid "LaTeX source preserved. Open the editor to compile and review the PDF."
+msgstr "LaTeX source preserved. Open the editor to compile and review the PDF."
+
+#. placeholder {0}: file.path
+#: src/features/resume/latex/workspace.tsx
+msgid "LaTeX source: {0}"
+msgstr "LaTeX source: {0}"
+
 #: src/libs/locale.ts
 msgid "Latvian"
 msgstr "Latvian"
@@ -6534,6 +6643,10 @@ msgstr "Loading saved version…"
 msgid "Loading the total"
 msgstr "Loading the total"
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Loading version…"
+msgstr "Loading version…"
+
 #: src/features/career/workspace/shell.tsx
 msgid "Loading workspace…"
 msgstr "Loading workspace…"
@@ -6600,6 +6713,10 @@ msgstr "Made with Reactive Resume, free and open source"
 #: src/routes/builder/$resumeId/-sidebar/right/sections/layout/pages.tsx
 msgid "Main"
 msgstr "Main"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Main document"
+msgstr "Main document"
 
 #: src/routes/_home/-sections/header.tsx
 msgid "Main navigation"
@@ -8429,6 +8546,10 @@ msgstr "Preparing {label} file…"
 msgid "Preparing edits…"
 msgstr "Preparing edits…"
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Preparing PDF preview…"
+msgstr "Preparing PDF preview…"
+
 #: src/features/resume/export/use-resume-export.ts
 msgid "Preparing your resume for printing..."
 msgstr "Preparing your resume for printing..."
@@ -8551,6 +8672,14 @@ msgstr "Profiles"
 #: src/components/level/combobox.tsx
 msgid "Progress Bar"
 msgstr "Progress Bar"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Project file"
+msgstr "Project file"
+
+#: src/features/documents/new-document-dialog.tsx
+msgid "project preserved"
+msgstr "project preserved"
 
 #: src/libs/resume/section-title.ts
 #: src/libs/resume/section.tsx
@@ -8739,6 +8868,10 @@ msgstr "Read aloud by your browser's voice."
 msgid "Read briefing"
 msgstr "Read briefing"
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Read extracted text"
+msgstr "Read extracted text"
+
 #: src/features/career/workspace/messages.tsx
 #: src/features/homepage/prepare.tsx
 msgid "Read it for me"
@@ -8886,6 +9019,10 @@ msgstr "Reads supported public job pages. No account needed."
 msgid "Ready"
 msgstr "Ready"
 
+#: src/features/documents/new-document-dialog.tsx
+msgid "ready to compile"
+msgstr "ready to compile"
+
 #: src/features/applications/components/detail/close-dialog.tsx
 msgid "Reason"
 msgstr "Reason"
@@ -8957,6 +9094,10 @@ msgstr "Rectangle (Full Width)"
 #: src/features/resume/editor/write/rich-text-editor.tsx
 msgid "Red"
 msgstr "Red"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Redo"
+msgstr "Redo"
 
 #: src/features/resume/stylesheet/toolbar.tsx
 msgid "Redo resume change"
@@ -10547,9 +10688,17 @@ msgstr "Sort by date"
 msgid "Source"
 msgstr "Source"
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Source changed. Compile again before downloading."
+msgstr "Source changed. Compile again before downloading."
+
 #: src/features/homepage/footer.tsx
 msgid "Source code"
 msgstr "Source code"
+
+#: src/features/documents/new-document-dialog.tsx
+msgid "source read"
+msgstr "source read"
 
 #: src/features/assistant/conversation.tsx
 #: src/features/career/coach-thread.tsx
@@ -11738,6 +11887,10 @@ msgstr "This time does not exist in the selected timezone. Choose another time."
 msgid "This time does not exist in your timezone. Choose another time."
 msgstr "This time does not exist in your timezone. Choose another time."
 
+#: src/features/resume/latex/workspace.tsx
+msgid "This version has no LaTeX source. Restore it from History to open its original editor."
+msgstr "This version has no LaTeX source. Restore it from History to open its original editor."
+
 #: src/features/career/workspace/debrief.tsx
 msgid "This week: make your evidence easier to follow"
 msgstr "This week: make your evidence easier to follow"
@@ -12296,6 +12449,10 @@ msgstr "Use for all applications"
 msgid "Use in coaching: {excerpt}"
 msgstr "Use in coaching: {excerpt}"
 
+#: src/features/documents/new-document-dialog.tsx
+msgid "Use LaTeX source (.tex), an Overleaf source ZIP, PDF, Word, Reactive Resume JSON, JSON Resume, or a LinkedIn export."
+msgstr "Use LaTeX source (.tex), an Overleaf source ZIP, PDF, Word, Reactive Resume JSON, JSON Resume, or a LinkedIn export."
+
 #: src/features/resume/share/link-tab.tsx
 msgid "Use lowercase letters, numbers and single dashes."
 msgstr "Use lowercase letters, numbers and single dashes."
@@ -12448,6 +12605,10 @@ msgstr "Verifying password..."
 msgid "Verifying your email confirms that you own this address."
 msgstr "Verifying your email confirms that you own this address."
 
+#: src/features/resume/latex/workspace.tsx
+msgid "Version history"
+msgstr "Version history"
+
 #: src/features/applications/components/detail/sent-documents.tsx
 msgid "Version sent {date}"
 msgstr "Version sent {date}"
@@ -12502,6 +12663,10 @@ msgstr "View posting"
 #: src/routes/builder/letter/-components/letter-page.tsx
 msgid "Viewing {0} · {1} · read-only"
 msgstr "Viewing {0} · {1} · read-only"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Viewing a saved version. Editing is disabled."
+msgstr "Viewing a saved version. Editing is disabled."
 
 #: src/features/resume/share/link-tab.tsx
 msgid "views · 30 days"
@@ -13366,6 +13531,10 @@ msgstr "Yours"
 #: src/features/homepage/design.tsx
 msgid "Yours · {0}"
 msgstr "Yours · {0}"
+
+#: src/features/resume/import/read-file.ts
+msgid "ZIP imports must be 8 MiB or smaller."
+msgstr "ZIP imports must be 8 MiB or smaller."
 
 #: src/features/resume/editor/write/picture-settings.tsx
 msgid "Zoom"
