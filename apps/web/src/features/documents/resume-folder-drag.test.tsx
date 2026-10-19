@@ -129,6 +129,19 @@ it("moves a filed resume back to Unfiled resumes", async () => {
 	await waitFor(() => expect(saveMetadata).toHaveBeenCalledExactlyOnceWith({ resumeId: "resume-1", folderId: null }));
 });
 
+it("does not keep a canceled drag's highlight when another drag starts", async () => {
+	const { source } = setup();
+	const target = await screen.findByRole("link", { name: "Jobs" });
+	const dataTransfer = transfer();
+	fireEvent.dragStart(source, { dataTransfer });
+	fireEvent.dragOver(target, { dataTransfer });
+	expect(target).toHaveClass("bg-accent-soft");
+	fireEvent.dragEnd(source, { dataTransfer });
+	fireEvent.dragStart(source, { dataTransfer });
+	expect(target).not.toHaveClass("bg-accent-soft");
+	expect(saveMetadata).not.toHaveBeenCalled();
+});
+
 it("ignores external payloads and drops into the resume's existing folder", async () => {
 	const { source } = setup({ folderId: "child" });
 	const target = await screen.findByRole("link", { name: "Jobs / Robotics" });

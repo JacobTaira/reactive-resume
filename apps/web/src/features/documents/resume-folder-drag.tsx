@@ -73,8 +73,9 @@ export function ResumeFolderDragProvider({ children }: ResumeFolderDragProviderP
 					event.dataTransfer.clearData();
 					event.dataTransfer.setData(RESUME_DRAG_TYPE, document.id);
 					event.dataTransfer.effectAllowed = "move";
-					activeRef.current = document;
-					setActive(document);
+					const dragging = { ...document };
+					activeRef.current = dragging;
+					setActive(dragging);
 				},
 				end,
 				drop: (event, folderId) => void drop(event, folderId),
@@ -103,22 +104,22 @@ export function useResumeFolderDrag(document: DocumentSummary, disabled = false)
 
 export function useResumeFolderDrop(folderId: string | null) {
 	const context = useContext(ResumeFolderDragContext);
-	const [over, setOver] = useState(false);
+	const [over, setOver] = useState<DocumentSummary | null>(null);
 	const enabled = Boolean(context?.active && !context.moving && (context.active.folderId ?? null) !== folderId);
 	return {
-		isOver: enabled && over,
+		isOver: enabled && over === context?.active,
 		dropProps: {
 			onDragOver: (event: DragEvent<HTMLElement>) => {
 				if (!enabled || !event.dataTransfer.types.includes(RESUME_DRAG_TYPE)) return;
 				event.preventDefault();
 				event.dataTransfer.dropEffect = "move";
-				setOver(true);
+				setOver(context?.active ?? null);
 			},
 			onDragLeave: (event: DragEvent<HTMLElement>) => {
-				if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setOver(false);
+				if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setOver(null);
 			},
 			onDrop: (event: DragEvent<HTMLElement>) => {
-				setOver(false);
+				setOver(null);
 				context?.drop(event, folderId);
 			},
 		},
