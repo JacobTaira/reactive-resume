@@ -43,6 +43,16 @@ const checks = [
 		assert(!item.description.includes("Represents the skills you have"), "Skills legend captured");
 		assert(!item.description.includes("DO NOT CAPTURE"), "Company/benefits content leaked");
 	}],
+	["Jobright skill-selection guidance and personalized chips stay out of employer requirements", async () => {
+		const item = await fixture("jobright-guidance", "https://jobright.ai/jobs/info/with-skills-ui");
+		assert(!item.descriptionIncomplete, "Complete employer sections marked incomplete");
+		for (const text of ["Document test results", "Python or C++ fundamentals", "reflect user expertise accurately", "continuous integration"]) {
+			assert(item.description.includes(text), `Employer text removed: ${text}`);
+		}
+		for (const text of ["Find out how your skills align", "If anything seems off", "click on the tags", "Selected-only skill", "Represents the skills you have"]) {
+			assert(!item.description.includes(text), `Jobright UI captured: ${text}`);
+		}
+	}],
 	["Jobright loading placeholders remain incomplete instead of storing section labels", async () => {
 		const item = await fixture("jobright-loading", "https://jobright.ai/jobs/info/loading");
 		assert(item.company === "Fictional Mobility" && item.role === "Automation Intern", "Header metadata missing");

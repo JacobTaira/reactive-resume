@@ -16,6 +16,11 @@ test("Jobright title metadata supplies the company for the currently displayed r
 	const role = "2027 Summer Intern, BS, Waymo ML Ops & Automation";
 	assert.deepEqual(jobrightTitleDetails(`${role} @ Waymo | Jobright.ai`, role), { company: "Waymo", role });
 });
+test("Jobright's skill-selection help is not a job description", () => {
+	const guidance = "Find out how your skills align with this job's requirements. If anything seems off, you can easily click on the tags to select or unselect skills to reflect your actual expertise.";
+	assert.equal(hasJobDescriptionText(`Qualification\nRepresents the skills you have\n${guidance}`), false);
+	assert.equal(hasJobDescriptionText(guidance.replace("job's", "job’s")), false);
+});
 test("stale SPA title metadata never supplies a different job's company", () => {
 	assert.equal(jobrightTitleDetails("Firmware Engineer @ Example Devices | Jobright.ai", "Robotics Engineer"), null);
 	assert.equal(jobrightTitleDetails("Careers at Jobright"), null);

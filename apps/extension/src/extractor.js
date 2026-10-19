@@ -14,9 +14,12 @@
 	}
 	const sectionTitle = /^(responsibilities|qualifications?|requirements?|preferred qualifications?|about (the )?(job|role)|job description):?$/i;
 	const descriptionChrome = /^(responsibilities|qualifications?|requirements?|required|preferred|preferred qualifications?|about (the )?(job|role)|job description|represents the skills you have|skills you have|apply now|apply on employer site|overview|company|loading[.\s…]*):?$/i;
+	// Jobright's editable skill matches describe its UI, not employer requirements or candidate evidence.
+	const jobrightGuidance = /(?:Find out how your skills align with this job['’]s requirements\.|If anything seems off,\s*you can easily click on the tags to select or unselect skills to reflect your actual expertise\.)/gi;
 	function hasJobDescriptionText(value) {
 		const body = String(value ?? "").split(/\r?\n/)
 			.map((line) => line.trim()).filter((line) => line && !descriptionChrome.test(line)).join(" ")
+			.replace(jobrightGuidance, " ")
 			.replace(/\b(represents the skills you have|responsibilities|qualifications?|requirements?|required|preferred)\b/gi, " ").trim();
 		return body.length >= 60 && body.split(/\s+/).length >= 8 && !/^(sign in|log in|please sign in|enable javascript)/i.test(body);
 	}
@@ -164,6 +167,8 @@
 				const sections = new Map();
 				let current = null;
 				let visitedNodes = 0;
+				let skillsUiStart = null;
+				let skillsGuidanceSeen = false;
 				const walkSection = (node) => {
 					if (!node || ++visitedNodes > 50000) return;
 					if (node.nodeType === 3) {
@@ -174,9 +179,31 @@
 					if (/^(SCRIPT|STYLE|NOSCRIPT|SVG|NAV|FOOTER|FORM|INPUT|TEXTAREA|SELECT|BUTTON)$/.test(node.tagName)
 						|| node.getAttribute?.("hidden") !== null && node.getAttribute?.("hidden") !== undefined
 						|| node.getAttribute?.("aria-hidden") === "true") return;
+					const label = clean(node.textContent).replace(/\s+/g, " ").replace(/:$/, "");
+					if (current === "Qualification") {
+						if (/^(represents the )?skills you have$/i.test(label)) {
+							skillsUiStart ??= sections.get(current).length;
+							return;
+						}
+						// Read complete elements so inline <strong> / <span> wrappers cannot leak fragments.
+						if (label && label.replace(jobrightGuidance, "").trim() === "") {
+							skillsUiStart ??= sections.get(current).length;
+							skillsGuidanceSeen = true;
+							return;
+						}
+						if (/^(required|preferred)$/i.test(label)) {
+							// Drop personalized chips only with known UI guidance and an explicit requirements boundary.
+							if (skillsGuidanceSeen && skillsUiStart !== null) sections.get(current).splice(skillsUiStart);
+							skillsUiStart = null;
+							skillsGuidanceSeen = false;
+							sections.get(current).push(`\n${label}\n`);
+							return;
+						}
+					}
 					const heading = /^H[1-6]$/.test(node.tagName) || node.getAttribute?.("role") === "heading";
 					if (heading) {
-						const label = clean(node.textContent).replace(/:$/, "");
+						skillsUiStart = null;
+						skillsGuidanceSeen = false;
 						if (sectionTitle.test(label)) {
 							current = /^responsibilities$/i.test(label) ? "Responsibilities"
 								: /qualification|requirement/i.test(label) ? "Qualification" : "Job description";
@@ -210,6 +237,7 @@
 			extraction = "text";
 			warnings.push(selection ? "Captured selected text; review company and role." : "Generic page text captured; review the description before tailoring.");
 		}
+		if (isJobright) description = clean(description.replace(jobrightGuidance, ""));
 		const companyFallback = !company;
 		const roleFallback = !role;
 		company ||= site;
