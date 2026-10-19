@@ -26,6 +26,7 @@ export const MCP_TOOL_NAME = {
 	readResumeMetadata: "read_resume_metadata",
 	updateResumeMetadata: "update_resume_metadata",
 	findRelatedResumes: "find_related_resumes",
+	compareResumes: "compare_resumes",
 	findRelatedJobs: "find_related_jobs",
 	listCoverLetters: "list_cover_letters",
 	readCoverLetter: "read_cover_letter",

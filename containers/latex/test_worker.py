@@ -14,7 +14,7 @@ from unittest.mock import patch
 from http.server import ThreadingHTTPServer
 from zipfile import ZipFile, ZipInfo
 
-from worker import compile_project, Handler, ProjectError, unpack_project, validate_project
+from worker import bounded_text, compile_project, Handler, inspect_pdf, overfull_box_warnings, ProjectError, run_pdf_tool, unpack_project, validate_project
 
 
 SOURCE = r"""\documentclass[10pt,letterpaper]{article}
@@ -47,6 +47,11 @@ def archive(entries):
 
 
 class ProjectTests(unittest.TestCase):
+    def test_rejects_invalid_expected_page_counts(self):
+        for expected in (0, 101, -1, True, "2", 1.5):
+            with self.subTest(expected=expected), self.assertRaises(ProjectError):
+                compile_project(project(), expected_page_count=expected)
+
     def test_rejects_unsafe_and_duplicate_paths(self):
         for path in ("../secret.tex", "/etc/secret.tex", "a/../b.tex", "a\\b.tex", "-main.tex", ".hidden.tex"):
             data = project()
@@ -109,6 +114,74 @@ class ProjectTests(unittest.TestCase):
                 unpack_project(archive([("main.tex", SOURCE)]))
 
 
+class PdfInspectionTests(unittest.TestCase):
+    def inspect(self, info="Pages: 5\n", text="Example candidate\n", expected=None):
+        with patch("worker.run_pdf_tool", side_effect=[
+            {"status": "success", "output": info, "error": None},
+            {"status": "success", "output": text, "error": None},
+        ]):
+            return inspect_pdf(Path("/tmp/example/resume.pdf"), {"count": 0, "messages": [], "truncated": False}, expected)
+
+    def test_reports_actual_pages_without_assuming_a_one_page_target(self):
+        checks = self.inspect()
+        self.assertEqual(checks["pageCount"], 5)
+        self.assertIsNone(checks["expectedPageCount"])
+        self.assertIsNone(checks["pageCountMatches"])
+        self.assertEqual(checks["textExtraction"]["status"], "success")
+        self.assertEqual(checks["textExtraction"]["characterCount"], len("Example candidate"))
+
+    def test_compares_explicit_page_targets_including_mismatch(self):
+        self.assertTrue(self.inspect(expected=5)["pageCountMatches"])
+        self.assertFalse(self.inspect(expected=4)["pageCountMatches"])
+        self.assertEqual(self.inspect(info="Title: example\nPages: 999\nPages: 5\n")["pageCount"], 5)
+
+    def test_reports_empty_text_instead_of_marking_extraction_as_passed(self):
+        text = self.inspect(text=" \n\x0c\t")["textExtraction"]
+        self.assertEqual(text["status"], "empty")
+        self.assertEqual(text["characterCount"], 0)
+        self.assertEqual(text["text"], "")
+
+    def test_bounds_returned_text_and_preview_but_counts_full_text(self):
+        original = "Résumé evidence 😀 " * 5_000
+        text = self.inspect(text=original)["textExtraction"]
+        self.assertTrue(text["truncated"])
+        self.assertEqual(text["characterCount"], len(original.strip()))
+        self.assertLessEqual(len(text["text"].encode("utf-16-le")), 50_000 * 2)
+        self.assertLessEqual(len(text["preview"].encode("utf-16-le")), 1_000 * 2)
+        self.assertTrue(original.startswith(text["text"]))
+        self.assertEqual(bounded_text("a😀b", 2), "a")
+
+    def test_extraction_failure_or_missing_tools_are_explicit(self):
+        for status in ("failed", "unavailable"):
+            with self.subTest(status=status), patch("worker.run_pdf_tool", return_value={"status": status, "output": "", "error": "Inspection unavailable."}):
+                checks = inspect_pdf(Path("/tmp/resume.pdf"), {"count": 0, "messages": [], "truncated": False}, 2)
+                self.assertIsNone(checks["pageCount"])
+                self.assertIsNone(checks["pageCountMatches"])
+                self.assertEqual(checks["textExtraction"]["status"], status)
+                self.assertIsNone(checks["textExtraction"]["characterCount"])
+                self.assertEqual(checks["textExtraction"]["text"], "")
+
+    def test_overflow_counts_hbox_and_vbox_and_bounds_warning_details(self):
+        transcript = io.BytesIO(("Underfull \\hbox (badness 10000)\n" + "Overfull \\hbox (12pt too wide) at lines 1--2\n" * 24 + "Overfull \\vbox (2pt too high) at line 3\n").encode())
+        result = overfull_box_warnings(transcript)
+        self.assertEqual(result["count"], 25)
+        self.assertEqual(len(result["messages"]), 20)
+        self.assertTrue(result["truncated"])
+
+    def test_pdf_tool_failure_timeout_and_output_limits(self):
+        with patch("worker.shutil.which", return_value=None):
+            self.assertEqual(run_pdf_tool("pdftotext", [], Path("/tmp"))["status"], "unavailable")
+        with patch("worker.shutil.which", return_value="/usr/bin/pdftotext"), patch("worker.subprocess.run", side_effect=subprocess.TimeoutExpired("pdftotext", 5)):
+            result = run_pdf_tool("pdftotext", [], Path("/tmp"))
+            self.assertEqual(result["status"], "failed")
+            self.assertIn("time limit", result["error"])
+        def oversized(*_args, **kwargs):
+            kwargs["stdout"].write(b"x" * 17)
+            return subprocess.CompletedProcess([], 0)
+        with patch("worker.MAX_INSPECTION_BYTES", 16), patch("worker.shutil.which", return_value="/usr/bin/pdftotext"), patch("worker.subprocess.run", side_effect=oversized):
+            self.assertIn("size limit", run_pdf_tool("pdftotext", [], Path("/tmp"))["error"])
+
+
 class WorkerHttpTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -157,9 +230,48 @@ class WorkerHttpTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("size limit", result["error"])
 
+    def test_cache_keeps_distinct_expected_page_targets(self):
+        token = "test-token-" * 4
+        data = project(SOURCE + "% target cache fixture")
+        def compiled(_project, expected_page_count=None):
+            return {"success": True, "pdf": "JVBERi0=", "log": "", "checks": {"expectedPageCount": expected_page_count}}
+        with patch.dict(os.environ, {"LATEX_COMPILER_TOKEN": token}), patch("worker.compile_project", side_effect=compiled) as compiler:
+            first = self.request("/compile", token=token, body={**data, "expectedPageCount": 1})
+            second = self.request("/compile", token=token, body={**data, "expectedPageCount": 2})
+            repeated = self.request("/compile", token=token, body={**data, "expectedPageCount": 1})
+        self.assertEqual(first[1]["checks"]["expectedPageCount"], 1)
+        self.assertEqual(second[1]["checks"]["expectedPageCount"], 2)
+        self.assertEqual(repeated, first)
+        self.assertEqual(compiler.call_count, 2)
+
 
 @unittest.skipUnless(shutil.which("pdflatex"), "PDFLaTeX is not installed")
 class CompilationTests(unittest.TestCase):
+    def test_checks_expected_page_count_and_extracts_text_on_compile(self):
+        source = SOURCE.replace("\\end{document}", "\\newpage Second page evidence.\\end{document}")
+        result = compile_project(project(source), expected_page_count=1)
+        self.assertTrue(result["success"], result["log"])
+        self.assertEqual(result["checks"]["expectedPageCount"], 1)
+        if shutil.which("pdfinfo"):
+            self.assertEqual(result["checks"]["pageCount"], 2)
+            self.assertFalse(result["checks"]["pageCountMatches"])
+        if shutil.which("pdftotext"):
+            self.assertEqual(result["checks"]["textExtraction"]["status"], "success")
+            self.assertIn("Second page evidence", result["checks"]["textExtraction"]["text"])
+
+    def test_reports_native_tex_overflow_warnings(self):
+        source = SOURCE.replace("Built a robotics", r"\hbox to 1pt{Overflow fixture} Built a robotics")
+        result = compile_project(project(source))
+        self.assertTrue(result["success"], result["log"])
+        self.assertGreater(result["checks"]["overfullBoxes"]["count"], 0)
+        self.assertIn("Overfull", result["checks"]["overfullBoxes"]["messages"][0])
+
+    def test_reports_native_empty_extraction_without_failing_pdf(self):
+        result = compile_project(project(r"\documentclass{article}\pagestyle{empty}\begin{document}\null\end{document}"))
+        self.assertTrue(result["success"], result["log"])
+        if shutil.which("pdftotext"):
+            self.assertEqual(result["checks"]["textExtraction"]["status"], "empty")
+
     def test_compiles_imported_multifile_project(self):
         source = SOURCE.replace("\\begin{document}", "\\input{parts/macros}\n\\begin{document}")
         source = source.replace("Built a robotics", "\\example a robotics")

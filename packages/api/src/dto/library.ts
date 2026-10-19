@@ -4,6 +4,45 @@ const idSchema = z.string().trim().min(1).max(100);
 const httpUrlSchema = z.string().trim().max(2_000).pipe(z.union([z.literal(""), z.url({ protocol: /^https?$/ })]));
 const labelsSchema = z.array(z.string().trim().min(1).max(120)).max(50);
 
+const outcomeFieldsSchema = z.object({
+	stage: z.enum(["not_applied", "applied", "interview", "offer", "rejected", "withdrawn"]),
+	notes: z.string().max(5_000),
+	recordedAt: z.iso.datetime({ offset: true }).nullable(),
+	reachedStage: z.enum(["not_applied", "applied", "interview", "offer"]),
+});
+
+export const resumeOutcomeSchema = outcomeFieldsSchema.extend({
+	stage: outcomeFieldsSchema.shape.stage.default("not_applied"),
+	notes: outcomeFieldsSchema.shape.notes.default(""),
+	recordedAt: outcomeFieldsSchema.shape.recordedAt.default(null),
+	reachedStage: outcomeFieldsSchema.shape.reachedStage.default("not_applied"),
+});
+
+export const requirementEvidenceSchema = z.object({
+	requirement: z.string().trim().min(1).max(1_000),
+	importance: z.enum(["required", "preferred"]).default("required"),
+	status: z.enum(["supported", "partial", "gap"]),
+	evidence: z.array(z.object({
+		resumeId: idSchema,
+		locator: z.string().trim().min(1).max(500),
+		quote: z.string().trim().min(1).max(1_200),
+	})).max(8).default([]),
+	notes: z.string().max(2_000).default(""),
+}).refine((value) => value.status === "gap" || value.evidence.length > 0,
+	"Supported and partial requirements need at least one source quotation.");
+
+export const tailoringChangeSchema = z.object({
+	section: z.string().trim().min(1).max(200),
+	before: z.string().max(4_000),
+	after: z.string().max(4_000),
+	reason: z.string().trim().min(1).max(2_000),
+});
+
+const compactOutcomeSchema = outcomeFieldsSchema.pick({ stage: true, recordedAt: true }).extend({
+	strongestStage: z.enum(["not_applied", "applied", "interview", "offer"]),
+	source: z.enum(["profile", "application", "none"]),
+});
+
 export const resumeProfileSchema = z.object({
 	purpose: z.enum(["general", "master", "tailored"]).default("general"),
 	company: z.string().trim().max(200).default(""),
@@ -22,6 +61,11 @@ export const resumeProfileSchema = z.object({
 	}).refine((item) => item.score <= item.maxScore, "Score cannot exceed its maximum.")).max(20).default([]),
 	evaluatedAt: z.iso.datetime({ offset: true }).nullable().default(null),
 	evaluatedResumeUpdatedAt: z.iso.datetime({ offset: true }).nullable().default(null),
+	requirementEvidence: z.array(requirementEvidenceSchema).max(60).default([]),
+	tailoringChanges: z.array(tailoringChangeSchema).max(60).default([]),
+	reviewedResumeUpdatedAt: z.iso.datetime({ offset: true }).nullable().default(null),
+	reviewedSourceUpdatedAt: z.iso.datetime({ offset: true }).nullable().default(null),
+	outcome: resumeOutcomeSchema.default({ stage: "not_applied", notes: "", recordedAt: null, reachedStage: "not_applied" }),
 });
 
 // Removing defaults before optional wrapping matters: a metadata patch must never reset omitted fields.
@@ -38,6 +82,11 @@ const profilePatchSchema = z.object({
 	rubric: resumeProfileSchema.shape.rubric.removeDefault().optional(),
 	evaluatedAt: resumeProfileSchema.shape.evaluatedAt.removeDefault().optional(),
 	evaluatedResumeUpdatedAt: resumeProfileSchema.shape.evaluatedResumeUpdatedAt.removeDefault().optional(),
+	requirementEvidence: resumeProfileSchema.shape.requirementEvidence.removeDefault().optional(),
+	tailoringChanges: resumeProfileSchema.shape.tailoringChanges.removeDefault().optional(),
+	reviewedResumeUpdatedAt: resumeProfileSchema.shape.reviewedResumeUpdatedAt.removeDefault().optional(),
+	reviewedSourceUpdatedAt: resumeProfileSchema.shape.reviewedSourceUpdatedAt.removeDefault().optional(),
+	outcome: outcomeFieldsSchema.partial().optional(),
 });
 
 const folderSchema = z.object({
@@ -150,9 +199,13 @@ export const libraryDto = {
 				score: z.number().nullable(),
 				evaluatedAt: z.string().nullable(),
 				evaluationStale: z.boolean(),
+				reviewStale: z.boolean(),
+				sourceStale: z.boolean(),
+				outcome: compactOutcomeSchema,
 				updatedAt: z.date(),
 				application: z.object({ id: idSchema, company: z.string(), role: z.string(), status: z.string() }).nullable(),
 				similarity: z.number().min(0).max(100),
+				reusePriority: z.number().min(0).max(100),
 				reuseHints: z.array(z.string()),
 			})),
 		},
@@ -181,3 +234,5 @@ export type ResumeFolder = z.infer<typeof folderSchema>;
 export type CompanyResearch = z.infer<typeof companySchema>;
 export type ResumeLibraryMetadata = z.infer<typeof metadataSchema>;
 export type ResumeIndexEntry = z.infer<typeof libraryDto.resumes.index.output>[number];
+export type ResumeOutcome = z.infer<typeof resumeOutcomeSchema>;
+export type CompactResumeOutcome = z.infer<typeof compactOutcomeSchema>;

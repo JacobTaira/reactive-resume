@@ -1,7 +1,9 @@
 import { protectedProcedure } from "../../context";
 import { libraryDto } from "../../dto/library";
+import { resumeComparisonDto } from "../../dto/resume-comparison";
 import { resumeMutationRateLimit } from "../../middleware/rate-limit";
 import { libraryService } from "./service";
+import { compareResumes } from "./comparison";
 
 const route = (method: "GET" | "POST" | "DELETE", path: `/${string}`, operationId: string, summary: string) => ({
 	method, path, operationId, summary, tags: ["Library"], description: `${summary}. Requires authentication; every resource is scoped to the current account.`,
@@ -37,6 +39,9 @@ export const libraryRouter = {
 			.handler(({ context, input }) => libraryService.companies.delete({ ...input, userId: context.user.id })),
 	},
 	resumes: {
+		compare: protectedProcedure.route(route("GET", "/library/resumes/{resumeId}/compare", "compareResumeSources", "Compare a resume against its source or an owned saved version"))
+			.input(resumeComparisonDto.input).output(resumeComparisonDto.output)
+			.handler(({ context, input }) => compareResumes({ ...input, userId: context.user.id })),
 		getMetadata: protectedProcedure.route(route("GET", "/library/resumes/{resumeId}/metadata", "getResumeLibraryMetadata", "Read a resume's folder, lineage, job context, and evaluation"))
 			.input(libraryDto.resumes.getMetadata.input).output(libraryDto.resumes.getMetadata.output)
 			.handler(({ context, input }) => libraryService.resumes.getMetadata({ ...input, userId: context.user.id })),

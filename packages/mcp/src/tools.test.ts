@@ -53,7 +53,7 @@ const clientMock = {
 	library: {
 		folders: { list: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
 		companies: { list: vi.fn(), getById: vi.fn(), save: vi.fn(), delete: vi.fn() },
-		resumes: { getMetadata: vi.fn(), setMetadata: vi.fn(), index: vi.fn() },
+		resumes: { getMetadata: vi.fn(), setMetadata: vi.fn(), index: vi.fn(), compare: vi.fn() },
 		jobs: { index: vi.fn() },
 	},
 	resume: {
@@ -121,9 +121,47 @@ describe("registerTools", () => {
 		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.compileResumeLatex)!;
 		const result = await tool.handler({ id: "r1" });
 		expect(clientMock.resume.latex.compile).toHaveBeenCalledWith({ id: "r1" });
-		expect(result.structuredContent).toEqual({ success: true, log: "done" });
+		expect(result.structuredContent).toMatchObject({ success: true, log: "done", checks: null });
+		expect(result.structuredContent?.diagnosticsNote).toContain("remain unverified");
 		expect(JSON.stringify(result)).not.toContain("private-pdf-bytes");
 		expect(clientMock.resume.update).not.toHaveBeenCalled();
+	});
+
+	it("returns bounded compiler checks and forwards the user's expected page count", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const checks = {
+			pageCount: 2,
+			expectedPageCount: 1,
+			pageCountMatches: false,
+			pageCountError: null,
+			overfullBoxes: { count: 1, messages: ["Overfull \\hbox"], truncated: false },
+			textExtraction: {
+				status: "success",
+				characterCount: 19,
+				text: "Verified resume text",
+				preview: "Verified resume text",
+				truncated: false,
+				error: null,
+			},
+		};
+		clientMock.resume.latex.compile.mockResolvedValueOnce({ success: true, pdf: "private-pdf-bytes", log: "done", checks });
+		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.compileResumeLatex)!;
+		const result = await tool.handler({ id: "r1", expectedPageCount: 1 });
+		expect(clientMock.resume.latex.compile).toHaveBeenCalledWith({ id: "r1", expectedPageCount: 1 });
+		expect(result.structuredContent).toEqual({ success: true, log: "done", checks, diagnosticsNote: null });
+		expect(TOOL_META[MCP_TOOL_NAME.compileResumeLatex].outputSchema.safeParse(result.structuredContent).success).toBe(true);
+		expect(JSON.stringify(result)).not.toContain("private-pdf-bytes");
+		expect(TOOL_META[MCP_TOOL_NAME.compileResumeLatex].inputSchema.safeParse({ id: "r1", expectedPageCount: 0 }).success).toBe(false);
+	});
+
+	it("does not invent diagnostic passes when a previous worker omits checks", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		clientMock.resume.latex.compile.mockResolvedValueOnce({ success: false, log: "Compile failed" });
+		const result = await registered.find((item) => item.name === MCP_TOOL_NAME.compileResumeLatex)!.handler({ id: "r1" });
+		expect(result.structuredContent).toMatchObject({ success: false, log: "Compile failed", checks: null });
+		expect(result.structuredContent?.diagnosticsNote).toContain("unavailable");
 	});
 
 	it("reads the saved master's LaTeX source without filtering it by folder", async () => {
@@ -161,6 +199,44 @@ describe("registerTools", () => {
 		expect(clientMock.resume.patch).not.toHaveBeenCalled();
 		expect(clientMock.resume.update).not.toHaveBeenCalled();
 		expect(TOOL_META[MCP_TOOL_NAME.moveResume].inputSchema.safeParse({ resumeId: "resume-1" }).success).toBe(false);
+	});
+
+	it("persists evidence, change rationale and a reported outcome without altering resume content or application stage", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const profile = {
+			requirementEvidence: [{
+				requirement: "Robotics experience", importance: "required", status: "supported",
+				evidence: [{ resumeId: "master", locator: "main.tex:42", quote: "Built a robot controller" }], notes: "Source quote supports this claim.",
+			}],
+			tailoringChanges: [{ section: "Experience", before: "Built a controller", after: "Built a robot controller", reason: "Clarify relevant domain." }],
+			reviewedResumeUpdatedAt: "2026-10-19T12:00:00.000Z",
+			reviewedSourceUpdatedAt: "2026-10-19T10:00:00.000Z",
+			outcome: { stage: "interview", notes: "User reported an interview invitation.", recordedAt: "2026-10-19T12:30:00.000Z" },
+		};
+		clientMock.library.resumes.setMetadata.mockResolvedValueOnce({ resumeId: "r1", profile });
+		const result = await registered.find((item) => item.name === MCP_TOOL_NAME.updateResumeMetadata)!.handler({ resumeId: "r1", profile });
+		expect(clientMock.library.resumes.setMetadata).toHaveBeenCalledWith({ resumeId: "r1", profile });
+		expect(result.structuredContent?.profile).toEqual(profile);
+		expect(clientMock.resume.patch).not.toHaveBeenCalled();
+		expect(clientMock.applications.update).not.toHaveBeenCalled();
+	});
+
+	it("passes explicit historical source selection to an actual comparison and preserves truncation flags", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const comparison = {
+			target: { id: "draft", name: "Draft", updatedAt: "2026-10-19T12:00:00.000Z", versionId: null },
+			source: { id: "base", name: "Base", updatedAt: "2026-10-18T12:00:00.000Z", versionId: "historical" },
+			comparison: "latex", identical: false, truncated: true,
+			files: [{ path: "main.tex", kind: "modified", binary: false, addedLines: 1, removedLines: 1, coarse: true, truncated: true, lines: [] }],
+		};
+		clientMock.library.resumes.compare.mockResolvedValueOnce(comparison);
+		const result = await registered.find((item) => item.name === MCP_TOOL_NAME.compareResumes)!.handler({ resumeId: "draft", sourceResumeId: "base", sourceVersionId: "historical" });
+		expect(clientMock.library.resumes.compare).toHaveBeenCalledWith({ resumeId: "draft", sourceResumeId: "base", sourceVersionId: "historical" });
+		expect(result.structuredContent).toEqual(comparison);
+		expect(TOOL_META[MCP_TOOL_NAME.compareResumes].outputSchema.safeParse(result.structuredContent).success).toBe(true);
+		expect(clientMock.resume.patch).not.toHaveBeenCalled();
 	});
 
 	it("finds related saved jobs even when they have no linked resume", async () => {

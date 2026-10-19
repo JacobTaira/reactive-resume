@@ -30,6 +30,23 @@ describe("LaTeX compiler client", () => {
 		}));
 	});
 
+	it("forwards an explicit page target and returns structured PDF checks", async () => {
+		const checks = {
+			pageCount: 5, expectedPageCount: 4, pageCountMatches: false, pageCountError: null,
+			overfullBoxes: { count: 1, messages: ["Overfull \\hbox (5pt too wide)"], truncated: false },
+			textExtraction: { status: "success", characterCount: 17, text: "Example candidate", preview: "Example candidate", truncated: false, error: null },
+		};
+		mocks.fetch.mockResolvedValueOnce(Response.json({ success: true, pdf: "JVBERi0=", log: "done", checks }));
+		await expect(compileLatexProject(project, { expectedPageCount: 4 })).resolves.toMatchObject({ checks });
+		expect(mocks.fetch).toHaveBeenCalledWith("http://compiler:8010/compile", expect.objectContaining({ body: JSON.stringify({ ...project, expectedPageCount: 4 }) }));
+	});
+
+	it("rejects invalid page targets before contacting the worker", async () => {
+		await expect(compileLatexProject(project, { expectedPageCount: 0 })).rejects.toThrow();
+		await expect(compileLatexProject(project, { expectedPageCount: 101 })).rejects.toThrow();
+		expect(mocks.fetch).not.toHaveBeenCalled();
+	});
+
 	it("returns compiler failures without manufacturing a successful PDF", async () => {
 		mocks.fetch.mockResolvedValueOnce(Response.json({ success: false, log: "Undefined control sequence" }));
 		await expect(compileLatexProject(project)).resolves.toEqual({ success: false, log: "Undefined control sequence" });

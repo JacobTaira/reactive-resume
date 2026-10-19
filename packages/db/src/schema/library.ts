@@ -16,6 +16,22 @@ export type ResumeProfile = {
 	rubric: Array<{ criterion: string; score: number; maxScore: number; notes: string }>;
 	evaluatedAt: string | null;
 	evaluatedResumeUpdatedAt: string | null;
+	requirementEvidence: Array<{
+		requirement: string;
+		importance: "required" | "preferred";
+		status: "supported" | "partial" | "gap";
+		evidence: Array<{ resumeId: string; locator: string; quote: string }>;
+		notes: string;
+	}>;
+	tailoringChanges: Array<{ section: string; before: string; after: string; reason: string }>;
+	reviewedResumeUpdatedAt: string | null;
+	reviewedSourceUpdatedAt: string | null;
+	outcome: {
+		stage: "not_applied" | "applied" | "interview" | "offer" | "rejected" | "withdrawn";
+		notes: string;
+		recordedAt: string | null;
+		reachedStage: "not_applied" | "applied" | "interview" | "offer";
+	};
 };
 
 const owned = () => ({

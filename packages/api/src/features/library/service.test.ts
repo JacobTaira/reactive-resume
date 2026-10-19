@@ -61,6 +61,23 @@ describe("owned library mutations", () => {
 		await expect(libraryService.companies.save({ userId: "owner", id: "company", company: "Orbital", expectedRevision: 3, notes: "Stale notes" })).rejects.toMatchObject({ code: "CONFLICT" });
 		expect(dbMock.update).not.toHaveBeenCalled();
 	});
+	it("rejects unavailable evidence sources before saving a support claim", async () => {
+		dbMock.select.mockReturnValueOnce(resultRows([current])).mockReturnValueOnce(resultRows([]));
+		await expect(libraryService.resumes.setMetadata({ userId: "owner", resumeId: "resume", profile: {
+			requirementEvidence: [{ requirement: "ROS", importance: "required", status: "supported", notes: "", evidence: [{ resumeId: "another-owner", locator: "Experience", quote: "Built ROS systems" }] }],
+		} })).rejects.toMatchObject({ code: "NOT_FOUND" });
+		expect(dbMock.update).not.toHaveBeenCalled();
+	});
+	it("locks the current source before accepting its review timestamp", async () => {
+		const source = { ...current, resumeId: "source", updatedAt: new Date("2026-10-18T09:00:00Z") };
+		const derived = { ...current, sourceResumeId: "source" };
+		dbMock.select.mockReturnValueOnce(resultRows([derived])).mockReturnValueOnce(resultRows([source])).mockReturnValueOnce(resultRows([derived]));
+		await libraryService.resumes.setMetadata({ userId: "owner", resumeId: "resume", profile: {
+			reviewedResumeUpdatedAt: current.updatedAt.toISOString(), reviewedSourceUpdatedAt: source.updatedAt.toISOString(),
+		} });
+		expect(forUpdate).toHaveBeenCalledWith("share");
+		expect(dbMock.update).toHaveBeenCalledWith(schema.resume);
+	});
 	it("deletes only the folder after moving its contents up, never the resumes", async () => {
 		dbMock.select.mockReturnValueOnce(resultRows([{ id: "child", parentId: "parent" }]));
 		const set = vi.fn(() => ({ where: async () => [] }));

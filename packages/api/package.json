@@ -22,7 +22,8 @@
 		"./dto/library": "./src/dto/library.ts",
 		"./pagination": "./src/pagination.ts",
 		"./features/mcp/transport": "./src/features/mcp/transport.ts",
-		"./features/career/jobs": "./src/features/career/jobs.ts"
+		"./features/career/jobs": "./src/features/career/jobs.ts",
+		"./dto/resume-comparison": "./src/dto/resume-comparison.ts"
 	},
 	"scripts": {
 		"typecheck": "tsgo --noEmit",

@@ -9,7 +9,7 @@ Open Documents and use **New folder** to create a folder. Creating another folde
 
 Open a resume's menu and choose **Folder and resume details…**. Select its folder and mark its purpose as **Master resume**, **General resume**, or **Tailored for a job**. Mark the resume containing your complete, verified background as the master. Folders organize resumes; they do not change which owned resumes your connected assistant can read.
 
-The details also store the target company and role, skills and keywords, original job description and URL, the resume used as a starting point, reuse notes, and a score explanation. This context stays outside the printable resume and public responses. Moving a resume never rewrites its LaTeX source. Duplicating a resume keeps the copy in the same folder and records its source; a copy starts without an inherited master designation or score.
+The details also store the target company and role, skills and keywords, original job description and URL, the resume used as a starting point, reuse notes, a requirement evidence map, change explanations, a score explanation, and the outcome you report. This context stays outside the printable resume and public responses. Moving a resume never rewrites its LaTeX source. Duplicating a resume keeps the copy in the same folder and records its source; a copy starts without an inherited master designation, evaluation, review or outcome.
 
 Deleting a folder moves its resumes and immediate subfolders to the parent. It does not delete resumes. The company research area is separate from resume folders.
 
@@ -17,7 +17,9 @@ Deleting a folder moves its resumes and immediate subfolders to the parent. It d
 
 Choose **Companies** in navigation or on the Documents page. Each company has one research document containing a summary, core values, culture and working style, hiring priorities, general notes, and source links with access dates.
 
-You and a connected assistant edit the same saved document. Keep verified facts separate from interpretations and record which source supports a useful finding. The source date is when you or the assistant actually checked it. An assistant without browsing access can save supplied information, but should not claim it researched a page.
+You and a connected assistant edit the same saved document. **Claude can create a company's document itself** with `save_company_note`; you do not need to create an empty entry first. On later jobs it can find that document with `list_company_notes`, read it with `read_company_note`, and add useful research with `save_company_note`.
+
+Keep verified facts separate from interpretations and record which source supports a useful finding. The source date is when you or the assistant actually checked it. An assistant without browsing access can save supplied information, but should not claim it researched a page.
 
 Company documents use revision checks. If another conversation updates a document while you are editing, the older save is rejected so it cannot silently replace newer research. Read the latest document and merge the useful notes before saving again. Deleting company research leaves its resumes intact.
 
@@ -30,14 +32,42 @@ The `tailor_resume_for_job` MCP prompt describes this workflow:
 1. Find the master and related resumes with `find_related_resumes`, and related saved applications with `find_related_jobs`.
    Reuse the exact posting's saved job record or save a new one, so later conversations can find the original job and its resume. Similar roles are useful comparisons, but are not automatically duplicate postings.
 2. Read the selected master and a few useful previous versions using `read_resume`. For LaTeX resumes this includes the original `latex.files[].content`, not merely the empty structured fields.
-3. Read the company's saved research, then choose the best starting resume. Preserve the master and earlier versions by duplicating the selected base.
-4. Edit supported evidence to suit the posting, compile the LaTeX, and review the PDF and extracted text where the client supports it.
-5. Store the folder, source resume, job context, reuse notes, and evaluation with `update_resume_metadata`. Save useful new company research after reading its current revision.
-6. Return the PDF and an explanation for your review. Application submission remains your action.
+3. Read the company's saved research, then choose the best starting resume. Check prior outcomes as context while prioritizing relevant, verified evidence. Preserve the master and earlier versions by duplicating the selected base.
+4. Map the posting's requirements to quoted resume evidence. Mark each requirement as supported, partially supported or a gap; distinguish required qualifications from preferences.
+5. Tailor the draft and save short before/after excerpts explaining why each section changed. Use `compare_resumes` when an actual saved-source comparison is needed.
+6. Compile the LaTeX, check page count, overflow warnings and text extraction, and inspect the rendered PDF where the client supports it.
+7. Store the folder, source resume, job context, requirement map, change rationale, review timestamps and evaluation with `update_resume_metadata`. Create company research when absent, or merge useful new research into its latest revision.
+8. Return the PDF, evidence gaps, changes and score breakdown for your review. Application submission remains your action; record an application outcome only after you report it.
 
-The index lists concise metadata and lexical similarity hints. It does not return the whole resume or job description, and its similarity number is not the resume's evaluation score. Read promising matches before reusing their claims. The full application remains available through `read_application`.
+The index lists concise metadata, lexical similarity, recorded outcomes and a reuse priority. These numbers help find candidates; they are not the resume's evaluation score. The index omits full source, full job descriptions, requirement citations and change notes. Read promising matches before reusing their claims. The full application remains available through `read_application`.
 
 `read_resume_metadata` reads the full saved job context and evaluation. Use `list_resume_folders`, `create_resume_folder`, `update_resume_folder`, and `move_resume` to organize documents. Company tools are `list_company_notes`, `read_company_note`, and `save_company_note`. These tools use the same authenticated API as the website and do not need a Reactive Resume AI provider.
+
+## Review the evidence and changes
+
+The requirement map keeps the job's requirements beside the evidence used to support them:
+
+| Status | Meaning |
+| --- | --- |
+| Supported | Cited resume content supports the requirement. |
+| Partial | There is related evidence, but it does not establish the entire requirement. |
+| Gap | No supporting evidence is available in the material reviewed. |
+
+Each citation stores the owned resume ID, a section or source location, and a quote supplied by the assistant. The app checks that cited resumes belong to your account; it does not verify that a quotation matches the source. Check the cited text when reviewing. Claude should check earlier tailored wording against your verified background before treating it as evidence. A requirement remaining a gap is useful information; it is not a reason to invent experience.
+
+Change explanations record the assistant's section, before/after excerpts and rationale. They are notes about the edits, not a complete computed diff. The read-only `compare_resumes` tool computes differences between the saved target and source. By default it compares the source's **current** saved content. To compare with a known historical version, supply its `sourceVersionId`; the response identifies the actual baseline. It must not be described as the source at copy time unless that historical snapshot was selected.
+
+Comparisons include changed text files, line numbers and binary-file change markers. Large comparisons may use a coarse comparison or truncate output; the flags identify those limits. Source changes do not show the resulting visual layout, so inspect the PDF too.
+
+Review timestamps record which draft and direct source contents the assistant reviewed. They do not mean you approved the resume. Editing either can make the saved review stale. Reread and reassess before refreshing timestamps; a stale snapshot save is rejected. Citations to other resumes should also be checked when reusing evidence, because the direct-source freshness flag does not track every cited document.
+
+## Record outcomes for later reuse
+
+Record what actually happened after using a resume: **Not applied**, **Applied**, **Interview**, **Offer**, **Rejected**, or **Withdrawn**, with useful notes. Claude can save an outcome through `update_resume_metadata` when you tell it the result. Creating or scoring a draft does not establish that you applied, and a new copy must not inherit an older resume's interview or offer.
+
+Related-resume suggestions expose the current outcome and highest stage reached, drawing from the saved resume outcome or linked application and identifying that source. Moving from an interview to a rejection retains the interview as the highest stage reached. Setting **Not applied** resets that history; the MCP metadata also allows an explicit correction when an earlier record was wrong.
+
+The reuse priority appears alongside relevance and freshness. A previous interview or offer is context, not evidence that particular wording caused it. Compare the new job's requirements and current background before deciding what to reuse. A rejection does not make an otherwise relevant, truthful achievement unusable. Recording an outcome here does not submit an application or change its tracked pipeline stage.
 
 ## Understand the score
 
@@ -53,7 +83,7 @@ The prompt asks the assistant for a transparent editorial score out of 100:
 
 Ask for evidence and gaps alongside each criterion. Never add unsupported experience to raise the score. If the assistant could not inspect the rendered PDF, it should mark its formatting assessment as provisional. This is a review aid, not a measured ATS score or hiring probability.
 
-Evaluations record the version's edit timestamp. Later resume edits make the old evaluation stale; the compact index signals that it needs another review. Moving folders alone does not make an old score current. Changing the target job context without a new evaluation also invalidates its freshness.
+Evaluations record the version's edit timestamp. Later resume edits make the old evaluation stale; the compact index signals that it needs another review. Moving folders alone does not make an old score current. Changing the target job context without a new evaluation also invalidates its freshness. The requirement map should explain which parts of the posting are supported and which remain gaps, even when the overall score is high.
 
 ## Connect to a local installation
 

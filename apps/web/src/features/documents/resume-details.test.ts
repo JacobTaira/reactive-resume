@@ -16,6 +16,7 @@ const profile = {
 	rubric: [],
 	evaluatedAt: "2026-10-01T12:00:00.000Z",
 	evaluatedResumeUpdatedAt: "2026-10-01T12:00:00.000Z",
+	outcome: { stage: "applied" as const, notes: "Submitted a referral.", recordedAt: "2026-10-01T12:00:00.000Z" },
 };
 const document = {
 	id: "tailored",
@@ -27,12 +28,28 @@ const document = {
 const values: ResumeDetailsValues = {
 	...profile,
 	score: "82",
+	outcomeStage: "applied",
+	outcomeNotes: profile.outcome.notes,
 	folderId: "old-folder",
 	sourceResumeId: "trashed-master",
 	companyId: "company",
 };
 
 describe("changedResumeDetails", () => {
+	it("updates the outcome without rewriting notes, review timestamps, or scores", () => {
+		expect(changedResumeDetails(document, { ...values, outcomeStage: "interview" })).toEqual({
+			resumeId: "tailored",
+			profile: { outcome: { stage: "interview" } },
+		});
+	});
+
+	it("can clear outcome notes without rewriting the recorded stage or timestamp", () => {
+		expect(changedResumeDetails(document, { ...values, outcomeNotes: "" })).toEqual({
+			resumeId: "tailored",
+			profile: { outcome: { notes: "" } },
+		});
+	});
+
 	it("moves a resume without renewing its assessment or touching an unavailable source", () => {
 		expect(changedResumeDetails(document, { ...values, folderId: "new-folder" })).toEqual({
 			resumeId: "tailored",

@@ -1,5 +1,6 @@
 import z from "zod";
 import { libraryDto } from "@reactive-resume/api/dto/library";
+import { resumeComparisonDto } from "@reactive-resume/api/dto/resume-comparison";
 import { toWireObjectSchema, toWireSchema } from "./contracts";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
 
@@ -94,7 +95,7 @@ export const LIBRARY_TOOL_META = {
 	[T.readResumeMetadata]: {
 		title: "Read Resume Metadata",
 		description:
-			"Read a resume's folder, sourceResumeId lineage, companyId link and complete job profile, including purpose (general/master/tailored), company, targetRole, keywords, full jobDescription, jobUrl, reuseNotes and saved score/rubric. Read resume content separately with read_resume; LaTeX source is included there.",
+			"Read a resume's folder, sourceResumeId lineage, companyId link and complete job profile: purpose, company, targetRole, keywords, jobDescription, jobUrl, reuseNotes, score/rubric, requirementEvidence with quoted resume citations, assistant-recorded tailoringChanges, review snapshot timestamps and user-reported outcome. Read resume content separately with read_resume; LaTeX source is included there. Saved rationale is not a computed diff, and a recorded outcome does not establish why the hiring decision occurred.",
 		inputSchema: wireInput(libraryDto.resumes.getMetadata.input),
 		outputSchema: toWireObjectSchema(libraryDto.resumes.getMetadata.output),
 		annotations: read,
@@ -102,7 +103,7 @@ export const LIBRARY_TOOL_META = {
 	[T.updateResumeMetadata]: {
 		title: "Update Resume Metadata",
 		description:
-			"Update an owned resume's folderId, sourceResumeId, companyId or profile. Omitted fields are preserved; supplied lists replace their fields. Mark purpose=master only when the user identifies their master. For a tailored copy record its base resume, job, keywords and reuse rationale. A score is an assistant's editorial heuristic out of 100, not an ATS or hiring guarantee: save scoreNotes and criterion/score/maxScore/notes rubric, plus evaluatedAt and evaluatedResumeUpdatedAt from the reviewed read_resume response. Does not alter source/PDF or invoke an AI provider.",
+			"Update an owned resume's folderId, sourceResumeId, companyId or profile. Omitted fields are preserved; supplied lists replace their fields. Mark purpose=master only when the user identifies it. Save requirementEvidence with required/preferred importance, supported/partial/gap status and real evidence citations {resumeId,locator,quote}; save tailoringChanges {section,before,after,reason} as the assistant's rationale. Read referenced resumes before citing them. A score is an editorial heuristic, not an ATS or hiring guarantee: record its rubric, evaluatedAt/evaluatedResumeUpdatedAt and reviewedResumeUpdatedAt/reviewedSourceUpdatedAt for content actually reviewed. Stale supplied snapshots conflict: reread and reassess. Record outcome only when reported by the user; stages are not_applied/applied/interview/offer/rejected/withdrawn, never infer them from scores or copy them to a new draft. Does not alter source/PDF, submit a job application or invoke an AI provider.",
 		inputSchema: wireInput(libraryDto.resumes.setMetadata.input),
 		outputSchema: toWireObjectSchema(libraryDto.resumes.setMetadata.output),
 		annotations: update,
@@ -110,7 +111,7 @@ export const LIBRARY_TOOL_META = {
 	[T.findRelatedResumes]: {
 		title: "Find Related Resumes",
 		description:
-			"Search a compact resume/job index before rereading full documents. Use purpose=master to find saved masters, or company, targetRole, keywords and query to find reusable versions. Returns folder/base/company IDs, job profile summary, linked application, sourceUpdatedAt, score freshness, lexical similarity and reuseHints; full LaTeX and job descriptions are omitted. Similarity is a retrieval hint, not a job-fit or ATS score. Missing metadata limits matches; read likely candidates with read_resume and read_resume_metadata and compare evidence. A null folderId selects root; omit it to search all folders. No AI provider is called.",
+			"Search a compact resume/job index before rereading full documents. Use purpose=master to find saved masters, or company, targetRole, keywords and query to find reusable versions. Returns folder/base/company IDs, job summary, linked application, sourceUpdatedAt, evaluationStale/reviewStale/sourceStale, outcome with strongestStage/source, lexical similarity, reusePriority and reuseHints; full source, requirement citations and change notes are omitted. Outcome source identifies a saved profile or linked application, or none. Similarity/reusePriority aid discovery, not ATS scoring or causal claims about past interviews/offers. Choose relevant verified evidence over prior outcomes and reread stale sources. Missing metadata limits matches. A null folderId selects root; omit it to search all folders. No AI provider is called.",
 		inputSchema: wireInput(libraryDto.resumes.index.input.unwrap()),
 		outputSchema: toWireObjectSchema(libraryDto.resumes.index.output),
 		annotations: read,
@@ -121,6 +122,14 @@ export const LIBRARY_TOOL_META = {
 			"Search compact saved-job/application records using company, targetRole, keywords or query, including jobs that have no tailored resume yet. Returns role/company/status, source URL, bounded requirements and description snippet, linked resumeId, sentResumeVersionId, updatedAt and lexical similarity. This is retrieval guidance, not a fit or ATS score. Read promising records with read_application for the full job description, and read_resume for linked resume evidence. No AI provider is called.",
 		inputSchema: wireInput(libraryDto.jobs.index.input.unwrap()),
 		outputSchema: toWireObjectSchema(libraryDto.jobs.index.output),
+		annotations: read,
+	},
+	[T.compareResumes]: {
+		title: "Compare Resumes",
+		description:
+			"Compute actual saved-source differences between an owned target resume and sourceResumeId (defaults to its recorded source). By default compares the source's current content; supply an existing sourceVersionId for a historical source snapshot. Returns source/target IDs, timestamps and version IDs, changed files with added/removed/context lines, binary change markers, and coarse/truncated flags. Output is bounded to 80,000 text characters; read relevant full sources if detail is omitted. This is not a visual PDF diff or proof of the source's content at copy time unless that version was selected. Assistant-authored tailoringChanges are separate rationale notes, not this computed comparison. Read-only; no provider call.",
+		inputSchema: wireInput(resumeComparisonDto.input),
+		outputSchema: toWireObjectSchema(resumeComparisonDto.output),
 		annotations: read,
 	},
 } as const;

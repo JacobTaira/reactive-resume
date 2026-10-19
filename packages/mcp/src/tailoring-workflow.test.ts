@@ -36,4 +36,39 @@ describe("job tailoring workflow", () => {
 		expect(prompt).toContain("not an ATS prediction, hiring probability or guarantee");
 		expect(prompt).toContain("do not require a saved Reactive Resume AI provider");
 	});
+
+	it("records requirement evidence and change rationale separately from an actual bounded source comparison", () => {
+		const prompt = buildJobTailoringInstructions({ jobDescription: "Requires robotics; prefers ROS" });
+		expect(prompt).toContain("profile.requirementEvidence");
+		expect(prompt).toContain("importance=required or preferred");
+		expect(prompt).toContain("status=supported, partial or gap");
+		expect(prompt).toContain("evidence=[{resumeId,locator,quote}]");
+		expect(prompt).toContain("leave evidence empty for unsupported gaps");
+		expect(prompt).toContain("tailoringChanges=[{section,before,after,reason}]");
+		expect(prompt).toContain("not a computed or exhaustive source diff");
+		expect(prompt).toContain("compare_resumes");
+		expect(prompt).toContain("sourceVersionId");
+		expect(prompt).toContain("not necessarily what existed when the draft was copied");
+		expect(prompt).toContain("coarse/truncated flags");
+	});
+
+	it("requires current content review and distinguishes machine diagnostics from visual inspection", () => {
+		const prompt = buildJobTailoringInstructions({ jobDescription: "Engineer" });
+		expect(prompt).toContain("reviewedResumeUpdatedAt");
+		expect(prompt).toContain("reviewedSourceUpdatedAt");
+		expect(prompt).toContain("not approval by the user");
+		expect(prompt).toContain("On a snapshot conflict reread");
+		expect(prompt).toContain("expectedPageCount only when the user has specified");
+		expect(prompt).toContain("Do not treat missing/failed diagnostics as passing");
+	});
+
+	it("uses reported outcomes as context without inventing hiring results or claiming causality", () => {
+		const prompt = buildJobTailoringInstructions({ jobDescription: "Engineer" });
+		expect(prompt).toContain("outcomes the user actually reports");
+		expect(prompt).toContain("Never infer an interview or offer from a high score");
+		expect(prompt).toContain("never copy an earlier resume's outcome onto a new draft");
+		expect(prompt).toContain("does not establish that a resume caused it");
+		expect(prompt).toContain("Prefer evidence relevant to this posting over a previous outcome");
+		expect(prompt).toContain("Claude can create and update these saved documents itself");
+	});
 });

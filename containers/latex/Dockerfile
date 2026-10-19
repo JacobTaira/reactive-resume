@@ -3,7 +3,7 @@ FROM ${LATEX_BASE_IMAGE}
 
 USER root
 
-RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+RUN apt-get update && apt-get install -y --no-install-recommends python3 poppler-utils \
     && if ! command -v pdflatex >/dev/null 2>&1; then \
       apt-get install -y --no-install-recommends \
         texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended; \

@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RouterClient } from "@orpc/server";
 import type router from "@reactive-resume/api/routers";
 import { libraryDto } from "@reactive-resume/api/dto/library";
+import { resumeComparisonDto } from "@reactive-resume/api/dto/resume-comparison";
 import { moveResumeInput } from "./library-tool-meta";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
 import { json, text, withErrorHandling } from "./results";
@@ -101,6 +102,13 @@ export function registerLibraryTools(server: McpServer, client: RouterClient<typ
 		TOOL_META[T.findRelatedJobs],
 		withErrorHandling("finding related jobs", async (params) =>
 			json(await client.library.jobs.index(libraryDto.jobs.index.input.parse(params))),
+		),
+	);
+	server.registerTool(
+		T.compareResumes,
+		TOOL_META[T.compareResumes],
+		withErrorHandling("comparing resume sources", async (params) =>
+			json(await client.library.resumes.compare(resumeComparisonDto.input.parse(params))),
 		),
 	);
 }

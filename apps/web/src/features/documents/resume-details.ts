@@ -1,4 +1,5 @@
 import type { DocumentSummary } from "./filter";
+import type { OutcomeStage } from "./resume-outcome";
 
 export type ResumeDetailsValues = {
 	folderId: string;
@@ -13,6 +14,8 @@ export type ResumeDetailsValues = {
 	reuseNotes: string;
 	score: string;
 	scoreNotes: string;
+	outcomeStage: OutcomeStage;
+	outcomeNotes: string;
 };
 
 /** Keep untouched agent metadata intact, including the timestamp of its last real assessment. */
@@ -26,6 +29,13 @@ export function changedResumeDetails(document: DocumentSummary, values: ResumeDe
 		...(values.jobDescription !== (initial?.jobDescription ?? "") ? { jobDescription: values.jobDescription } : {}),
 		...(values.jobUrl.trim() !== (initial?.jobUrl ?? "") ? { jobUrl: values.jobUrl.trim() } : {}),
 		...(values.reuseNotes !== (initial?.reuseNotes ?? "") ? { reuseNotes: values.reuseNotes } : {}),
+		...((values.outcomeStage !== (initial?.outcome?.stage ?? "not_applied") ||
+			values.outcomeNotes !== (initial?.outcome?.notes ?? "")) ? {
+			outcome: {
+				...(values.outcomeStage !== (initial?.outcome?.stage ?? "not_applied") ? { stage: values.outcomeStage } : {}),
+				...(values.outcomeNotes !== (initial?.outcome?.notes ?? "") ? { notes: values.outcomeNotes } : {}),
+			},
+		} : {}),
 		...(values.score !== (initial?.score?.toString() ?? "") || values.scoreNotes !== (initial?.scoreNotes ?? "")
 			? { score: values.score === "" ? null : Number(values.score), scoreNotes: values.scoreNotes }
 			: {}),

@@ -19,20 +19,26 @@ This feature preserves a resume's PDFLaTeX source instead of converting it into 
 - Owned nested resume folders, master/tailored metadata, source lineage, dated evaluations, and compact related-resume/job discovery.
 - A separate company research area with one revision-protected document per company, dated sources, and matching MCP tools.
 - Account export includes organization, company research, and resume library metadata. The library fields remain private on public resume routes.
+- Requirement evidence maps with quoted owned-resume citations, assistant-recorded change rationale, and draft/direct-source review snapshots.
+- Read-only saved-source comparison through MCP, including explicit historical source-version selection and bounded/coarse comparison flags. Change rationale remains separate from computed differences.
+- Compiler diagnostics for page count, an optional expected count, overfull box warnings and bounded PDF text extraction. Older workers with no checks remain explicitly unverified.
+- User-reported resume outcomes and related-resume reuse hints. Recorded hiring results are contextual observations, not causal evidence about resume quality; new drafts do not inherit them.
 
 ## Verified
 
-- All 16 Python worker tests pass, including actual PDFLaTeX compilations, invalid source, process timeouts, file access restrictions, archive limits, and HTTP authentication.
+- All 28 Python worker tests pass, including actual PDFLaTeX compilations, page count and expected-count checks, final-pass overflow warnings, text extraction and unavailable-tool behavior, invalid source, process timeouts, file access restrictions, archive limits, and HTTP authentication.
 - The supplied source compiles and preserves the original text (ignoring whitespace), Charter font faces, and US Letter size. Private inputs and validation output are excluded from commits.
 - Modified TypeScript and TSX files parse successfully with the available Babel parser. This is a syntax check, not a TypeScript typecheck.
 - `git diff --check` passes.
-- Offline native checks exercise folder navigation, metadata patch behavior, lexical ranking, stale evaluations, and the external tailoring instructions. DTO checks use an available bundled Zod 4.4.3 rather than the project's locked 4.6.7; they do not establish compatibility with every installed dependency.
+- Offline native checks exercise folder navigation, metadata patch behavior, lexical ranking, stale evaluations, external tailoring instructions, actual source comparison, and evidence/outcome contracts. DTO checks use an available bundled Zod 4.4.3 rather than the project's locked 4.6.7; they do not establish compatibility with every installed dependency. Full MCP SDK execution and Vitest remain pending.
 - The additive library migration's SQL and snapshot have been checked for existing-schema preservation and matching tables, columns, constraints, and indexes. PostgreSQL execution remains unverified.
 
 ## Remaining verification
 
 - Install the locked workspace dependencies, then run the new Vitest suites, affected-package typechecks, `pnpm lint:agent`, `pnpm format:check`, Lingui extraction, API documentation generation, and the production build.
 - Run a Docker/browser smoke test: import, edit, autosave, duplicate, compile, download, restore a version, and link a tailored resume to an application.
+- Exercise requirement citations, rationale notes, current/historical source comparisons, stale review conflicts, unavailable/mismatched PDF checks, and user-reported outcomes through both website and MCP. Confirm generated drafts never inherit an earlier outcome and do not submit applications.
+- Review snapshots guard resume content and its direct source. Job metadata has no independent revision guard yet; concurrent chats should reread job context before saving a new assessment. A metadata revision guard remains a follow-up.
 - Match the TeX environment before claiming identical Overleaf pagination. The available older PDFLaTeX produces five pages for the supplied source, compared with four in the reference PDF; text and fonts match.
 
 ## Environment limits

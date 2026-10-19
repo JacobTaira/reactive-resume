@@ -1,7 +1,7 @@
-import type { LatexProject } from "@reactive-resume/schema/resume/latex";
+import type { LatexCompileOptions, LatexProject } from "@reactive-resume/schema/resume/latex";
 import { ORPCError } from "@orpc/server";
 import { env } from "@reactive-resume/env/server";
-import { latexCompileResultSchema, latexProjectSchema } from "@reactive-resume/schema/resume/latex";
+import { latexCompileOptionsSchema, latexCompileResultSchema, latexProjectSchema } from "@reactive-resume/schema/resume/latex";
 
 const MAX_RESPONSE_BYTES = 18 * 1024 * 1024;
 
@@ -15,7 +15,8 @@ export async function requestLatexWorker(path: "compile" | "unpack", input: unkn
 			method: "POST",
 			headers: { "content-type": "application/json", authorization: `Bearer ${env.LATEX_COMPILER_TOKEN}` },
 			body: JSON.stringify(input),
-			signal: AbortSignal.timeout(70_000),
+			// Includes the worker queue, two TeX passes, and bounded local PDF inspection.
+			signal: AbortSignal.timeout(90_000),
 			redirect: "error",
 		});
 		if (!response.ok) {
@@ -45,9 +46,10 @@ export async function requestLatexWorker(path: "compile" | "unpack", input: unkn
 	}
 }
 
-export async function compileLatexProject(project: LatexProject) {
+export async function compileLatexProject(project: LatexProject, options: LatexCompileOptions = {}) {
 	const input = latexProjectSchema.parse(project);
-	return latexCompileResultSchema.parse(await requestLatexWorker("compile", input));
+	const compileOptions = latexCompileOptionsSchema.parse(options);
+	return latexCompileResultSchema.parse(await requestLatexWorker("compile", { ...input, ...compileOptions }));
 }
 
 export async function unpackLatexArchive(archive: string) {

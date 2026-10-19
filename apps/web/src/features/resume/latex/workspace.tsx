@@ -10,6 +10,7 @@ import { Icon } from "@reactive-resume/ui/components/icon";
 import { toast } from "@reactive-resume/ui/components/toast";
 import { downloadWithAnchor } from "@reactive-resume/utils/file";
 import { LatexCodeEditor } from "./code-editor";
+import { LatexPdfChecks } from "./compile-checks";
 import { base64Bytes, projectArchive } from "./files";
 import { LatexSplitPanes } from "./split-panes";
 import { useCurrentResume, useResumeStore, useUpdateResumeData } from "@/features/resume/builder/draft";
@@ -67,22 +68,36 @@ type LatexDocumentProps = { project: LatexProject; readOnly: boolean };
 
 function LatexDocument({ project, readOnly }: LatexDocumentProps) {
 	const resume = useCurrentResume();
+	const expectedPagesKey = `reactive-resume:latex-expected-pages:${resume.id}`;
+	const [expectedPages, setExpectedPages] = useState(() => {
+		try {
+			const saved = window.localStorage.getItem(expectedPagesKey) ?? "";
+			return Number.isInteger(Number(saved)) && Number(saved) >= 1 && Number(saved) <= 100 ? saved : "";
+		} catch { return ""; }
+	});
+	const validPageTarget = expectedPages === "" || Number.isInteger(Number(expectedPages)) && Number(expectedPages) >= 1 && Number(expectedPages) <= 100;
+	const expectedPageCount = expectedPages !== "" && validPageTarget ? Number(expectedPages) : undefined;
+	useEffect(() => {
+		if (!validPageTarget) return;
+		try { window.localStorage.setItem(expectedPagesKey, expectedPages); }
+		catch { /* Page targets still work when browser storage is unavailable. */ }
+	}, [expectedPages, expectedPagesKey, validPageTarget]);
 	const update = useUpdateResumeData();
 	const canUndo = useResumeStore((state) => state.canUndo);
 	const canRedo = useResumeStore((state) => state.canRedo);
 	const [selected, setSelected] = useState(project.entrypoint);
-	const [requested, setRequested] = useState(project);
+	const [requested, setRequested] = useState({ project, expectedPageCount });
 	const [logOpen, setLogOpen] = useState(false);
 	const [parserOpen, setParserOpen] = useState(false);
 	const [parserText, setParserText] = useState("");
 	const upload = useRef<HTMLInputElement>(null);
 	const file = project.files.find((item) => item.path === selected) ?? project.files[0];
-	const currentKey = JSON.stringify(project);
+	const currentKey = JSON.stringify({ project, expectedPageCount });
 	const requestedKey = JSON.stringify(requested);
 	const stale = currentKey !== requestedKey;
 	const result = useQuery({
 		queryKey: ["latex-preview", resume.id, requestedKey],
-		queryFn: () => client.resume.latex.render({ project: requested }),
+		queryFn: () => client.resume.latex.render(requested),
 		staleTime: Infinity, gcTime: 60_000, retry: false,
 	});
 	const blob = useMemo(() => result.data?.success ? new Blob([base64Bytes(result.data.pdf)], { type: "application/pdf" }) : undefined, [result.data]);
@@ -94,12 +109,19 @@ function LatexDocument({ project, readOnly }: LatexDocumentProps) {
 		update((draft) => { draft.latex = next; }, key ? { coalesceKey: key } : { newStep: true });
 	};
 	const compile = () => {
+		setParserOpen(false);
+		setParserText("");
 		if (currentKey === requestedKey) void result.refetch();
-		else setRequested(structuredClone(project));
+		else setRequested({ project: structuredClone(project), expectedPageCount });
 	};
 	const downloadPdf = () => { if (blob && !stale && !failed) downloadWithAnchor(blob, `${resume.name}.pdf`); };
 	const showParser = async () => {
 		if (!blob) return;
+		if (result.data?.success && result.data.checks && ["success", "empty"].includes(result.data.checks.textExtraction.status)) {
+			setParserText(result.data.checks.textExtraction.text);
+			setParserOpen(true);
+			return;
+		}
 		try {
 			const { extractPdfLines } = await import("../import/pdf-text");
 			const lines = await extractPdfLines(new File([blob], "resume.pdf", { type: "application/pdf" }));
@@ -164,15 +186,18 @@ function LatexDocument({ project, readOnly }: LatexDocumentProps) {
 	} preview={
 		<section aria-label={t`Compiled PDF`} className="flex min-h-0 min-w-0 flex-1 flex-col bg-sunken">
 			<div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface p-3">
-				<Button onClick={compile} disabled={result.isFetching}>{result.isFetching ? <Trans>Compiling…</Trans> : <Trans>Compile PDF</Trans>}</Button>
+				<Button onClick={compile} disabled={result.isFetching || !validPageTarget}>{result.isFetching ? <Trans>Compiling…</Trans> : <Trans>Compile PDF</Trans>}</Button>
 				<Button variant="secondary" disabled={!blob || stale || failed || result.isFetching} onClick={downloadPdf}><Trans>Download PDF</Trans></Button>
 				<Button variant="ghost" disabled={!blob || stale || failed} onClick={() => void showParser()}><Trans>Read extracted text</Trans></Button>
 				<Button variant="ghost" onClick={() => setLogOpen(!logOpen)} aria-expanded={logOpen}><Trans>Compiler log</Trans></Button>
+				<label className="flex items-center gap-2 text-xs text-ink-2"><Trans>Expected pages</Trans><input type="number" min={1} max={100} step={1} value={expectedPages} aria-invalid={!validPageTarget} placeholder="—" title={t`Leave blank to report page count without a target.`} className="w-16 rounded border border-line bg-raised px-2 py-1.5 text-sm text-ink" onChange={(event) => setExpectedPages(event.target.value)} /></label>
+				{!validPageTarget && <p role="alert" className="text-xs text-danger-text"><Trans>Use a page target from 1 to 100, or leave it blank.</Trans></p>}
 			</div>
-			{stale && <p role="status" className="border-b border-line bg-accent-soft px-4 py-2 text-sm"><Trans>Source changed. Compile again before downloading.</Trans></p>}
+			{stale && <p role="status" className="border-b border-line bg-accent-soft px-4 py-2 text-sm"><Trans>Source or page target changed. Compile again to refresh the PDF checks.</Trans></p>}
+			{result.data?.success && !failed && <LatexPdfChecks checks={result.data.checks} stale={stale} />}
 			{failed && <p role="alert" className="bg-danger-soft px-4 py-3 text-sm text-danger-text"><Trans>Compilation failed. Check the compiler log below.</Trans></p>}
 			{(logOpen || failed) && <pre className="max-h-52 shrink-0 overflow-auto border-b border-line p-3 font-mono text-xs whitespace-pre-wrap" aria-label={t`Compiler output`}>{log}</pre>}
-			{parserOpen && <div className="max-h-64 shrink-0 overflow-auto border-b border-line bg-surface p-4"><Button variant="ghost" size="sm" onClick={() => setParserOpen(false)}><Trans>Close extracted text</Trans></Button><pre className="mt-2 text-xs whitespace-pre-wrap">{parserText}</pre></div>}
+			{parserOpen && <div className="max-h-64 shrink-0 overflow-auto border-b border-line bg-surface p-4"><Button variant="ghost" size="sm" onClick={() => setParserOpen(false)}><Trans>Close extracted text</Trans></Button>{result.data?.success && result.data.checks?.textExtraction.truncated && <p className="mt-2 text-xs text-ink-3"><Trans>The extracted text shown is limited to 50,000 characters.</Trans></p>}<pre className="mt-2 text-xs whitespace-pre-wrap">{parserText}</pre></div>}
 			{blob && !failed ? <CompiledPdf blob={blob} /> : !failed && <p role="status" className="p-6 text-sm text-ink-2"><Trans>Preparing PDF preview…</Trans></p>}
 		</section>
 	} />;

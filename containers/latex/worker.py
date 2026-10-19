@@ -27,6 +27,10 @@ MAX_ARCHIVE_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 MAX_PDF_BYTES = 12 * 1024 * 1024
 MAX_LOG_BYTES = 64 * 1024
+MAX_INSPECTION_BYTES = 8 * 1024 * 1024
+MAX_EXTRACTED_TEXT_CHARS = 50_000
+MAX_TEXT_PREVIEW_CHARS = 1_000
+MAX_OVERFULL_MESSAGES = 20
 ALLOWED_EXTENSIONS = {
     ".tex", ".sty", ".cls", ".clo", ".cfg", ".def", ".bib", ".bst", ".bbl",
     ".png", ".jpg", ".jpeg", ".pdf", ".eps", ".tfm", ".enc", ".map", ".pfb",
@@ -152,7 +156,85 @@ def unpack_project(archive):
     return project
 
 
-def compile_project(project, timeout=30):
+def overfull_box_warnings(transcript):
+    """Count final-pass warnings without retaining the document's verbose TeX output."""
+    count = 0
+    messages = []
+    transcript.seek(0)
+    while True:
+        # Bound individual reads as well: TeX can print a very long source line.
+        line = transcript.readline(MAX_LOG_BYTES)
+        if not line:
+            break
+        for warning in re.finditer(rb"Overfull \\[hv]box[^\r\n]*", line):
+            count += 1
+            if len(messages) < MAX_OVERFULL_MESSAGES:
+                messages.append(warning.group().decode("utf-8", errors="replace")[:500])
+    return {"count": count, "messages": messages, "truncated": count > len(messages)}
+
+
+def run_pdf_tool(tool, arguments, directory):
+    executable = shutil.which(tool)
+    if not executable:
+        return {"status": "unavailable", "output": "", "error": "The PDF inspection tool is unavailable."}
+    try:
+        with tempfile.TemporaryFile() as output:
+            process = subprocess.run(
+                [executable, *arguments], cwd=directory, stdin=subprocess.DEVNULL,
+                stdout=output, stderr=subprocess.DEVNULL, timeout=5,
+                env={"PATH": os.defpath, "HOME": str(directory), "LANG": "C.UTF-8"},
+            )
+            if process.returncode != 0:
+                return {"status": "failed", "output": "", "error": "The PDF inspection tool could not read this PDF."}
+            output.seek(0, 2)
+            if output.tell() > MAX_INSPECTION_BYTES:
+                return {"status": "failed", "output": "", "error": "The PDF check output exceeded the size limit."}
+            output.seek(0)
+            return {"status": "success", "output": output.read(MAX_INSPECTION_BYTES).decode("utf-8", errors="replace"), "error": None}
+    except subprocess.TimeoutExpired:
+        return {"status": "failed", "output": "", "error": "The PDF inspection tool exceeded the time limit."}
+    except OSError:
+        return {"status": "failed", "output": "", "error": "The PDF inspection tool could not run."}
+
+
+def bounded_text(text, limit):
+    # The API's JavaScript string limits count UTF-16 code units, including surrogate pairs.
+    return text.encode("utf-16-le")[:limit * 2].decode("utf-16-le", errors="ignore")
+
+
+def inspect_pdf(pdf, overfull_boxes, expected_page_count=None):
+    """Local, bounded PDF checks; these do not establish visual quality or ATS compatibility."""
+    info = run_pdf_tool("pdfinfo", [str(pdf)], pdf.parent)
+    # pdfinfo prints document-controlled title fields before its own Pages line.
+    pages = re.findall(r"^Pages:[ \t]+(\d+)[ \t]*$", info["output"], re.MULTILINE)
+    page_count = int(pages[-1]) if pages else None
+    if page_count == 0:
+        page_count = None
+    page_error = None if page_count else info["error"] or "The PDF page count could not be determined."
+    extraction = run_pdf_tool("pdftotext", ["-enc", "UTF-8", "-layout", str(pdf), "-"], pdf.parent)
+    text = extraction["output"].replace("\x0c", "\n").strip()
+    status = ("success" if text else "empty") if extraction["status"] == "success" else extraction["status"]
+    extracted = bounded_text(text, MAX_EXTRACTED_TEXT_CHARS)
+    return {
+        "pageCount": page_count,
+        "expectedPageCount": expected_page_count,
+        "pageCountMatches": page_count == expected_page_count if page_count is not None and expected_page_count is not None else None,
+        "pageCountError": page_error,
+        "overfullBoxes": overfull_boxes,
+        "textExtraction": {
+            "status": status,
+            "characterCount": len(text) if extraction["status"] == "success" else None,
+            "text": extracted,
+            "preview": bounded_text(text, MAX_TEXT_PREVIEW_CHARS),
+            "truncated": len(extracted) < len(text),
+            "error": extraction["error"],
+        },
+    }
+
+
+def compile_project(project, timeout=30, expected_page_count=None):
+    if expected_page_count is not None and (type(expected_page_count) is not int or not 1 <= expected_page_count <= 100):
+        raise ProjectError("Expected page count must be between 1 and 100, or omitted.")
     entrypoint, files = validate_project(project)
     compiler = shutil.which("pdflatex")
     if not compiler:
@@ -186,6 +268,7 @@ def compile_project(project, timeout=30):
         log = ""
         # Two passes resolve the document's links and cross references. Never execute latexmkrc.
         deadline = time.monotonic() + timeout
+        overflow = {"count": 0, "messages": [], "truncated": False}
         for _ in range(2):
             with tempfile.TemporaryFile() as transcript:
                 process = subprocess.Popen(
@@ -207,13 +290,15 @@ def compile_project(project, timeout=30):
                 log = log.replace(directory, "[project]")
                 if process.returncode != 0:
                     return {"success": False, "log": log}
+                overflow = overfull_box_warnings(transcript)
         pdf = output / "resume.pdf"
         if not pdf.exists() or pdf.stat().st_size > MAX_PDF_BYTES:
             return {"success": False, "log": "Compilation did not produce a PDF within the size limit."}
         content = pdf.read_bytes()
         if not content.startswith(b"%PDF-"):
             return {"success": False, "log": "The compiler did not produce a valid PDF."}
-        return {"success": True, "pdf": base64.b64encode(content).decode("ascii"), "log": log}
+        checks = inspect_pdf(pdf, overflow, expected_page_count)
+        return {"success": True, "pdf": base64.b64encode(content).decode("ascii"), "log": log, "checks": checks}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -259,7 +344,7 @@ class Handler(BaseHTTPRequestHandler):
                     result = COMPILE_CACHE[key]
                     COMPILE_CACHE.move_to_end(key)
                 else:
-                    result = compile_project(body)
+                    result = compile_project(body, expected_page_count=body.get("expectedPageCount"))
                     if result["success"]:
                         COMPILE_CACHE[key] = result
                         while len(COMPILE_CACHE) > 8 or sum(len(value["pdf"]) for value in COMPILE_CACHE.values()) > MAX_CACHE_BYTES:

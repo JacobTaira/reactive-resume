@@ -41,6 +41,7 @@ describe("tool annotations", () => {
 			MCP_TOOL_NAME.readResumeMetadata,
 			MCP_TOOL_NAME.findRelatedResumes,
 			MCP_TOOL_NAME.findRelatedJobs,
+			MCP_TOOL_NAME.compareResumes,
 		]) {
 			expect(TOOL_META[name].annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false, openWorldHint: false });
 		}

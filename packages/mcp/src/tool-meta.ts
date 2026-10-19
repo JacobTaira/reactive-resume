@@ -16,6 +16,7 @@ import {
 	interviewKindSchema,
 } from "@reactive-resume/schema/applications/data";
 import { coverLetterDocumentSchema } from "@reactive-resume/schema/cover-letter/data";
+import { latexCompileChecksSchema, latexCompileOptionsSchema } from "@reactive-resume/schema/resume/latex";
 import { templateSchema } from "@reactive-resume/schema/templates";
 import { toWireObjectSchema, toWireSchema } from "./contracts";
 import { LIBRARY_TOOL_META } from "./library-tool-meta";
@@ -246,9 +247,14 @@ const idOutput = z.object({ id: z.string() });
 const BASE_TOOL_META = {
 	[T.compileResumeLatex]: {
 		title: "Compile LaTeX Resume",
-		description: "Compile a saved LaTeX resume using its original PDFLaTeX source. Returns success and a bounded compiler log, without changing the resume. Use read_resume and apply_resume_patch to edit /latex/files/{index}/content, preserving template macros. Then use download_resume_pdf for the compiled PDF. No AI provider is invoked.",
-		inputSchema: wireInput(z.strictObject({ id: resumeIdSchema })),
-		outputSchema: z.object({ success: z.boolean(), log: z.string() }),
+		description: "Compile a saved LaTeX resume using its original PDFLaTeX source. Returns success, a bounded compiler log and checks: page count, optional expected-page match, overfull box warnings, and bounded extracted text. Pass expectedPageCount only for the user's stated target. Missing diagnostics return checks=null and a diagnosticsNote; do not treat that as a pass. Machine checks do not prove visual quality or ATS compatibility. Use read_resume and apply_resume_patch for source edits, then download_resume_pdf for the PDF. PDF bytes are not returned here. No AI provider is invoked.",
+		inputSchema: wireInput(latexCompileOptionsSchema.extend({ id: resumeIdSchema }).strict()),
+		outputSchema: z.object({
+			success: z.boolean(),
+			log: z.string(),
+			checks: latexCompileChecksSchema.nullable(),
+			diagnosticsNote: z.string().nullable(),
+		}),
 		annotations: READ_IDEMPOTENT,
 	},
 	[T.listResumes]: {

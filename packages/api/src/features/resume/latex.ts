@@ -1,7 +1,7 @@
 import z from "zod";
 import { ORPCError } from "@orpc/server";
 import { env } from "@reactive-resume/env/server";
-import { latexCompileResultSchema, latexProjectSchema } from "@reactive-resume/schema/resume/latex";
+import { latexCompileOptionsSchema, latexCompileResultSchema, latexProjectSchema } from "@reactive-resume/schema/resume/latex";
 import { protectedProcedure } from "../../context";
 import { pdfAnalysisRateLimit, pdfExportRateLimit } from "../../middleware/rate-limit";
 import { compileLatexProject, unpackLatexArchive } from "./latex-compiler";
@@ -10,10 +10,10 @@ import { resumeService } from "./service";
 export const latexRouter = {
 	render: protectedProcedure
 		.route({ method: "POST", path: "/latex/previews", tags: ["LaTeX"], summary: "Preview a supplied LaTeX project" })
-		.input(z.object({ project: latexProjectSchema }))
+		.input(z.object({ project: latexProjectSchema, ...latexCompileOptionsSchema.shape }))
 		.output(latexCompileResultSchema)
 		.use(pdfAnalysisRateLimit)
-		.handler(({ input }) => compileLatexProject(input.project)),
+		.handler(({ input }) => compileLatexProject(input.project, input)),
 	status: protectedProcedure
 		.route({ method: "GET", path: "/latex/status", tags: ["LaTeX"], summary: "Read LaTeX availability" })
 		.output(z.object({ configured: z.boolean() }))
@@ -26,7 +26,7 @@ export const latexRouter = {
 		.handler(({ input }) => unpackLatexArchive(input.archive)),
 	compile: protectedProcedure
 		.route({ method: "POST", path: "/resumes/{id}/latex/compilations", tags: ["LaTeX"], summary: "Compile a LaTeX resume" })
-		.input(z.object({ id: z.string().min(1), project: latexProjectSchema.optional() }))
+		.input(z.object({ id: z.string().min(1), project: latexProjectSchema.optional(), ...latexCompileOptionsSchema.shape }))
 		.output(latexCompileResultSchema)
 		.use(pdfExportRateLimit)
 		.handler(async ({ input, context }) => {
@@ -34,6 +34,6 @@ export const latexRouter = {
 			const resume = await resumeService.getById({ id: input.id, userId: context.user.id });
 			const project = input.project ?? resume.data.latex;
 			if (!project) throw new ORPCError("BAD_REQUEST", { message: "This resume does not contain a LaTeX project." });
-			return compileLatexProject(project);
+			return compileLatexProject(project, input);
 		}),
 };

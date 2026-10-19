@@ -37,6 +37,7 @@ The editor offers:
 - Syntax highlighting, project file selection, and main-document selection.
 - Automatic saving through the existing resume store, plus Undo and Redo.
 - Compile PDF, a PDF preview, and a compiler log when compilation fails.
+- PDF checks for page count, the page target you supply, overfull boxes and extracted text.
 - Download PDF, Download source ZIP, and individual file downloads.
 - Read extracted text to check that the PDF's text can be recovered.
 - The existing document menu, duplication, application links, and version history.
@@ -46,6 +47,8 @@ Drag the divider between the source and PDF to resize the panes. Focus the divid
 Use resume folders, company research, and the compact related-resume/job index to reuse previous work. See [Organize resumes and company research](./organizing-resumes.mdx) for the website controls, MCP tools, and tailoring workflow.
 
 After changing source, compile again before downloading from the editor. A successful PDF from an earlier source revision is not offered as the current download. Inspect the rendered PDF after tailoring: changed content can change wrapping and pagination.
+
+When you have a specific page target, supply that expected page count before compiling. The checks report the actual count and whether it matches. Overfull box warnings identify possible text overflow; they do not detect every layout problem. Text extraction reports success, empty output, failure or unavailable tools, and gives a bounded text preview. Missing diagnostics from an older worker are shown as unavailable rather than passing. A successful compilation or readable extracted text does not establish ATS compatibility.
 
 Use Documents' existing copy-for-a-job action to create a tailored resume linked to an application. History can show and restore a previous source version. Recording an application as submitted and attaching the version actually sent remains a separate action.
 
@@ -62,15 +65,16 @@ Use `/mcp` to complete browser authentication against the local account. An alre
 
 Give Claude your background files and job description. Ask it to:
 
-1. Find the base resume with `list_resumes` and inspect it with `read_resume`.
-2. Duplicate the base with `duplicate_resume`, preserving the original.
-3. Read the `latex` project and use `apply_resume_patch` to edit the appropriate `/latex/files/{index}/content` fields. Preserve the template's formatting commands and supporting files.
-4. Run `compile_resume_latex`, resolve any errors, and request `download_resume_pdf`.
-5. Associate the tailored copy with the relevant application through the ordinary application/document tools.
+1. Find the master and useful related versions with `find_related_resumes`, then inspect their full content with `read_resume`. Read `read_resume_metadata` for earlier requirement evidence, change rationale and reported outcomes; prioritize relevant verified facts over an earlier score or hiring result.
+2. Duplicate the selected base with `duplicate_resume`, preserving the original. Save the posting's requirements and real supporting quotes in `profile.requirementEvidence` through `update_resume_metadata`.
+3. Read the `latex` project and use `apply_resume_patch` to edit the appropriate `/latex/files/{index}/content` fields. Preserve the template's formatting commands and supporting files, and record useful before/after excerpts in `profile.tailoringChanges`.
+4. Use `compare_resumes` for actual saved-source differences. Its default source is current content, not an automatic historical snapshot; select an existing `sourceVersionId` when that is the intended baseline. Report coarse or truncated comparisons.
+5. Run `compile_resume_latex`, optionally with `expectedPageCount` when you specified a target. Review its compiler log and `checks` for page count, overflow and recovered text. `checks: null` and a `diagnosticsNote` mean those checks were unavailable. Fix errors, inspect the PDF where supported, then request `download_resume_pdf`.
+6. Save the final requirement map, rationale, score and current review snapshots, and associate the tailored copy with the relevant saved application. Create or update the company's Companies document with `save_company_note` as useful research accumulates. Return the PDF for your review; do not submit or invent an outcome.
 
 These operations do not call Reactive Resume's AI provider. The existing `tailor_resume_for_application` action is a different, provider-backed operation and does not tailor the LaTeX source. External assistants must use the general document editing tools described above.
 
-The compiler's availability can be checked with `api_resume_latex_status`. `api_resume_latex_unpack` converts a base64 source ZIP into the project structure without saving a resume. For an initial import, the browser UI is usually easier.
+The compiler's availability can be checked with `api_resume_latex_status`. `api_resume_latex_unpack` converts a base64 source ZIP into the project structure without saving a resume. For an initial import, the browser UI is usually easier. The `tailor_resume_for_job` prompt covers the complete evidence, company research, review and scoring process described in [Organize resumes and company research](./organizing-resumes.mdx).
 
 ## Supported projects and limits
 

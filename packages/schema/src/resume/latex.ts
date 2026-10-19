@@ -58,7 +58,35 @@ export const latexProjectSchema = z.object({
 export type LatexProject = z.infer<typeof latexProjectSchema>;
 export type LatexFile = z.infer<typeof latexFileSchema>;
 
+export const latexCompileOptionsSchema = z.object({
+	expectedPageCount: z.number().int().min(1).max(100).optional(),
+});
+
+export const latexCompileChecksSchema = z.object({
+	pageCount: z.number().int().positive().nullable(),
+	expectedPageCount: z.number().int().min(1).max(100).nullable(),
+	pageCountMatches: z.boolean().nullable(),
+	pageCountError: z.string().max(500).nullable(),
+	overfullBoxes: z.object({
+		count: z.number().int().nonnegative(),
+		messages: z.array(z.string().max(500)).max(20),
+		truncated: z.boolean(),
+	}),
+	textExtraction: z.object({
+		status: z.enum(["success", "empty", "failed", "unavailable"]),
+		characterCount: z.number().int().nonnegative().nullable(),
+		text: z.string().max(50_000),
+		preview: z.string().max(1_000),
+		truncated: z.boolean(),
+		error: z.string().max(500).nullable(),
+	}),
+});
+
+export type LatexCompileOptions = z.infer<typeof latexCompileOptionsSchema>;
+export type LatexCompileChecks = z.infer<typeof latexCompileChecksSchema>;
+
 export const latexCompileResultSchema = z.discriminatedUnion("success", [
-	z.object({ success: z.literal(true), pdf: z.base64(), log: z.string() }),
+	// An older worker can still compile; clients must explicitly report its missing checks as unavailable.
+	z.object({ success: z.literal(true), pdf: z.base64(), log: z.string(), checks: latexCompileChecksSchema.optional() }),
 	z.object({ success: z.literal(false), log: z.string() }),
 ]);

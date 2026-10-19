@@ -767,6 +767,10 @@ msgstr "<0>Submitted on {0}.</0> The versions you sent are kept in Saved. Edits 
 msgid "<0>Totals aren't added up on purpose.</0> Bonus and equity depend on conditions, and equity value is uncertain for both. Read the original offer documents before comparing totals."
 msgstr "<0>Totals aren't added up on purpose.</0> Bonus and equity depend on conditions, and equity value is uncertain for both. Read the original offer documents before comparing totals."
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "− Removed from source · + Added in this resume"
+msgstr "− Removed from source · + Added in this resume"
+
 #: src/features/homepage/check.tsx
 #: src/features/homepage/sheet.tsx
 msgid "06/2017 – 2021"
@@ -956,6 +960,10 @@ msgstr "A reminder to check in, shown as the next step until you do."
 msgid "A review aid from you or your agent. This score is not a prediction of hiring outcomes."
 msgstr "A review aid from you or your agent. This score is not a prediction of hiring outcomes."
 
+#: src/features/documents/resume-review-panel.tsx
+msgid "A review has not been recorded for this version."
+msgstr "A review has not been recorded for this version."
+
 #: src/features/resume/editor/check/issues.ts
 msgid "A role has no description"
 msgstr "A role has no description"
@@ -1101,6 +1109,10 @@ msgstr "Add a company"
 #: src/features/documents/companies-library.tsx
 msgid "Add a company yourself, or ask Claude to save its research here through MCP."
 msgstr "Add a company yourself, or ask Claude to save its research here through MCP."
+
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Add a company, target role, or keywords in Details, then save to find related resumes."
+msgstr "Add a company, target role, or keywords in Details, then save to find related resumes."
 
 #: src/features/career/knowledge/facts.tsx
 msgid "Add a fact, for example “I mentored two associate PMs in 2025”"
@@ -1404,6 +1416,10 @@ msgstr "Add what happened before you can save."
 msgid "Add your name"
 msgstr "Add your name"
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Added"
+msgstr "Added"
+
 #. placeholder {0}: role.trim()
 #. placeholder {1}: company.trim()
 #: src/features/applications/components/add-application-dialog.tsx
@@ -1414,6 +1430,10 @@ msgstr "Added {0} at {1}"
 #: src/features/career/shared.tsx
 msgid "Added by you"
 msgstr "Added by you"
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Added file"
+msgstr "Added file"
 
 #: src/features/career/coach-thread.tsx
 msgid "Added to Knowledge as a preference."
@@ -1459,6 +1479,10 @@ msgstr "Advice for the person reading it. None of this affects the score."
 msgid "Afrikaans"
 msgstr "Afrikaans"
 
+#: src/features/documents/resume-review-panel.tsx
+msgid "After"
+msgstr "After"
+
 #: src/features/career/workspace/debrief.tsx
 msgid "After the behavioral interview"
 msgstr "After the behavioral interview"
@@ -1490,6 +1514,10 @@ msgstr "After your first review, a light plan for this week appears here."
 #: src/features/career/workspace/fit.tsx
 msgid "Against your requirements"
 msgstr "Against your requirements"
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "Agent-recorded tailoring changes"
+msgstr "Agent-recorded tailoring changes"
 
 #: src/features/command-palette/pages/navigation.tsx
 #: src/features/settings/ai/page.tsx
@@ -1817,6 +1845,10 @@ msgstr "Application details"
 msgid "Application options"
 msgstr "Application options"
 
+#: src/features/documents/resume-details-dialog.tsx
+msgid "Application outcome"
+msgstr "Application outcome"
+
 #: src/features/career/coach.tsx
 msgid "application summaries"
 msgstr "application summaries"
@@ -2070,6 +2102,10 @@ msgstr "Attachment"
 msgid "Auto-fill failed."
 msgstr "Auto-fill failed."
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Automatic PDF checks are unavailable. Rebuild the LaTeX compiler service to enable them."
+msgstr "Automatic PDF checks are unavailable. Rebuild the LaTeX compiler service to enable them."
+
 #: src/features/career/knowledge/facts.tsx
 msgid "Automatically"
 msgstr "Automatically"
@@ -2185,6 +2221,10 @@ msgstr "Based on resume"
 #: src/libs/resume/section.tsx
 msgid "Basics"
 msgstr "Basics"
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "Before"
+msgstr "Before"
 
 #: src/features/resume/share/format.ts
 msgid "Before restore"
@@ -2581,6 +2621,10 @@ msgstr "Checks by category"
 msgid "Checks every bullet for action and result"
 msgstr "Checks every bullet for action and result"
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Checks use compiler warnings and extracted PDF text. Review the layout and text before submitting; these checks do not guarantee ATS compatibility."
+msgstr "Checks use compiler warnings and extracted PDF text. Review the layout and text before submitting; these checks do not guarantee ATS compatibility."
+
 #: src/libs/locale.ts
 msgid "Chinese (Simplified)"
 msgstr "Chinese (Simplified)"
@@ -2600,6 +2644,10 @@ msgstr "Choose a file to import"
 #: src/features/documents/folder-navigation.tsx
 msgid "Choose a name that helps you and your agent find related resumes."
 msgstr "Choose a name that helps you and your agent find related resumes."
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Choose a resume in “Based on resume” and save its details to compare the saved content."
+msgstr "Choose a resume in “Based on resume” and save its details to compare the saved content."
 
 #: src/routes/builder/letter/-components/design-panel.tsx
 msgid "Choose a resume in Write to match its design. Until then, the letter has its own."
@@ -2836,6 +2884,14 @@ msgstr "Compare attempts to see what improved. Practice questions are simulated,
 msgid "Compare offers"
 msgstr "Compare offers"
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Compare this resume with its source as saved now. The source may have changed since the copy was made; this is separate from the agent’s explanation of its edits."
+msgstr "Compare this resume with its source as saved now. The source may have changed since the copy was made; this is separate from the agent’s explanation of its edits."
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Compare with source"
+msgstr "Compare with source"
+
 #: src/features/career/offers.tsx
 msgid "Compared in their original currency and pay period. Comparing doesn't share anything with the coach."
 msgstr "Compared in their original currency and pay period. Comparing doesn't share anything with the coach."
@@ -2847,6 +2903,10 @@ msgstr "Compared with your stories and the posting."
 #: src/features/assistant/assistant-panel.tsx
 msgid "Compares your resume with the posting"
 msgstr "Compares your resume with the posting"
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Comparing…"
+msgstr "Comparing…"
 
 #: src/features/resume/latex/workspace.tsx
 msgid "Compilation failed. Check the compiler log below."
@@ -3289,6 +3349,10 @@ msgstr "Couldn't change the schedule."
 msgid "Couldn't change this schedule."
 msgstr "Couldn't change this schedule."
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Couldn't compare these resumes. The source may have been removed or moved to Trash."
+msgstr "Couldn't compare these resumes. The source may have been removed or moved to Trash."
+
 #: src/features/assistant/provider-setup.tsx
 msgid "Couldn't connect. Check the key and try again."
 msgstr "Couldn't connect. Check the key and try again."
@@ -3417,6 +3481,10 @@ msgstr "Couldn't load folders."
 #: src/features/career/knowledge/stories.tsx
 msgid "Couldn't load interviews. Retry"
 msgstr "Couldn't load interviews. Retry"
+
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Couldn't load related resumes."
+msgstr "Couldn't load related resumes."
 
 #: src/features/ats-checker/checker.tsx
 msgid "Couldn't load the sample file. Try again."
@@ -4663,6 +4731,10 @@ msgstr "Email the recruiter"
 msgid "Embed all fonts when exporting, so characters map the way you intended."
 msgstr "Embed all fonts when exporting, so characters map the way you intended."
 
+#: src/features/documents/resume-review-panel.tsx
+msgid "Empty"
+msgstr "Empty"
+
 #: src/dialogs/auth/enable-two-factor.tsx
 msgid "Enable Two-Factor Authentication"
 msgstr "Enable Two-Factor Authentication"
@@ -4811,9 +4883,17 @@ msgstr "Everything the coach wrote for {0}, newest first."
 msgid "Everything you’ve done, on one page."
 msgstr "Everything you’ve done, on one page."
 
+#: src/features/documents/resume-review-panel.tsx
+msgid "Evidence and notes"
+msgstr "Evidence and notes"
+
 #: src/features/resume/stylesheet/toolbar.tsx
 msgid "Exit focus mode"
 msgstr "Exit focus mode"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Expected pages"
+msgstr "Expected pages"
 
 #: src/features/career/knowledge/facts.tsx
 #: src/features/homepage/check.tsx
@@ -4889,6 +4969,10 @@ msgstr "Exported pipeline-flow.png"
 #: src/features/resume/import/read-file.ts
 msgid "Extract this account archive, then import a JSON file from its resumes or letters folder."
 msgstr "Extract this account archive, then import a JSON file from its resumes or letters folder."
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Extracted characters: {characters}."
+msgstr "Extracted characters: {characters}."
 
 #: src/features/resume/editor/check/parser-view.tsx
 msgid "Extracted from the PDF on the page · reading order"
@@ -5396,6 +5480,10 @@ msgstr "Full name"
 #: src/routes/builder/$resumeId/-sidebar/right/sections/layout/pages.tsx
 msgid "Full Width"
 msgstr "Full Width"
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "Gap"
+msgstr "Gap"
 
 #: src/features/documents/resume-details-dialog.tsx
 msgid "General resume"
@@ -6168,6 +6256,10 @@ msgstr "Job posting link"
 msgid "Job posting URL"
 msgstr "Job posting URL"
 
+#: src/features/documents/resume-review-panel.tsx
+msgid "Job requirements and resume evidence"
+msgstr "Job requirements and resume evidence"
+
 #: src/features/applications/components/add-application-dialog.tsx
 msgid "Job search failed. Try again or paste a posting link."
 msgstr "Job search failed. Try again or paste a posting link."
@@ -6380,6 +6472,10 @@ msgstr "Language"
 msgid "Languages"
 msgstr "Languages"
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Large changes are shown as simplified blocks or shortened text. Review the full file for complete detail."
+msgstr "Large changes are shown as simplified blocks or shortened text. Review the full file for complete detail."
+
 #. placeholder {0}: monthYear(new Date(password.updatedAt))
 #: src/features/settings/account/security.tsx
 msgid "Last changed in {0}"
@@ -6468,6 +6564,10 @@ msgstr "Leave"
 #: src/features/ats-checker/messages.ts
 msgid "Leave at least half an inch around the page."
 msgstr "Leave at least half an inch around the page."
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Leave blank to report page count without a target."
+msgstr "Leave blank to report page count without a target."
 
 #: src/features/settings/ai/providers.tsx
 msgid "Leave empty to keep the saved key"
@@ -6813,9 +6913,17 @@ msgstr "Loading model suggestions… You can also enter any model ID."
 msgid "Loading providers…"
 msgstr "Loading providers…"
 
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Loading related resumes"
+msgstr "Loading related resumes"
+
 #: src/features/command-palette/pages/resumes.tsx
 msgid "Loading resumes…"
 msgstr "Loading resumes…"
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Loading saved content…"
+msgstr "Loading saved content…"
 
 #: src/features/career/workspace/shell.tsx
 msgid "Loading saved version…"
@@ -7109,6 +7217,11 @@ msgstr "Messages · Pasted from your email"
 msgid "Messages · Reply to Sam at Fieldnote"
 msgstr "Messages · Reply to Sam at Fieldnote"
 
+#. placeholder {0}: resume.similarity
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Metadata match {0}/100"
+msgstr "Metadata match {0}/100"
+
 #: src/features/career/workspace/practise.tsx
 msgid "Microphone blocked. Allow it in your browser settings, or type your answer."
 msgstr "Microphone blocked. Allow it in your browser settings, or type your answer."
@@ -7150,6 +7263,10 @@ msgstr "Model suggestions are unavailable. You can still enter any model ID."
 #: src/features/assistant/assistant-panel.tsx
 msgid "Model: {label}"
 msgstr "Model: {label}"
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Modified file"
+msgstr "Modified file"
 
 #: src/features/homepage/sheet.tsx
 msgid "Mono"
@@ -7626,6 +7743,10 @@ msgstr "No facts yet. Add one above."
 msgid "No interviews"
 msgstr "No interviews"
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "No issues detected by these checks"
+msgstr "No issues detected by these checks"
+
 #: src/features/documents/new-document-dialog.tsx
 msgid "No job yet"
 msgstr "No job yet"
@@ -7671,6 +7792,10 @@ msgstr "No offers to compare yet"
 msgid "No open issues"
 msgstr "No open issues"
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "No overfull box warnings in the compiler log."
+msgstr "No overfull box warnings in the compiler log."
+
 #: src/features/resume/editor/check/issues.ts
 msgid "No phone number"
 msgstr "No phone number"
@@ -7686,6 +7811,18 @@ msgstr "No photo. Most ATS ignore photos; some regions expect one."
 #: src/features/applications/components/add-application-dialog.tsx
 msgid "No postings found. Try different keywords."
 msgstr "No postings found. Try different keywords."
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "No readable text was extracted."
+msgstr "No readable text was extracted."
+
+#: src/features/documents/related-resumes-panel.tsx
+msgid "No related resumes matched this saved target yet. Your agent can still start from your master resume."
+msgstr "No related resumes matched this saved target yet. Your agent can still start from your master resume."
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "No requirement evidence yet. Ask Claude to map the job requirements to evidence from your resumes."
+msgstr "No requirement evidence yet. Ask Claude to map the job requirements to evidence from your resumes."
 
 #: src/features/applications/stages.ts
 msgid "No response"
@@ -7735,6 +7872,10 @@ msgstr "No suggestions for this provider. Enter any model ID."
 msgid "No summary yet. Open to add research."
 msgstr "No summary yet. Open to add research."
 
+#: src/features/documents/resume-review-panel.tsx
+msgid "No supporting evidence recorded."
+msgstr "No supporting evidence recorded."
+
 #: src/features/career/knowledge/stories.tsx
 msgid "No supporting facts. Link one before using this story."
 msgstr "No supporting facts. Link one before using this story."
@@ -7742,6 +7883,10 @@ msgstr "No supporting facts. Link one before using this story."
 #: src/features/career/knowledge/stories.tsx
 msgid "No tags yet"
 msgstr "No tags yet"
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "No tailoring changes recorded yet."
+msgstr "No tailoring changes recorded yet."
 
 #: src/features/resume/editor/check/job-match.tsx
 msgid "No terms stood out in this posting."
@@ -8101,6 +8246,10 @@ msgstr "Only the first {0} pages were checked."
 msgid "Only the first {MAX_IMPORT} rows import at once, leaving out {overflow}. Split the file to import the rest."
 msgstr "Only the first {MAX_IMPORT} rows import at once, leaving out {overflow}. Split the file to import the rest."
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Only the first 20 warnings are shown."
+msgstr "Only the first 20 warnings are shown."
+
 #: src/features/ats-checker/messages.ts
 msgid "Only the first pages were checked."
 msgstr "Only the first pages were checked."
@@ -8195,6 +8344,10 @@ msgstr "Opening"
 #: src/features/ats-checker/checker.tsx
 msgid "Opening the file"
 msgstr "Opening the file"
+
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Opens in a new tab"
+msgstr "Opens in a new tab"
 
 #: src/features/career/workspace/messages.tsx
 msgid "Opens in Career → Offers."
@@ -8309,9 +8462,21 @@ msgstr "out of 100"
 msgid "Out of date: the text has changed since."
 msgstr "Out of date: the text has changed since."
 
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Outcome from linked application"
+msgstr "Outcome from linked application"
+
+#: src/features/documents/resume-details-dialog.tsx
+msgid "Outcome notes"
+msgstr "Outcome notes"
+
 #: src/features/resume/editor/write/rich-text-editor.tsx
 msgid "Outdent"
 msgstr "Outdent"
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Overfull box warnings: {overflow}. Check for content extending beyond its allotted space."
+msgstr "Overfull box warnings: {overflow}. Check for content extending beyond its allotted space."
 
 #: src/features/homepage/prepare.tsx
 msgid "Own and evolve a design system"
@@ -8349,6 +8514,14 @@ msgstr "Page 1"
 msgid "Page 1 · {formatLabel}"
 msgstr "Page 1 · {formatLabel}"
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Page count differs from the target."
+msgstr "Page count differs from the target."
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Page count unavailable."
+msgstr "Page count unavailable."
+
 #: src/features/assistant/conversation.tsx
 msgid "Page reading didn't finish."
 msgstr "Page reading didn't finish."
@@ -8361,6 +8534,14 @@ msgstr "Page view"
 #: src/features/homepage/hero.tsx
 msgid "page."
 msgstr "page."
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Pages: {count}. No page target set."
+msgstr "Pages: {count}. No page target set."
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Pages: {count}. Target: {target}."
+msgstr "Pages: {count}. Target: {target}."
 
 #: src/features/resume/editor/design/style-groups.tsx
 msgid "Paper"
@@ -8384,6 +8565,10 @@ msgstr "Parcel & Co."
 #: src/features/homepage/write.tsx
 msgid "Parcel & Co. · Porto"
 msgstr "Parcel & Co. · Porto"
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "Partial support"
+msgstr "Partial support"
 
 #: src/features/career/shared.tsx
 #: src/features/homepage/prepare.tsx
@@ -8520,6 +8705,10 @@ msgstr "Paused schedules keep their settings."
 #: src/features/career/knowledge/preferences.tsx
 msgid "Pay period"
 msgstr "Pay period"
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "PDF checks"
+msgstr "PDF checks"
 
 #: src/features/resume/stylesheet/editor.tsx
 msgid "PDF styles support a subset of CSS. Rotation, dashed and dotted borders, and some layout properties are ignored."
@@ -8757,6 +8946,10 @@ msgstr "Preferences"
 msgctxt "Career preferences: the roles, places, pay and ways of working you want"
 msgid "Preferences"
 msgstr "Preferences"
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "Preferred"
+msgstr "Preferred"
 
 #: src/features/career/schedule-sheet.tsx
 #: src/features/career/shared.tsx
@@ -9078,6 +9271,11 @@ msgstr "Re-export with fonts embedded, then open the file and check that the tex
 msgid "Re: Senior Product Designer"
 msgstr "Re: Senior Product Designer"
 
+#. placeholder {0}: outcomeStageLabel(resume.outcome.strongestStage)
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Reached: {0}"
+msgstr "Reached: {0}"
+
 #: src/routes/_home/-sections/header.tsx
 msgid "Reactive Resume - Go to homepage"
 msgstr "Reactive Resume - Go to homepage"
@@ -9266,6 +9464,10 @@ msgstr "ready to compile"
 msgid "Reason"
 msgstr "Reason"
 
+#: src/features/documents/resume-review-panel.tsx
+msgid "Reason:"
+msgstr "Reason:"
+
 #: src/features/career/workspace/practise.tsx
 msgid "Recalled"
 msgstr "Recalled"
@@ -9289,6 +9491,11 @@ msgstr "Record application"
 #: src/features/career/workspace/practise.tsx
 msgid "Record your answer"
 msgstr "Record your answer"
+
+#. placeholder {0}: new Date(document.profile.outcome.recordedAt).toLocaleString(i18n.locale)
+#: src/features/documents/resume-details-dialog.tsx
+msgid "Recorded: {0}"
+msgstr "Recorded: {0}"
 
 #: src/features/career/workspace/practise.tsx
 msgid "Recording · {elapsed}"
@@ -9360,6 +9567,10 @@ msgstr "Referred by…, things to emphasize, etc."
 msgid "Reflection"
 msgstr "Reflection"
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Refresh comparison"
+msgstr "Refresh comparison"
+
 #: src/features/career/workspace/prepare.tsx
 msgid "Refresh the briefing 2 hours before"
 msgstr "Refresh the briefing 2 hours before"
@@ -9391,6 +9602,11 @@ msgstr "Reject"
 #: src/features/resume/editor/proposals/proposal-list.tsx
 msgid "Rejected"
 msgstr "Rejected"
+
+#: src/features/documents/resume-details-dialog.tsx
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Related resumes"
+msgstr "Related resumes"
 
 #: src/routes/builder/letter/-components/letter-bar.tsx
 msgid "Reload"
@@ -9517,6 +9733,14 @@ msgstr "Remove this passkey?"
 msgid "Remove this photo?"
 msgstr "Remove this photo?"
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Removed"
+msgstr "Removed"
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Removed file"
+msgstr "Removed file"
+
 #: src/features/career/coach.tsx
 #: src/features/documents/document-actions.tsx
 #: src/features/settings/account/security.tsx
@@ -9598,9 +9822,17 @@ msgstr "Report an issue"
 msgid "Require a password"
 msgstr "Require a password"
 
+#: src/features/documents/resume-review-panel.tsx
+msgid "Required"
+msgstr "Required"
+
 #: src/features/career/workspace/fit.tsx
 msgid "Requirement"
 msgstr "Requirement"
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "Requirement evidence"
+msgstr "Requirement evidence"
 
 #: src/features/career/knowledge/preferences.tsx
 msgid "Requirements"
@@ -9741,6 +9973,10 @@ msgstr "Resume details"
 msgid "Resume details saved"
 msgstr "Resume details saved"
 
+#: src/features/documents/resume-details-dialog.tsx
+msgid "Resume details section"
+msgstr "Resume details section"
+
 #: src/features/applications/components/detail/sent-documents.tsx
 msgid "Resume file"
 msgstr "Resume file"
@@ -9756,6 +9992,10 @@ msgstr "Resume folders"
 #: src/features/documents/companies-library.tsx
 msgid "Resume guidance and research notes"
 msgstr "Resume guidance and research notes"
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Resume line"
+msgstr "Resume line"
 
 #: src/routes/builder/$resumeId/-components/page-canvas.tsx
 msgid "Resume page"
@@ -9821,9 +10061,18 @@ msgstr "Retry saving"
 msgid "Retrying…"
 msgstr "Retrying…"
 
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Reuse a related resume"
+msgstr "Reuse a related resume"
+
 #: src/features/documents/resume-details-dialog.tsx
 msgid "Reuse notes"
 msgstr "Reuse notes"
+
+#. placeholder {0}: resume.reusePriority
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Reuse priority {0}/100"
+msgstr "Reuse priority {0}/100"
 
 #: src/features/career/today.tsx
 #: src/features/career/workspace/debrief.tsx
@@ -9847,6 +10096,10 @@ msgstr "Review my answer"
 msgid "Review my answer sends the question, what you said, this posting and your Knowledge to {providerName}."
 msgstr "Review my answer sends the question, what you said, this posting and your Knowledge to {providerName}."
 
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Review needs updating"
+msgstr "Review needs updating"
+
 #: src/features/career/workspace/apply.tsx
 msgid "Review required form answers and remove unsupported claims."
 msgstr "Review required form answers and remove unsupported claims."
@@ -9855,9 +10108,23 @@ msgstr "Review required form answers and remove unsupported claims."
 msgid "Review the selected resume and cover letter in their editors."
 msgstr "Review the selected resume and cover letter in their editors."
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Review warnings"
+msgstr "Review warnings"
+
 #: src/features/resume/editor/check/writing-tab.tsx
 msgid "Review writing"
 msgstr "Review writing"
+
+#. placeholder {0}: new Date(profile.reviewedResumeUpdatedAt).toLocaleString(i18n.locale)
+#: src/features/documents/resume-review-panel.tsx
+msgid "Reviewed resume version: {0}"
+msgstr "Reviewed resume version: {0}"
+
+#. placeholder {0}: new Date(profile.reviewedSourceUpdatedAt).toLocaleString(i18n.locale)
+#: src/features/documents/resume-review-panel.tsx
+msgid "Reviewed source version: {0}"
+msgstr "Reviewed source version: {0}"
 
 #: src/features/career/workspace/debrief.tsx
 msgid "Reviewing needs an AI connection. <0>Add one in Settings</0>. What you write here stays in this browser until then."
@@ -10153,6 +10420,14 @@ msgstr "Saved a story: {0}"
 #: src/features/resume/editor/check/job-match.tsx
 msgid "Saved as an application and linked"
 msgstr "Saved as an application and linked"
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Saved content"
+msgstr "Saved content"
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "Saved content comparison"
+msgstr "Saved content comparison"
 
 #: src/features/applications/components/add-application-dialog.tsx
 msgid "Saved description"
@@ -10701,6 +10976,10 @@ msgstr "Show link in title"
 msgid "Show on page"
 msgstr "Show on page"
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Show overflow details"
+msgstr "Show overflow details"
+
 #: src/features/resume/editor/chrome.tsx
 msgid "Show panel"
 msgstr "Show panel"
@@ -11041,9 +11320,21 @@ msgstr "Source changed. Compile again before downloading."
 msgid "Source code"
 msgstr "Source code"
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Source line"
+msgstr "Source line"
+
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Source needs comparison"
+msgstr "Source needs comparison"
+
 #: src/features/documents/companies-library.tsx
 msgid "Source notes"
 msgstr "Source notes"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Source or page target changed. Compile again to refresh the PDF checks."
+msgstr "Source or page target changed. Compile again to refresh the PDF checks."
 
 #: src/features/documents/new-document-dialog.tsx
 msgid "source read"
@@ -11060,6 +11351,12 @@ msgstr "Source title"
 #: src/features/documents/companies-library.tsx
 msgid "Source URL"
 msgstr "Source URL"
+
+#. placeholder {0}: result.source.name
+#. placeholder {1}: formatRelativeTime(result.source.updatedAt, i18n.locale)
+#: src/features/documents/resume-source-diff.tsx
+msgid "Source: {0} · Saved {1}"
+msgstr "Source: {0} · Saved {1}"
 
 #: src/features/assistant/conversation.tsx
 #: src/features/career/coach-thread.tsx
@@ -11336,6 +11633,10 @@ msgstr "Strikethrough"
 msgid "Stronger verb"
 msgstr "Stronger verb"
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Structured resume fields are shown as saved JSON; LaTeX resumes show their source files."
+msgstr "Structured resume fields are shown as saved JSON; LaTeX resumes show their source files."
+
 #: src/features/resume/stylesheet/toolbar.tsx
 msgid "Stylesheet editor"
 msgstr "Stylesheet editor"
@@ -11381,6 +11682,10 @@ msgstr "Suggested reply · edit before sending"
 #: src/features/settings/ai/providers.tsx
 msgid "Suggestions from <0>models.dev</0>. You can also enter any model ID."
 msgstr "Suggestions from <0>models.dev</0>. You can also enter any model ID."
+
+#: src/features/documents/related-resumes-panel.tsx
+msgid "Suggestions use this resume's saved company, role, and keywords. Recorded outcomes can add a small reuse preference. Check the review and source warnings before reusing content."
+msgstr "Suggestions use this resume's saved company, role, and keywords. Recorded outcomes can add a small reuse preference. Check the review and source warnings before reusing content."
 
 #: src/features/assistant/assistant-panel.tsx
 msgid "Suggests cuts, never deletes on its own"
@@ -11649,6 +11954,14 @@ msgstr "Text colour"
 msgid "Text comes out in the order a person reads it, at a size and spacing that survive."
 msgstr "Text comes out in the order a person reads it, at a size and spacing that survive."
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Text extraction failed."
+msgstr "Text extraction failed."
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Text extraction is unavailable."
+msgstr "Text extraction is unavailable."
+
 #: src/features/homepage/check.tsx
 msgid "Text is selectable"
 msgstr "Text is selectable"
@@ -11809,6 +12122,10 @@ msgstr "The exported PDF"
 msgid "The exported PDF couldn't be checked. Try again."
 msgstr "The exported PDF couldn't be checked. Try again."
 
+#: src/features/resume/latex/workspace.tsx
+msgid "The extracted text shown is limited to 50,000 characters."
+msgstr "The extracted text shown is limited to 50,000 characters."
+
 #: src/features/documents/new-document-dialog.tsx
 msgid "The file couldn't be read as a resume."
 msgstr "The file couldn't be read as a resume."
@@ -11958,6 +12275,10 @@ msgstr "The review couldn't finish. Try again."
 msgid "The same line repeats on every page."
 msgstr "The same line repeats on every page."
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "The saved content is identical."
+msgstr "The saved content is identical."
+
 #: src/libs/error-message.ts
 msgid "The saved provider key can't be decrypted. Enter the key again in Settings → AI & developer."
 msgstr "The saved provider key can't be decrypted. Enter the key again in Settings → AI & developer."
@@ -11990,6 +12311,10 @@ msgstr "The service quota is exhausted."
 #: src/features/settings/ai/web-access.tsx
 msgid "The service rejected the credentials."
 msgstr "The service rejected the credentials."
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "The source resume needs another comparison before this review can be treated as current."
+msgstr "The source resume needs another comparison before this review can be treated as current."
 
 #: src/features/settings/ai/providers.tsx
 msgid "The test didn't run."
@@ -12031,6 +12356,14 @@ msgstr "There is no summary paragraph."
 msgid "These are the answers saved when you applied."
 msgstr "These are the answers saved when you applied."
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "These checks describe the last compilation."
+msgstr "These checks describe the last compilation."
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "These requirements and supporting quotes were recorded by your agent. Review the evidence against your source resumes before submitting."
+msgstr "These requirements and supporting quotes were recorded by your agent. Review the evidence against your source resumes before submitting."
+
 #: src/features/applications/components/list-view.tsx
 msgid "They and their timelines are deleted permanently. This can't be undone."
 msgstr "They and their timelines are deleted permanently. This can't be undone."
@@ -12066,6 +12399,10 @@ msgstr "This browser can't record here. Choose an audio file, or type your answe
 #: src/features/career/workspace/practise.tsx
 msgid "This browser can't take dictation, and none of your AI connections can transcribe speech (OpenAI, Google Gemini, Mistral, xAI, Groq or Vercel AI Gateway can). <0>Add one in Settings</0>, or type your answer."
 msgstr "This browser can't take dictation, and none of your AI connections can transcribe speech (OpenAI, Google Gemini, Mistral, xAI, Groq or Vercel AI Gateway can). <0>Add one in Settings</0>, or type your answer."
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "This comparison was shortened. Open the full source files before judging changes that are not shown here."
+msgstr "This comparison was shortened. Open the full source files before judging changes that are not shown here."
 
 #: src/features/auth/pages/consent.tsx
 msgid "This connection request is invalid or has expired."
@@ -12228,9 +12565,27 @@ msgstr "This resume isn't shared right now."
 msgid "This resume was updated by an AI agent."
 msgstr "This resume was updated by an AI agent."
 
+#. placeholder {0}: result.target.name
+#. placeholder {1}: formatRelativeTime(result.target.updatedAt, i18n.locale)
+#: src/features/documents/resume-source-diff.tsx
+msgid "This resume: {0} · Saved {1}"
+msgstr "This resume: {0} · Saved {1}"
+
 #: src/features/resume/builder/draft.ts
 msgid "This resume's sharing settings changed elsewhere."
 msgstr "This resume's sharing settings changed elsewhere."
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "This review is out of date. Ask Claude to review the current resume before relying on it."
+msgstr "This review is out of date. Ask Claude to review the current resume before relying on it."
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "This review matches the current saved resume and its source."
+msgstr "This review matches the current saved resume and its source."
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "This review matches the current saved resume."
+msgstr "This review matches the current saved resume."
 
 #: src/features/applications/components/application-detail-sheet.tsx
 msgid "This saved description is clipped or incomplete. Review before preparing documents."
@@ -12259,6 +12614,10 @@ msgstr "This step is optional, but recommended."
 #: src/features/career/workspace/practise.tsx
 msgid "This story is unavailable or uses facts that are switched off."
 msgstr "This story is unavailable or uses facts that are switched off."
+
+#: src/features/documents/resume-source-diff.tsx
+msgid "This supporting file is binary, so its contents cannot be shown as text."
+msgstr "This supporting file is binary, so its contents cannot be shown as text."
 
 #: src/features/applications/components/interview-dialog.tsx
 msgid "This time does not exist in the selected timezone. Choose another time."
@@ -12371,6 +12730,10 @@ msgstr "Track a job you're applying to and link the resume you sent."
 #: src/features/career/today.tsx
 msgid "Track in Applications"
 msgstr "Track in Applications"
+
+#: src/features/documents/resume-details-dialog.tsx
+msgid "Track which resume version you submitted and what happened next."
+msgstr "Track which resume version you submitted and what happened next."
 
 #: src/routes/dashboard/applications/index.tsx
 msgid "Track your first job"
@@ -12600,6 +12963,10 @@ msgstr "Typography"
 msgid "Ukrainian"
 msgstr "Ukrainian"
 
+#: src/features/documents/resume-source-diff.tsx
+msgid "Unchanged"
+msgstr "Unchanged"
+
 #: src/features/resume/editor/write/rich-text-editor.tsx
 msgid "Underline"
 msgstr "Underline"
@@ -12792,6 +13159,10 @@ msgstr "Use 3 to 64 lowercase letters, numbers, dots, hyphens and underscores."
 #: src/features/resume/editor/design/style-groups.tsx
 msgid "Use a darker shade"
 msgstr "Use a darker shade"
+
+#: src/features/resume/latex/workspace.tsx
+msgid "Use a page target from 1 to 100, or leave it blank."
+msgstr "Use a page target from 1 to 100, or leave it blank."
 
 #: src/features/ats-checker/messages.ts
 msgid "Use a plain international form, such as +1 555 010 1234."
@@ -13424,6 +13795,10 @@ msgstr "Width"
 msgid "Will my resume get past applicant tracking systems?"
 msgstr "Will my resume get past applicant tracking systems?"
 
+#: src/features/documents/resume-outcome.ts
+msgid "Withdrawn"
+msgstr "Withdrawn"
+
 #: src/features/homepage/remember.tsx
 msgid "Within a quarter, activation went from 31% to 44%."
 msgstr "Within a quarter, activation went from 31% to 44%."
@@ -13667,6 +14042,10 @@ msgstr "You've got mail!"
 #: src/features/settings/account/data.tsx
 msgid "Your account was deleted."
 msgstr "Your account was deleted."
+
+#: src/features/documents/resume-review-panel.tsx
+msgid "Your agent's explanation of its edits. Use Compare with source below to inspect the actual saved content differences."
+msgstr "Your agent's explanation of its edits. Use Compare with source below to inspect the actual saved content differences."
 
 #: src/features/career/coach.tsx
 #: src/features/career/workspace/coach-sheet.tsx

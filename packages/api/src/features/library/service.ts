@@ -7,7 +7,8 @@ import { db } from "@reactive-resume/db/client";
 import * as schema from "@reactive-resume/db/schema";
 import { libraryDto, resumeProfileSchema } from "../../dto/library";
 import { lockDocumentOwner } from "../documents/ownership";
-import { assertFolderParent, companyKey, evaluationStale, rankResume } from "./policy";
+import { assertFolderParent, companyKey, evaluationStale, rankResume, resolveResumeOutcome, reviewFreshness } from "./policy";
+import { mergeResumeProfile } from "./profile-updates";
 
 type Owned<T> = T & { userId: string };
 type FolderCreate = z.infer<typeof libraryDto.folders.create.input>;
@@ -43,9 +44,9 @@ async function ownedCompany(tx: DbOrTx, userId: string, id: string) {
 	return row;
 }
 
-async function metadata(tx: DbOrTx, userId: string, resumeId: string, lock = false): Promise<ResumeLibraryMetadata> {
+async function metadata(tx: DbOrTx, userId: string, resumeId: string, lock: "update" | "share" | false = false): Promise<ResumeLibraryMetadata> {
 	const query = tx.select(metadataFields).from(schema.resume).where(resumeWhere(userId, resumeId));
-	const [row] = await (lock ? query.for("update") : query);
+	const [row] = await (lock ? query.for(lock) : query);
 	if (!row) throw new ORPCError("NOT_FOUND", { message: "Resume not found." });
 	return { ...row, profile: resumeProfileSchema.parse(row.profile) };
 }
@@ -132,7 +133,7 @@ export const libraryService = {
 		getMetadata: (input: Owned<{ resumeId: string }>) => metadata(db, input.userId, input.resumeId),
 		setMetadata: (input: Owned<MetadataUpdate>) => db.transaction(async (tx) => {
 			await lockDocumentOwner(tx, input.userId);
-			const current = await metadata(tx, input.userId, input.resumeId, true);
+			const current = await metadata(tx, input.userId, input.resumeId, "update");
 			// Organizing is allowed for locked resumes; factual content and LaTeX source are never written here.
 			if (input.folderId) await ownedFolder(tx, input.userId, input.folderId);
 			if (input.companyId) await ownedCompany(tx, input.userId, input.companyId);
@@ -146,21 +147,23 @@ export const libraryService = {
 					sourceId = (await metadata(tx, input.userId, sourceId)).sourceResumeId;
 				}
 			}
-			const profile = resumeProfileSchema.parse({ ...current.profile, ...input.profile });
-			const hasEvaluation = input.profile?.score !== undefined || input.profile?.rubric !== undefined;
-			if (hasEvaluation) {
-				profile.evaluatedAt = profile.score === null ? null : input.profile?.evaluatedAt ?? new Date().toISOString();
-				profile.evaluatedResumeUpdatedAt = profile.score === null ? null : input.profile?.evaluatedResumeUpdatedAt ?? current.updatedAt.toISOString();
-			} else if (
-				(input.companyId !== undefined && input.companyId !== current.companyId) ||
-				(input.profile?.company !== undefined && input.profile.company !== current.profile.company) ||
-				(input.profile?.targetRole !== undefined && input.profile.targetRole !== current.profile.targetRole) ||
-				(input.profile?.jobDescription !== undefined && input.profile.jobDescription !== current.profile.jobDescription) ||
-				(input.profile?.jobUrl !== undefined && input.profile.jobUrl !== current.profile.jobUrl)
-			) {
-				profile.evaluatedAt = null;
-				profile.evaluatedResumeUpdatedAt = null;
+			const sourceResumeId = input.sourceResumeId === undefined ? current.sourceResumeId : input.sourceResumeId;
+			// A supplied source review snapshot is checked under a row lock, including concurrent source edits.
+			const source = input.profile?.reviewedSourceUpdatedAt && sourceResumeId
+				? await metadata(tx, input.userId, sourceResumeId, "share") : null;
+			const evidenceIds = [...new Set(input.profile?.requirementEvidence?.flatMap((item) => item.evidence.map((evidence) => evidence.resumeId)) ?? [])];
+			if (evidenceIds.length > 0) {
+				const ownedEvidence = await tx.select({ id: schema.resume.id }).from(schema.resume).where(and(
+					eq(schema.resume.userId, input.userId), inArray(schema.resume.id, evidenceIds), isNull(schema.resume.trashedAt),
+				));
+				if (ownedEvidence.length !== evidenceIds.length) throw new ORPCError("NOT_FOUND", { message: "An evidence source resume is unavailable or not owned by this account." });
 			}
+			const profile = mergeResumeProfile(current.profile, input.profile ?? {}, {
+				resumeUpdatedAt: current.updatedAt, sourceUpdatedAt: source?.updatedAt ?? null,
+				companyChanged: input.companyId !== undefined && input.companyId !== current.companyId,
+				sourceChanged: input.sourceResumeId !== undefined && input.sourceResumeId !== current.sourceResumeId,
+				now: new Date(),
+			});
 			await tx.update(schema.resume).set({
 				profile,
 				...(input.folderId !== undefined ? { folderId: input.folderId } : {}),
@@ -181,7 +184,7 @@ export const libraryService = {
 				id: schema.resume.id, name: schema.resume.name, tags: schema.resume.tags, folderId: schema.resume.folderId,
 				sourceResumeId: schema.resume.sourceResumeId, companyId: schema.resume.companyId, updatedAt: schema.resume.updatedAt,
 				// Do not pull printable source, pasted job descriptions, or long score explanations into an index.
-				profile: sql<Partial<schema.ResumeProfile>>`${schema.resume.profile} - 'jobDescription' - 'scoreNotes' - 'rubric' - 'jobUrl'`,
+				profile: sql<Partial<schema.ResumeProfile>>`(${schema.resume.profile} - 'jobDescription' - 'scoreNotes' - 'rubric' - 'jobUrl' - 'requirementEvidence' - 'tailoringChanges' - 'outcome') || jsonb_build_object('outcome', coalesce(${schema.resume.profile}->'outcome', '{}'::jsonb) - 'notes')`,
 				applicationId: schema.application.id, company: schema.application.company, role: schema.application.role, status: schema.application.status,
 			}).from(schema.resume).leftJoin(schema.application, and(eq(schema.resume.applicationId, schema.application.id), eq(schema.application.userId, input.userId))).where(and(
 				eq(schema.resume.userId, input.userId), isNull(schema.resume.trashedAt),
@@ -193,17 +196,29 @@ export const libraryService = {
 			const sourceIds = [...new Set(rows.flatMap((row) => row.sourceResumeId ? [row.sourceResumeId] : []))];
 			const sources = sourceIds.length === 0 ? [] : await db.select({ id: schema.resume.id, updatedAt: schema.resume.updatedAt }).from(schema.resume).where(and(eq(schema.resume.userId, input.userId), inArray(schema.resume.id, sourceIds), isNull(schema.resume.trashedAt)));
 			const sourceDates = new Map(sources.map((source) => [source.id, source.updatedAt]));
+			const applications = rows.length === 0 ? [] : await db.select({
+				resumeId: schema.application.resumeId, status: schema.application.status,
+				closedReason: schema.application.closedReason, sentResumeVersionId: schema.application.sentResumeVersionId,
+				sentResumeId: schema.resumeVersion.resumeId,
+				updatedAt: schema.application.updatedAt,
+				activityStages: sql<string[]>`coalesce((select jsonb_agg(distinct event->>'stage') from jsonb_array_elements(${schema.application.activity}) as event where event->>'type' = 'stage'), '[]'::jsonb)`,
+			}).from(schema.application).leftJoin(schema.resumeVersion, and(
+				eq(schema.application.sentResumeVersionId, schema.resumeVersion.id), eq(schema.resumeVersion.userId, input.userId),
+			)).where(and(eq(schema.application.userId, input.userId), inArray(schema.application.resumeId, rows.map((row) => row.id))));
 			return rows.map((row) => {
 				const profile = resumeProfileSchema.parse(row.profile);
+				const sourceUpdatedAt = row.sourceResumeId ? sourceDates.get(row.sourceResumeId) ?? null : null;
 				return rankResume({
 					id: row.id, name: row.name, tags: row.tags, folderId: row.folderId, sourceResumeId: row.sourceResumeId,
-					sourceUpdatedAt: row.sourceResumeId ? sourceDates.get(row.sourceResumeId) ?? null : null,
+					sourceUpdatedAt,
 					companyId: row.companyId, company: profile.company || row.company || "", targetRole: profile.targetRole || row.role || "",
 					purpose: profile.purpose, keywords: profile.keywords, reuseNotes: profile.reuseNotes.slice(0, 350), score: profile.score,
 					evaluatedAt: profile.evaluatedAt, evaluationStale: evaluationStale(profile, row.updatedAt), updatedAt: row.updatedAt,
+					...reviewFreshness(profile, row.updatedAt, row.sourceResumeId, sourceUpdatedAt),
+					outcome: resolveResumeOutcome(row.id, profile.outcome, applications),
 					application: row.applicationId ? { id: row.applicationId, company: row.company ?? "", role: row.role ?? "", status: row.status ?? "saved" } : null,
 				}, input);
-			}).sort((a, b) => b.similarity - a.similarity || b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, input.limit);
+			}).sort((a, b) => b.reusePriority - a.reusePriority || b.similarity - a.similarity || b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, input.limit);
 		},
 	},
 	jobs: {
@@ -225,6 +240,8 @@ export const libraryService = {
 					id: row.id, name: row.role, company: row.company, targetRole: row.role, purpose: "tailored", keywords: row.requirements,
 					tags: row.tags, reuseNotes: "", folderId: null, sourceResumeId: null, companyId: null, sourceUpdatedAt: null,
 					score: null, evaluatedAt: null, evaluationStale: false, updatedAt: row.updatedAt, application: null,
+					reviewStale: false, sourceStale: false,
+					outcome: { stage: "not_applied", recordedAt: null, strongestStage: "not_applied", source: "none" },
 				}, input);
 				return { ...row, requirements: row.requirements.slice(0, 20).map((value) => value.slice(0, 200)), similarity: ranked.similarity };
 			}).sort((a, b) => b.similarity - a.similarity || b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, input.limit);

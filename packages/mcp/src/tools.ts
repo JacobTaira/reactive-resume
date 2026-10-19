@@ -61,10 +61,23 @@ export function registerTools(
 	server.registerTool(
 		T.compileResumeLatex,
 		TOOL_META[T.compileResumeLatex],
-		withErrorHandling("compiling LaTeX resume", async ({ id }: { id: string }) => {
-			const result = await client.resume.latex.compile({ id });
-			return json({ success: result.success, log: result.log });
-		}),
+		withErrorHandling(
+			"compiling LaTeX resume",
+			async (params: z.infer<(typeof TOOL_META)[typeof T.compileResumeLatex]["inputSchema"]>) => {
+				const result = await client.resume.latex.compile(params);
+				const checks = result.success ? result.checks ?? null : null;
+				return json({
+					success: result.success,
+					log: result.log,
+					checks,
+					diagnosticsNote: checks
+						? null
+						: result.success
+							? "The compiler returned no diagnostic checks. Page count, overflow and text extraction remain unverified."
+							: "Compilation failed; PDF diagnostics are unavailable.",
+				});
+			},
+		),
 	);
 	// ── List Resumes ──────────────────���───────────────────────────
 	server.registerTool(
