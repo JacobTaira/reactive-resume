@@ -74,17 +74,14 @@ function useIsCurrent() {
 
 /**
  * The app shell for Documents, Trash, Applications and Settings: a 240px sidebar at ≥1024, an icon rail at
- * 640–1023 and a bottom tab bar below 640. An application's workspace is full screen on phones, with its own back
- * link and action bar, so it has no tab bar. N opens New anywhere outside a field.
+ * 640–1023 and a bottom tab bar below 640. N opens New anywhere outside a field.
  */
 type AppShellProps = { children: ReactNode };
 
 export function AppShell({ children }: AppShellProps) {
 	const breakpoint = useBreakpoint();
 	const openDialog = useDialogStore((state) => state.openDialog);
-	const matchRoute = useMatchRoute();
-	const tabs =
-		breakpoint === "mobile" && !matchRoute({ to: "/dashboard/applications/$applicationId/{-$tab}", fuzzy: true });
+	const tabs = breakpoint === "mobile";
 
 	useHotkey("N", () => {
 		if (isEditableElementFocused() || useDialogStore.getState().open) return;
@@ -96,9 +93,7 @@ export function AppShell({ children }: AppShellProps) {
 			className={cn(
 				"grid min-h-svh bg-bg",
 				breakpoint === "mobile"
-					? tabs
-						? "grid-rows-[minmax(0,1fr)_auto]"
-						: ""
+					? "grid-rows-[minmax(0,1fr)_auto]"
 					: breakpoint === "tablet"
 						? "grid-cols-[64px_minmax(0,1fr)]"
 						: "grid-cols-[240px_minmax(0,1fr)]",
