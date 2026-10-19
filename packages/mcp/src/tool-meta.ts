@@ -7,6 +7,7 @@ import z from "zod";
 import { resumePatchOperationsSchema } from "@reactive-resume/ai/tools/resume-tool-contracts";
 import { applicationDto } from "@reactive-resume/api/dto/application";
 import { coverLetterDto } from "@reactive-resume/api/dto/cover-letter";
+import { libraryDto } from "@reactive-resume/api/dto/library";
 import { resumeDto } from "@reactive-resume/api/dto/resume";
 import {
 	applicationClosedReasonSchema,
@@ -267,7 +268,7 @@ const BASE_TOOL_META = {
 			"Returns an array of resume objects (without full resume data) containing:",
 			"id, name, slug, tags, isPublic, isLocked, createdAt, updatedAt.",
 			"",
-			`Call this before \`${T.getResume}\`, \`${T.patchResume}\`, prompts, or \`resources/read\` with \`resume://{id}\`.`,
+			"Use this when resume IDs are unknown; IDs already returned by related-resume, queue, application or copy tools do not require another listing.",
 			"Results can be filtered by tags and sorted by last updated date, creation date, or name.",
 			`For master discovery, folder membership and reusable job variants, start with \`${T.findRelatedResumes}\` instead; then read selected documents in full.`,
 		].join("\n"),
@@ -310,12 +311,15 @@ const BASE_TOOL_META = {
 			"projects, etc.), custom sections, and metadata (template, layout, typography, colors).",
 			"LaTeX resumes include a latex project with engine, entrypoint, and files (path, encoding, content). The LaTeX source controls their PDF; structured section fields do not.",
 			"A master resume remains readable through this tool when moved into any owned folder. Find saved masters and related variants with find_related_resumes; read_resume_metadata holds their separate job profiles and lineage.",
+			"For tailoring, set includeMetadata=true to return the full resume envelope (data, id, updatedAt, applicationId) plus libraryMetadata (folder, source, company and complete profile) in one call. Both text and structured responses include this context. Reuse the returned content and timestamp instead of immediately calling read_resume_metadata or rereading the same draft. Conflicting content revisions fail rather than returning a mixed snapshot. With includeMetadata omitted/false, the text body remains the resume data JSON.",
 			"",
-			`Use \`${T.listResumes}\` first to find valid IDs.`,
+			"An ID from another owned resume discovery/copy tool is sufficient; list_resumes is not a prerequisite.",
 			"The `resume://_meta/schema` resource describes the full data structure for JSON Patch paths.",
 		].join("\n"),
-		outputSchema: toWireObjectSchema(resumeDto.getById.output),
-		inputSchema: wireInput(z.strictObject({ id: resumeIdSchema })),
+		outputSchema: toWireObjectSchema(
+			resumeDto.getById.output.extend({ libraryMetadata: libraryDto.resumes.getMetadata.output.optional() }),
+		),
+		inputSchema: wireInput(z.strictObject({ id: resumeIdSchema, includeMetadata: z.boolean().optional() })),
 		annotations: READ_IDEMPOTENT,
 	},
 	[T.downloadResumePdf]: {
@@ -325,7 +329,7 @@ const BASE_TOOL_META = {
 			"The URL expires in 10 minutes. Anyone holding this URL can download the PDF until expiry; keep it private.",
 			"Cover letters are documents of their own: use the cover-letter tools for them.",
 			"Returns JSON containing: resumeId, name, downloadUrl, expiresAt, expiresInSeconds, contentType.",
-			`Use \`${T.listResumes}\` first to find valid IDs.`,
+			"Use a known owned resume ID; no additional listing or compilation is needed just to create this URL.",
 		].join("\n"),
 		outputSchema: z.object({
 			resumeId: z.string(),

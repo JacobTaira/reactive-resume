@@ -368,6 +368,24 @@ describe("registerTools", () => {
 		expect(clientMock.resume.patch.mock.calls[0]?.[0].expectedUpdatedAt).toEqual(updatedAt);
 	});
 
+	it("returns combined content, timestamps and metadata in both MCP representations", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const updatedAt = new Date("2026-10-19T06:00:00Z");
+		const resume = { id: "draft", name: "Draft", updatedAt, applicationId: "job", data: { basics: { name: "Verified" } } };
+		const libraryMetadata = { resumeId: "draft", updatedAt, sourceResumeId: "master", profile: { purpose: "tailored" } };
+		clientMock.resume.getById.mockResolvedValueOnce(resume);
+		clientMock.library.resumes.getMetadata.mockResolvedValueOnce(libraryMetadata);
+		const read = registered.find((tool) => tool.name === MCP_TOOL_NAME.getResume)!;
+		const result = await read.handler(TOOL_META[MCP_TOOL_NAME.getResume].inputSchema.parse({ id: "draft", includeMetadata: true }));
+		expect(clientMock.library.resumes.getMetadata).toHaveBeenCalledWith({ resumeId: "draft" });
+		expect(JSON.parse(result.content[0]!.text)).toEqual(result.structuredContent);
+		expect(result.structuredContent).toMatchObject({
+			id: "draft", updatedAt: updatedAt.toISOString(), applicationId: "job", data: resume.data,
+			libraryMetadata: { sourceResumeId: "master", updatedAt: updatedAt.toISOString() },
+		});
+	});
+
 	describe("error hints", () => {
 		const readResume = (error: unknown) => {
 			clientMock.resume.getById.mockRejectedValueOnce(error);

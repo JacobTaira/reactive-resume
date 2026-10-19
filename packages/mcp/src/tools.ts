@@ -15,6 +15,7 @@ import { registerLibraryTools } from "./library-tools";
 import { MCP_TOOL_NAME } from "./mcp-tool-names";
 import { registerQueueTools } from "./queue-tools";
 import { json, text, withErrorHandling } from "./results";
+import { readResumeContext } from "./resume-read";
 import { TOOL_META } from "./tool-meta";
 
 // ── Shared Helpers ───────────────���──────────────────────────────
@@ -113,11 +114,14 @@ export function registerTools(
 	server.registerTool(
 		T.getResume,
 		TOOL_META[T.getResume],
-		withErrorHandling("getting resume", async ({ id }: { id: string }) => {
-			const resume = await client.resume.getById({ id });
-
-			return text(JSON.stringify(resume.data, null, 2), resume);
-		}),
+		withErrorHandling(
+			"getting resume",
+			async (params: z.infer<(typeof TOOL_META)[typeof T.getResume]["inputSchema"]>) => {
+				const resume = await readResumeContext(client, params);
+				// The combined form exposes timestamps and lineage even in clients that only display text content.
+				return params.includeMetadata ? json(resume) : text(JSON.stringify(resume.data, null, 2), resume);
+			},
+		),
 	);
 
 	// ── Download Resume PDF ───────────────────────────────────────

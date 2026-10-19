@@ -78,7 +78,7 @@ export function QueueView({ query, onOpen, onAdd }: QueueViewProps) {
 	const copyPrompt = async () => {
 		try {
 			await navigator.clipboard.writeText(
-				t`Process my Reactive Resume tailoring queue using my master resume. Read the saved job descriptions, related resumes and company notes. Before drafting, compare the jobs for shared requirements and gaps. Ask me once about shared missing evidence, and add only facts I confirm to my master resume. Use the queue tools to keep progress and failures visible. Reuse an existing draft when resuming. Mark a resume ready only after tailoring, scoring and PDF checks. Do not submit applications or mark them Applied.`,
+				t`Process my Reactive Resume tailoring queue using my master resume. Batch-read saved job descriptions with list_tailoring_queue(includeDescription=true), and read selected resumes with read_resume(includeMetadata=true). Reuse verified master evidence and company notes across similar jobs; refresh changed sources rather than repeatedly reading unchanged documents. Before drafting, compare the jobs for shared requirements and gaps. Ask me once about shared missing evidence, and add only facts I confirm to my master resume. Use the queue tools to keep progress and failures visible. Reuse an existing draft when resuming. Save the complete requirement evidence, change rationale and score rubric together after final review. Mark a resume ready only after tailoring, scoring, freshness checks and PDF checks. Give a concise summary with links, scores and remaining gaps. Do not submit applications or mark them Applied.`,
 			);
 			toast.add({
 				type: "success",

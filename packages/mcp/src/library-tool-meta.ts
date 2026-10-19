@@ -95,7 +95,7 @@ export const LIBRARY_TOOL_META = {
 	[T.readResumeMetadata]: {
 		title: "Read Resume Metadata",
 		description:
-			"Read a resume's folder, sourceResumeId lineage, companyId link and complete job profile: purpose, company, targetRole, keywords, jobDescription, jobUrl, reuseNotes, score/rubric, requirementEvidence with quoted resume citations, assistant-recorded tailoringChanges, review snapshot timestamps and user-reported outcome. Read resume content separately with read_resume; LaTeX source is included there. Saved rationale is not a computed diff, and a recorded outcome does not establish why the hiring decision occurred.",
+			"Read a resume's folder, sourceResumeId lineage, companyId link and complete job profile: purpose, company, targetRole, keywords, jobDescription, jobUrl, reuseNotes, score/rubric, requirementEvidence with quoted resume citations, assistant-recorded tailoringChanges, review snapshot timestamps and user-reported outcome. When both content and profile are needed, use read_resume with includeMetadata=true instead of two separate calls; it includes LaTeX source. This metadata-only tool can check a previously reviewed source's current updatedAt without retransmitting its content; reread content and reassess if that timestamp changed. Saved rationale is not a computed diff, and a recorded outcome does not establish why the hiring decision occurred.",
 		inputSchema: wireInput(libraryDto.resumes.getMetadata.input),
 		outputSchema: toWireObjectSchema(libraryDto.resumes.getMetadata.output),
 		annotations: read,
