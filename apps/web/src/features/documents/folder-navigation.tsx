@@ -19,6 +19,7 @@ import { NativeSelect } from "@reactive-resume/ui/components/native-select";
 import { Skeleton } from "@reactive-resume/ui/components/skeleton";
 import { toast } from "@reactive-resume/ui/components/toast";
 import { folderPaths } from "./folders";
+import { FolderMenu } from "./folder-menu";
 import { useConfirm } from "@/hooks/use-confirm";
 import { getOrpcErrorMessage } from "@/libs/error-message";
 import { orpc } from "@/libs/orpc/client";
@@ -109,6 +110,12 @@ export function FolderNavigation({ folderId, onChange, onNewResume }: FolderNavi
 					</Button>
 				</>}
 			</div>
+			<div className="lg:hidden">
+				<FolderMenu variant="inline" />
+			</div>
+			<p className="text-xs text-ink-3">
+				<Trans>Drag a resume onto a folder to move it, or choose Folder and resume details… from its menu.</Trans>
+			</p>
 			{folderId !== undefined && <p className="text-xs text-ink-3">
 				<Trans>Folders organize resumes. Company research lives in Companies.</Trans>
 			</p>}
@@ -137,8 +144,12 @@ function FolderEditor({ folder, parentId, onSaved }: FolderEditorProps) {
 		setError(null);
 		try {
 			const saved = folder ? await update.mutateAsync({ id: folder.id, name: name.trim() }) : await create.mutateAsync({ name: name.trim(), parentId });
-			await queryClient.invalidateQueries({ queryKey: orpc.library.key() });
+			queryClient.setQueryData(orpc.library.folders.list.queryOptions({ input: {} }).queryKey, (current) => [
+				...(current ?? []).filter((entry) => entry.id !== saved.id),
+				saved,
+			]);
 			onSaved(saved.id);
+			await queryClient.invalidateQueries({ queryKey: orpc.library.key() });
 		} catch (cause) { setError(getOrpcErrorMessage(cause, { fallback: t`Couldn't save the folder. Try again.` })); }
 	};
 	return <DialogContent>

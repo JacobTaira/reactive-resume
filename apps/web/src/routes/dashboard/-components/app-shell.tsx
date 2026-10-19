@@ -19,6 +19,8 @@ import { useDialogStore } from "@/dialogs/store";
 import { applicationsListQueryOptions } from "@/features/applications/queries";
 import { GuestBanner } from "@/features/auth/components/guest-banner";
 import { useCommandPaletteStore } from "@/features/command-palette/store";
+import { FolderMenu } from "@/features/documents/folder-menu";
+import { ResumeFolderDragProvider } from "@/features/documents/resume-folder-drag";
 import { isEditableElementFocused } from "@/features/resume/builder/draft";
 import { UserDropdownMenu } from "@/features/user/dropdown-menu";
 import { orpc } from "@/libs/orpc/client";
@@ -89,35 +91,38 @@ export function AppShell({ children }: AppShellProps) {
 	});
 
 	return (
-		<div
-			className={cn(
-				"grid min-h-svh bg-bg",
-				breakpoint === "mobile"
-					? "grid-rows-[minmax(0,1fr)_auto]"
-					: breakpoint === "tablet"
-						? "grid-cols-[64px_minmax(0,1fr)]"
-						: "grid-cols-[240px_minmax(0,1fr)]",
-			)}
-		>
-			<a
-				href="#main-content"
-				className="sr-only rounded-md bg-raised px-4 py-2 text-sm focus:not-sr-only focus:absolute focus:inset-s-2 focus:top-2 focus:z-[100]"
+		<ResumeFolderDragProvider>
+			<div
+				className={cn(
+					"grid min-h-svh bg-bg",
+					breakpoint === "mobile"
+						? "grid-rows-[minmax(0,1fr)_auto]"
+						: breakpoint === "tablet"
+							? "grid-cols-[64px_minmax(0,1fr)]"
+							: "grid-cols-[240px_minmax(0,1fr)]",
+				)}
 			>
-				<Trans>Skip to main content</Trans>
-			</a>
-			{breakpoint !== "mobile" && (breakpoint === "tablet" ? <Rail /> : <Sidebar />)}
-			<main id="main-content" className="min-w-0">
-				<GuestBanner />
-				{children}
-			</main>
-			{tabs && <MobileTabs />}
-		</div>
+				<a
+					href="#main-content"
+					className="sr-only rounded-md bg-raised px-4 py-2 text-sm focus:not-sr-only focus:absolute focus:inset-s-2 focus:top-2 focus:z-[100]"
+				>
+					<Trans>Skip to main content</Trans>
+				</a>
+				{breakpoint !== "mobile" && (breakpoint === "tablet" ? <Rail /> : <Sidebar />)}
+				<main id="main-content" className="min-w-0">
+					<GuestBanner />
+					{children}
+				</main>
+				{tabs && <MobileTabs />}
+			</div>
+		</ResumeFolderDragProvider>
 	);
 }
 
 function Sidebar() {
 	const { items, settings, trash } = useNavItems();
 	const isCurrent = useIsCurrent();
+	const { folderId } = useSearch({ strict: false });
 	const openPalette = useCommandPaletteStore((state) => state.setOpen);
 	const openDialog = useDialogStore((state) => state.openDialog);
 
@@ -145,9 +150,15 @@ function Sidebar() {
 				<Kbd>⌘K</Kbd>
 			</button>
 
-			<nav aria-label={t`App`} className="grid gap-0.5">
+			<nav aria-label={t`App`} className="grid min-h-0 gap-0.5 overflow-y-auto">
 				{items.map((item) => (
-					<NavLink key={`${item.to}:${item.area ?? ""}`} item={item} current={isCurrent(item.to, item.area)} />
+					<div key={`${item.to}:${item.area ?? ""}`} className="grid gap-0.5">
+						<NavLink
+							item={item}
+							current={isCurrent(item.to, item.area) && !(item.to === "/dashboard" && !item.area && folderId !== undefined)}
+						/>
+						{item.to === "/dashboard" && !item.area && <FolderMenu />}
+					</div>
 				))}
 				<div className="mt-2 border-t border-line pt-2">
 					<NavLink item={settings} current={isCurrent(settings.to)} />

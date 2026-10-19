@@ -248,6 +248,24 @@ describe("registerTools", () => {
 		expect(TOOL_META[MCP_TOOL_NAME.moveResume].inputSchema.safeParse({ resumeId: "resume-1" }).success).toBe(false);
 	});
 
+	it("discovers folder names and browses only the requested folder without reading every resume", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const folders = [
+			{ id: "jobs", name: "Summer roles", parentId: null },
+			{ id: "robotics", name: "Robotics", parentId: "jobs" },
+		];
+		clientMock.library.folders.list.mockResolvedValueOnce(folders);
+		const folderResult = await registered.find((tool) => tool.name === MCP_TOOL_NAME.listResumeFolders)!.handler({});
+		expect(folderResult.structuredContent).toEqual({ items: folders });
+		const resumes = [{ id: "resume-1", name: "Example — Engineer", folderId: "robotics" }];
+		clientMock.library.resumes.index.mockResolvedValueOnce(resumes);
+		const result = await registered.find((tool) => tool.name === MCP_TOOL_NAME.findRelatedResumes)!.handler({ folderId: "robotics", limit: 100 });
+		expect(clientMock.library.resumes.index).toHaveBeenCalledWith({ folderId: "robotics", limit: 100 });
+		expect(result.structuredContent).toEqual({ items: resumes });
+		expect(clientMock.resume.getById).not.toHaveBeenCalled();
+	});
+
 	it("persists evidence, change rationale and a reported outcome without altering resume content or application stage", async () => {
 		const { server, registered } = makeFakeServer();
 		registerTools(server as never, clientMock as never, new Headers());

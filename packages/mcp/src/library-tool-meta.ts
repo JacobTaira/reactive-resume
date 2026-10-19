@@ -23,7 +23,7 @@ export const LIBRARY_TOOL_META = {
 	[T.listResumeFolders]: {
 		title: "List Resume Folders",
 		description:
-			"List this account's resume folder tree, with id, name and parentId. null parentId means the root. Folders organize owned resumes without changing MCP read access. Company research has its own Companies area; use list_company_notes for it.",
+			"List this account's resume folder tree, with id, name and parentId. null parentId means the root. To browse a folder, pass its id as folderId to find_related_resumes without search terms, then read selected IDs with read_resume or read_resume_latex. Child folders are separate entries; browse their IDs when needed. Folders organize owned resumes without changing MCP read access. Normal queue preparation already finds Base Resume across folders; no extra folder scan is required. Company research has its own Companies area; use list_company_notes for it.",
 		inputSchema: wireInput(libraryDto.folders.list.input.unwrap()),
 		outputSchema: toWireObjectSchema(libraryDto.folders.list.output),
 		annotations: read,
@@ -111,7 +111,7 @@ export const LIBRARY_TOOL_META = {
 	[T.findRelatedResumes]: {
 		title: "Find Related Resumes",
 		description:
-			"Optional search of a compact resume/job index by company, targetRole, keywords or query. Normal queue preparation already returns related references and resolves Base Resume by name through prepare_queued_resume; do not search purpose=master to resolve that named document. purpose=master matches only explicitly saved metadata, so it may omit Base Resume. Returns lineage, job summaries, source freshness, lexical similarity and reported outcomes; full source and detailed audit reports are omitted. Similarity helps discovery, not ATS scoring or causal claims about hiring. Read a promising source only when its factual evidence is useful. Other tailored copies are references, not replacement bases. A null folderId selects root; omit it to search all folders. No AI provider is called.",
+			"Optional search of a compact resume/job index by company, targetRole, keywords or query. To browse a named folder, get its ID from list_resume_folders, pass folderId without search terms and set limit up to 100. This selects that folder's direct resumes; child folders use their own IDs. Normal queue preparation already returns related references and resolves Base Resume by name through prepare_queued_resume; do not search purpose=master to resolve that named document. purpose=master matches only explicitly saved metadata, so it may omit Base Resume. Returns lineage, job summaries, source freshness, lexical similarity and reported outcomes; full source and detailed audit reports are omitted. Similarity helps discovery, not ATS scoring or causal claims about hiring. Read a promising source only when its factual evidence is useful. Other tailored copies are references, not replacement bases. A null folderId selects root; omit it to search all folders. No AI provider is called.",
 		inputSchema: wireInput(libraryDto.resumes.index.input.unwrap()),
 		outputSchema: toWireObjectSchema(libraryDto.resumes.index.output),
 		annotations: read,

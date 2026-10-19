@@ -5,9 +5,11 @@ description: Reuse saved resumes, job context, and company notes through the web
 
 ## Set up your master and folders
 
-Open Documents and use **New folder** to create a folder. Creating another folder while one is selected creates a subfolder. Use the folder selector to navigate, or select **All documents** to search across the library.
+Open Documents and use **New folder** to create a folder. It appears immediately under **Documents** in the left navigation. Creating another folder while one is selected creates a subfolder; nested names appear as **Parent / Child**. On smaller screens, the same folder links appear below the folder toolbar. The folder selector remains available, and **All documents** searches across the library.
 
-Open a resume's menu and choose **Folder and resume details…**. Select its folder and mark its purpose as **Master resume**, **General resume**, or **Tailored for a job**. Mark the resume containing your complete, verified background as the master. Folders organize resumes; they do not change which owned resumes your connected assistant can read.
+Drag a resume card or list row onto a folder link to move it. The target highlights before you drop; the library refreshes after the server confirms the move. Drop onto **Unfiled resumes** to move a resume out of its folder. Files dropped from your computer still start an import. Letters and trashed documents cannot be moved into resume folders. Locked resumes can be organized because moving does not edit their content.
+
+For keyboard or touch use, open a resume's menu and choose **Folder and resume details…**, select its folder, and save. The same dialog lets you mark its purpose as **Master resume**, **General resume**, or **Tailored for a job**. Mark the resume containing your complete, verified background as the master. Folders organize resumes; they do not change which owned resumes your connected assistant can read.
 
 The details also store the target company and role, skills and keywords, original job description and URL, the resume used as a starting point, reuse notes, a requirement evidence map, change explanations, a score explanation, and the outcome you report. This context stays outside the printable resume and public responses. Moving a resume never rewrites its LaTeX source. Duplicating a resume keeps the copy in the same folder and records its source; a copy starts without an inherited master designation, evaluation, review or outcome.
 
@@ -29,24 +31,25 @@ To avoid copying and pasting postings, use the [Chrome capture queue](./capture-
 
 Connect your client to this installation's `/mcp` endpoint and sign in to the account containing your master. A connector pointing to another hosted installation uses that installation's accounts and documents.
 
-The `tailor_resume_for_job` MCP prompt describes this workflow:
+The `tailor_resume_for_job` MCP prompt follows the user's project instructions for factual background, writing and reply length. For queued LaTeX resumes:
 
-1. Save the supplied job in Applications **before** browsing, company research or resume work. Reuse an exact saved posting, or create a record with `create_application` and `status=saved`. Read it back with `read_application`, then report the saved application ID. Missing role/company details use clearly marked placeholders and a `needs-details` tag; an unreadable page must not prevent capture.
-2. Find the master and related resumes with `find_related_resumes`, and related applications with `find_related_jobs`. Read the selected master and a few useful previous versions using `read_resume`. For LaTeX resumes this includes the original `latex.files[].content`, not merely the empty structured fields. Similar roles are useful comparisons, but are not automatically duplicate postings.
-3. Read the company's saved research, then choose the best starting resume. Check prior outcomes as context while prioritizing relevant, verified evidence. Preserve the master and earlier versions by duplicating the selected base.
-4. Map the posting's requirements to quoted resume evidence. Mark each requirement as supported, partially supported or a gap; distinguish required qualifications from preferences.
-5. Tailor the draft and save short before/after excerpts explaining why each section changed. Use `compare_resumes` when an actual saved-source comparison is needed.
-6. Compile the LaTeX, check page count, overflow warnings and text extraction, and inspect the rendered PDF where the client supports it.
-7. Store the folder, source resume, job context, requirement map, change rationale, review timestamps and evaluation with `update_resume_metadata`. Create company research when absent, or merge useful new research into its latest revision.
-8. Return the PDF, evidence gaps, changes and score breakdown for your review. Application submission remains your action; record an application outcome only after you report it.
+1. Save the supplied job in Applications **before** research or editing, or reuse the exact saved application. An unreadable webpage must not prevent saving the supplied description.
+2. Call `prepare_queued_resume`. It finds **Base Resume** across all folders, creates or resumes its **Company — Role** copy, links the application, and returns active numbered source together with compact related-resume references and saved company context. Read additional references only when they add useful evidence.
+3. Plan truthful edits within the existing design and page target. Call `finish_queued_resume` with section IDs or inclusive line ranges and only the final replacement text; deleting a section does not require repeating its old content. The server saves, compiles, checks the page count and extractable text, returns overflow warnings, and records readiness. A score and brief gap notes are optional; separate evidence maps, change reports, rubric tables and review timestamps are unnecessary for this path.
+4. If compilation or page fit fails, make at most one consolidated correction using the returned saved source and diagnostics. Preserve unfinished drafts and report remaining failures. Normal tailoring does not require local TeX, shell commands, checksums or a separate PDF download.
+5. Save useful new company research when needed, preserving prior notes and actual sources. Keep chat replies brief and follow the user's requested format. Never infer that the user applied merely because a resume is ready.
+
+The detailed review tools described below remain available when requested. They are optional records rather than extra work required for every queued LaTeX resume. Ordinary structured JSON resumes use their edit/export tools and manual queue completion with a current score/review.
 
 The index lists concise metadata, lexical similarity, recorded outcomes and a reuse priority. These numbers help find candidates; they are not the resume's evaluation score. The index omits full source, full job descriptions, requirement citations and change notes. Read promising matches before reusing their claims. The full application remains available through `read_application`.
 
-`read_resume_metadata` reads the full saved job context and evaluation. Use `list_resume_folders`, `create_resume_folder`, `update_resume_folder`, and `move_resume` to organize documents. Company tools are `list_company_notes`, `read_company_note`, and `save_company_note`. These tools use the same authenticated API as the website and do not need a Reactive Resume AI provider.
+`read_resume_metadata` reads the full saved job context and evaluation. Claude can read folder names and their parent IDs with `list_resume_folders`, then browse a folder with `find_related_resumes({ folderId: "the-folder-id", limit: 100 })` without search terms. This returns up to 100 direct resumes in that folder; child folders have their own IDs. Pass `folderId: null` for unfiled resumes, or omit it to search across folders. Read selected IDs with `read_resume` or `read_resume_latex` when their full contents are useful. Moving **Base Resume** into a folder does not prevent queue preparation from finding it.
+
+Use `create_resume_folder`, `update_resume_folder`, and `move_resume` to organize documents through MCP. Company tools are `list_company_notes`, `read_company_note`, and `save_company_note`. These tools use the same authenticated API as the website and do not need a Reactive Resume AI provider. Normal queue preparation does not add a folder scan to each resume.
 
 ## Confirm the job was saved
 
-Claude's tool use is not guaranteed. The workflow tells it to save first, verify the saved record and report **Saved to Applications** with its ID. Failed saves or read-back checks must produce **Tracking not confirmed** and stop tailoring. A timeout can happen after a save committed, so Claude should find/read the record before retrying creation.
+Claude's tool use is not guaranteed. The workflow tells it to save first and verify the saved record; the tools return its application ID. Failed saves or read-back checks must produce **Tracking not confirmed** and stop tailoring. A timeout can happen after a save committed, so Claude should find/read the record before retrying creation.
 
 Saving uses the pasted description and supplied URL directly. It does not need to fetch the website or use an AI provider. If the posting omits a company or role, Claude can save explicit **Company not provided** / **Role not provided** labels, mark `needs-details` and fill the details later. These labels are not verified company research.
 
@@ -84,7 +87,7 @@ The reuse priority appears alongside relevance and freshness. A previous intervi
 
 ## Understand the score
 
-The prompt asks the assistant for a transparent editorial score out of 100:
+When requested, the assistant can save an editorial score out of 100. A detailed review can use this optional rubric:
 
 | Criterion | Maximum |
 | --- | ---: |

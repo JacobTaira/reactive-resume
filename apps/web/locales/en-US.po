@@ -3532,6 +3532,10 @@ msgstr "Couldn't load documents"
 msgid "Couldn't load folders."
 msgstr "Couldn't load folders."
 
+#: src/features/documents/folder-menu.tsx
+msgid "Couldn't load folders. Try again."
+msgstr "Couldn't load folders. Try again."
+
 #: src/features/career/knowledge/stories.tsx
 msgid "Couldn't load interviews. Retry"
 msgstr "Couldn't load interviews. Retry"
@@ -3567,6 +3571,10 @@ msgstr "Couldn't mark it as applied."
 #: src/features/career/today.tsx
 msgid "Couldn't mark this as read."
 msgstr "Couldn't mark this as read."
+
+#: src/features/documents/resume-folder-drag.tsx
+msgid "Couldn't move the resume. Try again."
+msgstr "Couldn't move the resume. Try again."
 
 #. placeholder {0}: part.errorText
 #: src/features/assistant/conversation.tsx
@@ -4559,6 +4567,10 @@ msgstr "Drafting…"
 #: src/features/resume/editor/write/write-panel.tsx
 msgid "drag · ⌥↑↓"
 msgstr "drag · ⌥↑↓"
+
+#: src/features/documents/folder-navigation.tsx
+msgid "Drag a resume onto a folder to move it, or choose Folder and resume details… from its menu."
+msgstr "Drag a resume onto a folder to move it, or choose Folder and resume details… from its menu."
 
 #: src/routes/builder/$resumeId/-sidebar/right/sections/layout/pages.tsx
 msgid "Drag and drop sections here to move them between columns"
@@ -10206,6 +10218,10 @@ msgstr "Resume guidance and research notes"
 #: src/features/documents/resume-source-diff.tsx
 msgid "Resume line"
 msgstr "Resume line"
+
+#: src/features/documents/resume-folder-drag.tsx
+msgid "Resume moved"
+msgstr "Resume moved"
 
 #: src/routes/builder/$resumeId/-components/page-canvas.tsx
 msgid "Resume page"

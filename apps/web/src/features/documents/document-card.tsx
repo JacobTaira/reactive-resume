@@ -14,6 +14,7 @@ import { DocumentMenuContent, useDocumentActions } from "./document-actions";
 import { daysLeftInTrash } from "./filter";
 import { useNewDocumentsStore } from "./new-documents";
 import { ResumeThumbnail } from "./resume-thumbnail";
+import { useResumeFolderDrag } from "./resume-folder-drag";
 import { isImeComposing } from "@/libs/keyboard";
 import { formatRelativeTime } from "@/libs/locale";
 import { ENTER_CLASS, stagger } from "@/libs/motion";
@@ -61,7 +62,7 @@ function OpenLink({
 		event.preventDefault();
 		onSelect();
 	};
-	const common = { "aria-label": label, className, onClick };
+	const common = { "aria-label": label, className, onClick, draggable: false };
 
 	return document.type === "resume" ? (
 		<Link to="/builder/$resumeId" params={{ resumeId: document.id }} {...common}>
@@ -145,6 +146,7 @@ export function DocumentCard({
 }: DocumentItemProps) {
 	const openDocument = useOpenDocument();
 	const [renaming, setRenaming] = useState(false);
+	const dragProps = useResumeFolderDrag(document, renaming);
 	const isNew = useNewDocumentsStore((state) => state.ids.includes(document.id)) && !document.trashedAt;
 	const meta = useDocumentMeta(document);
 	const menuProps = {
@@ -162,6 +164,7 @@ export function DocumentCard({
 			<ContextMenuTrigger
 				render={
 					<article
+						{...dragProps}
 						style={introIndex === undefined ? undefined : stagger(introIndex)}
 						className={cn(
 							"group/card grid gap-2",
@@ -261,6 +264,7 @@ export function DocumentRow({
 	const { i18n } = useLingui();
 	const openDocument = useOpenDocument();
 	const [renaming, setRenaming] = useState(false);
+	const dragProps = useResumeFolderDrag(document, renaming);
 	const isNew = useNewDocumentsStore((state) => state.ids.includes(document.id)) && !document.trashedAt;
 	const menuProps = {
 		document,
@@ -276,6 +280,7 @@ export function DocumentRow({
 			<ContextMenuTrigger
 				render={
 					<tr
+						{...dragProps}
 						style={introIndex === undefined ? undefined : stagger(introIndex)}
 						className={cn(
 							"border-b border-line transition-colors duration-quick hover:bg-hover",
