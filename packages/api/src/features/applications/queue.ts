@@ -193,7 +193,8 @@ export const queueService = {
 			} : {}),
 			...(input.role !== undefined ? {
 				roleFallback: false
-			} : {})
+			} : {}),
+			...(input.description !== undefined ? { descriptionIncomplete: false } : {}),
 		} : null;
 		const company = input.company === undefined ? row.company : cleanCaptureText(input.company);
 		const role = input.role === undefined ? row.role : cleanCaptureText(input.role);

@@ -75,6 +75,7 @@ async function worker(storage, fetch) {
 		URL,
 		AbortSignal,
 		TextEncoder,
+		setTimeout,
 		crypto: globalThis.crypto,
 		console
 	});
@@ -109,8 +110,8 @@ async function worker(storage, fetch) {
 		message
 	};
 }
-async function until(predicate) {
-	for (let n = 0; n < 100; n++) {
+async function until(predicate, timeout = 500) {
+	for (let n = 0; n < timeout / 5; n++) {
 		if (predicate()) return;
 		await new Promise(resolve => setTimeout(resolve, 5));
 	}
@@ -191,6 +192,38 @@ test("settings access rejects other extensions, web pages and lookalike extensio
 		}
 	}
 	assert.deepEqual(storage.config, config);
+});
+test("toolbar capture waits for Jobright content and sends the completed description once", async () => {
+	const storage = { config };
+	const uploaded = [];
+	const instance = await worker(storage, async (_url, options) => {
+		const body = JSON.parse(options.body);
+		uploaded.push(...body.items);
+		return serverResponse(body);
+	});
+	let extractions = 0;
+	instance.chrome.scripting = { executeScript: async (request) => {
+		if (request.files) return [];
+		extractions++;
+		return [{ result: extractions === 1 ? { ...payload, description: "", descriptionIncomplete: true } : payload }];
+	} };
+	instance.listeners.clicked({ id: 1, url: payload.url });
+	await until(() => storage.outbox?.[0]?.status === "saved", 2500);
+	assert.equal(extractions, 2);
+	assert.equal(uploaded.length, 1);
+	assert.equal(uploaded[0].description, payload.description);
+});
+test("toolbar capture aborts if the tab navigates to a different posting", async () => {
+	const storage = { config };
+	let calls = 0;
+	const instance = await worker(storage, async () => { calls++; throw new Error("No upload expected"); });
+	instance.chrome.scripting = { executeScript: async (request) => request.files ? []
+		: [{ result: { ...payload, url: "https://jobright.ai/jobs/info/different" } }] };
+	instance.listeners.clicked({ id: 1, url: payload.url });
+	await until(() => Boolean(storage.lastError));
+	assert.match(storage.lastError, /posting changed during capture/);
+	assert.equal(storage.outbox, undefined);
+	assert.equal(calls, 0);
 });
 test("actual worker saves locally before configuration and preserves pending data across restart", async () => {
 	const storage = {};

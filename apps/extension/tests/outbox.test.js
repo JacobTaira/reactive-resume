@@ -37,6 +37,18 @@ test("only a confirmed application ID marks a capture saved", () => {
 	assert.equal(saved.result.id, "app-1");
 	assert.equal(dueCaptures([saved]).length, 0);
 });
+test("recapturing an incomplete nonempty description retains improved text for repair", () => {
+	const short = addCapture([], { ...payload, company: "jobright.ai", companyFallback: true,
+		description: "Responsibilities\nResponsibilities\nQualification\nRepresents the skills you have" }, "first").item;
+	const saved = captureSucceeded(short, { id: "app-1", result: "duplicate", state: "needs_details", warnings: [] });
+	const full = { ...payload, company: "Example", companyFallback: false, descriptionIncomplete: false,
+		description: "Develop reliable automation pipelines, test model deployments, and investigate production failures. Required: Python and experience building maintainable software systems." };
+	const result = addCapture([saved], full, "unused");
+	assert.equal(result.item.body.description, full.description);
+	assert.equal(result.item.body.company, "Example");
+	assert.equal(result.item.body.descriptionIncomplete, false);
+	assert.equal(result.item.body.clientCaptureId, "first");
+});
 test("permanent errors retain captured data for user correction", () => {
 	const item = addCapture([], payload, "one").item;
 	const failed = captureFailed(item, "Expired key", true);

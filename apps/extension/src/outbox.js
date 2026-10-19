@@ -11,6 +11,7 @@ export function captureBody(payload, clientCaptureId) {
 		extraction: ["jsonld", "adapter"].includes(payload.extraction) ? payload.extraction : "text",
 		capturedAt: payload.capturedAt || new Date().toISOString(),
 		companyFallback: Boolean(payload.companyFallback), roleFallback: Boolean(payload.roleFallback),
+		descriptionIncomplete: Boolean(payload.descriptionIncomplete),
 		clientCaptureId,
 	};
 }
@@ -19,7 +20,9 @@ export function addCapture(items, payload, id, now = Date.now()) {
 	const body = captureBody(payload, id);
 	const existing = items.find((item) => item.body.canonicalUrl === body.canonicalUrl && item.status !== "saved");
 	if (existing) {
-		const descriptionImproved = !existing.body.description.trim() && Boolean(body.description.trim());
+		const descriptionImproved = Boolean(body.description.trim()) && (!existing.body.description.trim()
+			|| (existing.body.descriptionIncomplete || existing.status === "attention" || existing.body.companyFallback || existing.body.roleFallback)
+				&& body.description.length > existing.body.description.length);
 		const companyImproved = existing.body.companyFallback && !body.companyFallback;
 		const roleImproved = existing.body.roleFallback && !body.roleFallback;
 		if (descriptionImproved || companyImproved || roleImproved) {
@@ -27,6 +30,7 @@ export function addCapture(items, payload, id, now = Date.now()) {
 				warnings: Array.isArray(payload.warnings) ? payload.warnings.map(String).slice(0, 20) : [],
 				body: { ...existing.body, ...body, clientCaptureId: existing.body.clientCaptureId,
 					description: descriptionImproved ? body.description : existing.body.description,
+					descriptionIncomplete: descriptionImproved ? body.descriptionIncomplete : Boolean(existing.body.descriptionIncomplete),
 					company: companyImproved ? body.company : existing.body.company, companyFallback: companyImproved ? false : existing.body.companyFallback,
 					role: roleImproved ? body.role : existing.body.role, roleFallback: roleImproved ? false : existing.body.roleFallback } };
 			const next = items.map((item) => item.id === existing.id ? upgraded : item);

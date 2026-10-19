@@ -16,6 +16,8 @@ No Node installation or extension build is needed to load the checked-in folder.
 
 Open its page and click the toolbar button, or press **Ctrl+Shift+Y**. The extension reads the rendered page: matching JobPosting JSON-LD first, Jobright sections next, selected text or main page text last. The fallback needs review and can include unrelated page text. Company/role fallback values are flagged.
 
+On Jobright, capture waits briefly for loading content, reads section bodies across nested wrappers, and uses matching posting-title/company metadata. Headings and the skills legend alone are not a description. Missing section bodies keep useful partial text under Needs details rather than allowing an unfinished capture into preparation.
+
 The capture is saved to a durable browser outbox before upload. A waiting badge means it is retained locally; **Saved in Applications**, an application ID, and a link in extension options confirm the server copy. If Docker or the website is stopped, restart it and click **Sync now**. Waiting captures retry automatically. Failed captures remain available for retry or explicit discard. Never uninstall the extension before syncing pending captures: uninstalling removes extension storage.
 
 The extension's own settings page shows the latest 100 confirmed captures, pending captures, warnings, possible duplicates, and errors. Clearing local confirmed history does not delete an application. Raw HTML is not sent to your installation. The API key is stored only in trusted extension contexts; page scripts and content scripts do not receive it.

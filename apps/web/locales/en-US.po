@@ -3202,6 +3202,10 @@ msgstr "Copied"
 msgid "Copy"
 msgstr "Copy"
 
+#: src/features/applications/components/detail/sent-documents.tsx
+msgid "Copy a resume"
+msgstr "Copy a resume"
+
 #: src/features/documents/new-document-dialog.tsx
 msgid "Copy a resume for a job"
 msgstr "Copy a resume for a job"
@@ -3271,6 +3275,10 @@ msgstr "Copy the text out of the exported file and read it through; fix anything
 #: src/features/assistant/conversation.tsx
 msgid "Copy transcript"
 msgstr "Copy transcript"
+
+#: src/features/applications/components/detail/sent-documents.tsx
+msgid "Copying starts an editable draft. Use Copy Claude prompt in the Queue to ask Claude to tailor it."
+msgstr "Copying starts an editable draft. Use Copy Claude prompt in the Queue to ask Claude to tailor it."
 
 #: src/features/documents/companies-library.tsx
 msgid "Core values"

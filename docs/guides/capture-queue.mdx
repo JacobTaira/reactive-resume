@@ -67,6 +67,8 @@ Applications has queue views for preparation work. Preparation state is separate
 
 Copying a base resume does not move a job to Ready. **Skip** and **Queue again** preserve the application and any draft. Correct missing details or notes in **Review details**, then requeue/resume it. A processing claim expires if an assistant stops responding; another session can recover the saved progress afterward. Preparation never sets an application to Applied.
 
+The application's **Copy a resume** button creates an editable copy linked to that job. It does not start a Claude conversation or tailor the copy. Use **Copy Claude prompt** in the Queue and paste it into Claude connected to this installation to start the external assistant workflow.
+
 ## Ask Claude to process the queue
 
 Connect Claude to this installation's `/mcp` endpoint and the account containing your master resume. Mark the verified full-background resume as **Master resume** in its details. A cloud connector cannot reach a computer's `localhost`; use a client capable of the local connection, or an authenticated reachable deployment as described in [Organize resumes and company research](./organizing-resumes.mdx).

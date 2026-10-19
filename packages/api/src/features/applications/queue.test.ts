@@ -18,6 +18,16 @@ beforeEach(() => {
 });
 
 describe("queue transaction transitions", () => {
+ it("requires explicit description repair before processing incomplete captured sections", async () => {
+  mocks.row.capture = { canonicalUrl: "https://example.com/job", capturedAt: now.toISOString(), extraction: "adapter", companyFallback: false, roleFallback: false, providerId: null, descriptionIncomplete: true };
+  mocks.row.preparation = { ...basePreparation(), state: "needs_details" };
+  const unchanged = await queueService.update({ userId: "owner", id: "job", expectedRevision: 1, notes: "Check qualification section" });
+  expect(unchanged.preparation.state).toBe("needs_details");
+  await expect(queueService.claim({ userId: "owner", id: "job", expectedRevision: 2, leaseSeconds: 900 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  const repaired = await queueService.update({ userId: "owner", id: "job", expectedRevision: 2, description: "Full verified responsibilities and qualification text" });
+  expect(repaired.preparation.state).toBe("pending");
+  expect(repaired.capture?.descriptionIncomplete).toBe(false);
+ });
  it("recovers expired leases without the previous token", async () => {
   mocks.row.preparation = { ...basePreparation(), state: "processing", draftResumeId: "draft", leaseTokenHash: "a".repeat(64), leaseExpiresAt: new Date(Date.now() - 60_000).toISOString() };
   const result = await queueService.claim({ userId: "owner", id: "job", expectedRevision: 1, leaseSeconds: 900 });

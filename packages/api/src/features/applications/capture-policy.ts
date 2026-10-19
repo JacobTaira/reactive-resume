@@ -67,10 +67,11 @@ export function prepareCapture(input: CaptureInput, now: Date) {
 		extraction: input.extraction,
 		companyFallback,
 		roleFallback,
+		descriptionIncomplete: input.descriptionIncomplete,
 		providerId: input.providerId ?? null
 	};
 	const preparation: ApplicationPreparation = {
-		state: companyFallback || roleFallback || !description ? "needs_details" : "pending",
+		state: companyFallback || roleFallback || !description || input.descriptionIncomplete ? "needs_details" : "pending",
 		revision: 1,
 		draftResumeId: null,
 		notes: "",
@@ -91,6 +92,7 @@ export function prepareCapture(input: CaptureInput, now: Date) {
 			...(companyFallback ? ["Company needs confirmation."] : []),
 			...(roleFallback ? ["Role needs confirmation."] : []),
 			...(!description ? ["Description is missing; saved under Needs details."] : []),
+			...(input.descriptionIncomplete ? ["Posting sections could not be fully read; review the captured description."] : []),
 			...(description.length > MAX_CAPTURE_DESCRIPTION ? ["Description was truncated to 20,000 characters."] : []),
 		]
 	};
@@ -147,6 +149,6 @@ export function hasCaptureDetails(row: {
 }) {
 	return Boolean(
 		row.company.trim() && row.role.trim() && row.jobDescription?.trim() &&
-		!row.capture?.companyFallback && !row.capture?.roleFallback,
+		!row.capture?.companyFallback && !row.capture?.roleFallback && !row.capture?.descriptionIncomplete,
 	);
 }

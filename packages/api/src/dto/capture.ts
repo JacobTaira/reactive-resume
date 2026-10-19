@@ -25,6 +25,7 @@ export const captureInputSchema = z.strictObject({
 	}),
 	companyFallback: z.boolean().default(false),
 	roleFallback: z.boolean().default(false),
+	descriptionIncomplete: z.boolean().default(false),
 	providerId: z.string().trim().max(300).optional(),
 	clientCaptureId: z.string().trim().min(1).max(100).optional()
 });

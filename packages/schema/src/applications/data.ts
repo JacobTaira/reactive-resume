@@ -184,6 +184,8 @@ export const applicationCaptureSchema = z.object({
 	extraction: z.enum(["jsonld", "adapter", "text"]),
 	companyFallback: z.boolean(),
 	roleFallback: z.boolean(),
+	/** Older captures omit this; new adapters flag missing section bodies explicitly. */
+	descriptionIncomplete: z.boolean().optional(),
 	providerId: z.string().max(300).nullable(),
 });
 export type ApplicationCapture = z.infer<typeof applicationCaptureSchema>;

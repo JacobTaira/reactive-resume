@@ -37,6 +37,12 @@ describe("deterministic capture policy", () => {
   expect(prepareCapture(input({ role: "", title: "Page title" }), now).preparation.state).toBe("needs_details");
   expect(prepareCapture(input(), now).preparation.state).toBe("pending");
  });
+ it("retains useful incomplete descriptions under needs details even with a known company and role", () => {
+  const prepared = prepareCapture(input({ descriptionIncomplete: true }), now);
+  expect(prepared.capture.descriptionIncomplete).toBe(true);
+  expect(prepared.preparation.state).toBe("needs_details");
+  expect(prepared.description).toBe("Build tools");
+ });
  it("does not preserve raw HTML or active page content", () => {
   expect(cleanCaptureText("<script>steal()</script><b>Build</b> **tools**\u0000")).toBe("Build **tools**");
  });

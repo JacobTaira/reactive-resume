@@ -49,7 +49,7 @@ type SentDocumentsProps = { application: Application; disabled: boolean };
 
 /**
  * WHAT YOU SENT: the linked resume (opening the version that was sent, read-only, with a way back to the latest) and
- * the linked letter. Without them: Tailor a resume and Write a letter. Uploaded PDFs stay under "Attach a file".
+ * the linked letter. Without them: Copy a resume and Write a letter. Uploaded PDFs stay under "Attach a file".
  */
 export function SentDocuments({ application, disabled }: SentDocumentsProps) {
 	const { i18n } = useLingui();
@@ -157,7 +157,7 @@ export function SentDocuments({ application, disabled }: SentDocumentsProps) {
 							onClick={() => openDialog("document.new", { step: "copy", applicationId: application.id })}
 						>
 							<Icon name="copy" size={16} />
-							<Trans>Prepare a resume</Trans>
+							<Trans>Copy a resume</Trans>
 						</Button>
 					)}
 					{!application.coverLetterId && (
@@ -172,6 +172,11 @@ export function SentDocuments({ application, disabled }: SentDocumentsProps) {
 						</Button>
 					)}
 				</div>
+			)}
+			{!application.resumeId && (
+				<p className="text-xs text-ink-3">
+					<Trans>Copying starts an editable draft. Use Copy Claude prompt in the Queue to ask Claude to tailor it.</Trans>
+				</p>
 			)}
 
 			{attaching ? (
@@ -219,3 +224,4 @@ export function SentDocuments({ application, disabled }: SentDocumentsProps) {
 		</section>
 	);
 }
+

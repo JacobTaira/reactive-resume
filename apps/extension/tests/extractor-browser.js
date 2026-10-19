@@ -31,6 +31,35 @@ const checks = [
 		assert(item.description.includes("Implement embedded firmware"), "Responsibilities missing");
 		assert(!item.description.includes("Apply now"), "Button content leaked");
 	}],
+	["Jobright nested heading wrappers include all section bodies and title company", async () => {
+		const item = await fixture("jobright-wrapped", "https://jobright.ai/jobs/info/wrapped");
+		assert(item.company === "Fictional Mobility", "Company metadata missing");
+		assert(item.role === "Automation Intern", "Wrong role");
+		assert(item.canonicalUrl === "https://jobright.ai/jobs/info/wrapped", "Wrong canonical identity");
+		assert(!item.companyFallback && !item.roleFallback && !item.descriptionIncomplete, "Unexpected incomplete flags");
+		for (const text of ["model deployments", "programming in Python", "continuous integration"]) {
+			assert(item.description.includes(text), `Section body missing: ${text}`);
+		}
+		assert(!item.description.includes("Represents the skills you have"), "Skills legend captured");
+		assert(!item.description.includes("DO NOT CAPTURE"), "Company/benefits content leaked");
+	}],
+	["Jobright loading placeholders remain incomplete instead of storing section labels", async () => {
+		const item = await fixture("jobright-loading", "https://jobright.ai/jobs/info/loading");
+		assert(item.company === "Fictional Mobility" && item.role === "Automation Intern", "Header metadata missing");
+		assert(item.description === "", "Headings-only skeleton treated as description");
+		assert(item.descriptionIncomplete, "Missing description uncertainty");
+	}],
+	["Jobright preserves useful partial content but flags the missing qualifications", async () => {
+		const item = await fixture("jobright-partial", "https://jobright.ai/jobs/info/partial");
+		assert(item.description.includes("model deployments"), "Available section lost");
+		assert(item.descriptionIncomplete, "Missing qualifications were not flagged");
+	}],
+	["Jobright SPA metadata from another posting never contaminates the current capture", async () => {
+		const item = await fixture("jobright-stale", "https://jobright.ai/jobs/info/current-job");
+		assert(item.company === "Fictional Mobility" && item.role === "Automation Intern", "Stale metadata used");
+		assert(item.canonicalUrl === "https://jobright.ai/jobs/info/current-job", "Stale canonical identity used");
+		assert(item.description.includes("model deployments") && !item.description.includes("WRONG JOB"), "Wrong posting description");
+	}],
 	["Generic Greenhouse page preserves posting and strips form/navigation/hidden content", async () => {
 		const item = await fixture("greenhouse", "https://boards.greenhouse.io/example/jobs/123?gh_jid=123&utm_campaign=referral");
 		assert(item.extraction === "text", "Unexpected extractor");

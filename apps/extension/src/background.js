@@ -100,10 +100,22 @@ async function flush() {
 async function captureTab(tab) {
 	try {
 		if (!tab?.id || !/^https?:\/\//.test(tab.url || "")) throw new Error("Open an ordinary job webpage before capturing.");
+		await badge("…");
 		await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/extractor.js"] });
-		const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => globalThis.ReactiveCaptureExtract.extractDocument(document) });
-		const payload = results[0]?.result;
+		const isJobright = new URL(tab.url).hostname.replace(/^www\./, "") === "jobright.ai";
+		let payload;
+		for (let attempt = 0; attempt < 8; attempt++) {
+			const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => globalThis.ReactiveCaptureExtract.extractDocument(document) });
+			payload = results[0]?.result;
+			if (!payload || !isJobright || (!payload.descriptionIncomplete && !payload.companyFallback && !payload.roleFallback
+				&& globalThis.ReactiveCaptureExtract.hasJobDescriptionText(payload.description))) break;
+			if (attempt < 7) await new Promise((resolve) => setTimeout(resolve, 750));
+		}
 		if (!payload) throw new Error("The page could not be read. Open extension settings for details.");
+		if (isJobright && (new URL(payload.url).origin !== new URL(tab.url).origin
+			|| new URL(payload.url).pathname !== new URL(tab.url).pathname)) {
+			throw new Error("The posting changed during capture. Open the intended job and capture it again.");
+		}
 		await enqueue(payload);
 		await chrome.storage.local.set({ lastError: "" });
 		void flush();
