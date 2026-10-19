@@ -378,6 +378,7 @@ describe("registerTools", () => {
 		clientMock.library.resumes.getMetadata.mockResolvedValueOnce(libraryMetadata);
 		const read = registered.find((tool) => tool.name === MCP_TOOL_NAME.getResume)!;
 		const result = await read.handler(TOOL_META[MCP_TOOL_NAME.getResume].inputSchema.parse({ id: "draft", includeMetadata: true }));
+		expect(TOOL_META[MCP_TOOL_NAME.getResume].outputSchema.shape).toHaveProperty("libraryMetadata");
 		expect(clientMock.library.resumes.getMetadata).toHaveBeenCalledWith({ resumeId: "draft" });
 		expect(JSON.parse(result.content[0]!.text)).toEqual(result.structuredContent);
 		expect(result.structuredContent).toMatchObject({

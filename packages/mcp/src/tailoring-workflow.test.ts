@@ -6,7 +6,7 @@ describe("job tailoring workflow", () => {
 		const prompt = buildJobTailoringInstructions({ jobDescription: "Pasted robotics job", jobUrl: "https://example.test/job" });
 		expect(prompt.indexOf("1. Save the job in Applications")).toBeLessThan(prompt.indexOf("find_related_resumes"));
 		expect(prompt.indexOf("create_application")).toBeLessThan(prompt.indexOf("find_related_resumes"));
-		expect(prompt.indexOf("Only then announce")).toBeLessThan(prompt.indexOf("find_related_resumes"));
+		expect(prompt.indexOf("Only then regard tracking as confirmed")).toBeLessThan(prompt.indexOf("find_related_resumes"));
 		expect(prompt).toContain("webpage access and a saved AI provider are not required");
 		expect(prompt).toContain("Company not provided");
 		expect(prompt).toContain("Role not provided");

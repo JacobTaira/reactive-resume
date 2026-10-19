@@ -394,7 +394,7 @@ const BASE_TOOL_META = {
 		description: [
 			"Create a copy of an existing resume with all its data.",
 			"",
-			"Returns the ID of the newly duplicated resume.",
+			"Returns the ID of the newly duplicated resume. For a job-specific draft, use the user-designated Base Resume and explicitly supply a company-and-role name; related versions are comparison references.",
 			"Name and tags default to the original; a unique slug is generated when omitted.",
 			"Useful for creating job-specific variants of a base resume.",
 		].join("\n"),
@@ -968,7 +968,7 @@ export const TOOL_META = withAnnotationTitles({
 		description:
 			BASE_TOOL_META[T.getResume].description +
 			" Structured output also includes record metadata and updatedAt for expectedUpdatedAt.",
-		outputSchema: toWireObjectSchema(resumeDto.getById.output),
+		outputSchema: BASE_TOOL_META[T.getResume].outputSchema,
 	},
 	[T.createResume]: {
 		...BASE_TOOL_META[T.createResume],

@@ -18,7 +18,7 @@ const resumeIdArg = z
 
 const jobTailoringArgs = {
 	jobDescription: z.string().trim().min(1).max(20_000).describe("Pasted job posting, including its requirements."),
-	masterResumeId: z.string().min(1).optional().describe("Optional master resume ID; otherwise discover saved masters."),
+	masterResumeId: z.string().min(1).optional().describe("Optional user-designated base resume ID; otherwise locate Base Resume by name."),
 	company: z.string().max(200).optional().describe("Company name, when known."),
 	targetRole: z.string().max(200).optional().describe("Role title, when known."),
 	jobUrl: z.url({ protocol: /^https?$/ }).optional().describe("Original posting URL, when supplied; saving it does not fetch the page."),
@@ -28,7 +28,7 @@ const jobTailoringArgs = {
 const resumePromptArgument = { name: "id", description: resumeIdArg.description ?? "Resume ID.", required: true } as const;
 
 const queueProcessingArgs = {
-	masterResumeId: z.string().min(1).optional().describe("Optional verified master ID; otherwise discover saved masters."),
+	masterResumeId: z.string().min(1).optional().describe("Optional verified user-designated base ID; otherwise locate Base Resume by name."),
 	limit: z.string().regex(/^(?:[1-9]|[1-4][0-9]|50)$/).optional().describe("Maximum jobs in this batch, 1–50; default 10."),
 };
 
@@ -50,12 +50,12 @@ export const PROMPT_META = {
 	tailor_resume_for_job: {
 		title: "Tailor Resume for a Job",
 		description:
-			"Save and verify the pasted job in Applications before research or tailoring. Then use the saved master, related resumes and company notes to produce a draft and transparent score. No provider setup or application submission.",
+			"Save and verify the pasted job in Applications before research or tailoring. Use the user-designated Base Resume, with related resumes as references; save evidence and score in the app and follow the project's brief reply format. No provider setup or application submission.",
 	},
 	process_tailoring_queue: {
 		title: "Process Tailoring Queue",
 		description:
-			"Read captured jobs and the master, identify shared evidence gaps and ask once before generating a batch. Claim/resume each draft, tailor truthful content, check PDFs and save a transparent review score. Incomplete and failed work stays visible; no employer submissions or saved AI provider required.",
+			"Read captured jobs and Base Resume, asking once only about shared unknown facts that materially affect preparation. Claim/resume each draft, tailor truthful content, check PDFs and save a transparent review score. Incomplete and failed work stays visible; no employer submissions or saved AI provider required.",
 	},
 } as const;
 
