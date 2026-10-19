@@ -167,7 +167,7 @@ describe("registerTools", () => {
 		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.compileResumeLatex)!;
 		const result = await tool.handler({ id: "r1" });
 		expect(clientMock.resume.latex.compile).toHaveBeenCalledWith({ id: "r1" });
-		expect(result.structuredContent).toMatchObject({ success: true, log: "done", checks: null });
+		expect(result.structuredContent).toMatchObject({ success: true, log: "Compilation succeeded.", checks: null, logTruncated: true });
 		expect(result.structuredContent?.diagnosticsNote).toContain("remain unverified");
 		expect(JSON.stringify(result)).not.toContain("private-pdf-bytes");
 		expect(clientMock.resume.update).not.toHaveBeenCalled();
@@ -385,6 +385,55 @@ describe("registerTools", () => {
 			id: "draft", updatedAt: updatedAt.toISOString(), applicationId: "job", data: resume.data,
 			libraryMetadata: { sourceResumeId: "master", updatedAt: updatedAt.toISOString() },
 		});
+	});
+
+	it("reads the active LaTeX file without retransmitting unused source files", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const updatedAt = new Date("2026-10-19T07:00:00Z");
+		clientMock.resume.getById.mockResolvedValueOnce({
+			id: "draft", name: "Draft", updatedAt, applicationId: "job",
+			data: { latex: { engine: "pdflatex", entrypoint: "main.tex", files: [
+				{ path: "main.tex", encoding: "utf-8", content: "Printed source" },
+				{ path: "ACS.tex", encoding: "utf-8", content: "Unused alternative source must stay stored" },
+			] } },
+		});
+		clientMock.library.resumes.getMetadata.mockResolvedValueOnce({ resumeId: "draft", updatedAt });
+		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.readResumeLatex)!;
+		const result = await tool.handler({ id: "draft" });
+		expect(result.isError).not.toBe(true);
+		expect(result.structuredContent).toMatchObject({ partialProject: true, applicationId: "job" });
+		expect(JSON.stringify(result)).toContain("Printed source");
+		expect(JSON.stringify(result)).toContain("ACS.tex");
+		expect(JSON.stringify(result)).not.toContain("Unused alternative source must stay stored");
+		expect(clientMock.resume.patch).not.toHaveBeenCalled();
+	});
+
+	it("saves exact LaTeX text edits with one version-guarded patch and a compact receipt", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const updatedAt = new Date("2026-10-19T07:00:00Z");
+		const nextUpdatedAt = new Date("2026-10-19T07:00:01Z");
+		const source = "\\documentclass{article}\n\\begin{document}\nBuilt a prototype.\n\\end{document}";
+		clientMock.resume.getById.mockResolvedValueOnce({
+			id: "draft", name: "Draft", updatedAt, data: { latex: { engine: "pdflatex", entrypoint: "main.tex", files: [
+				{ path: "main.tex", encoding: "utf-8", content: source },
+				{ path: "ACS.tex", encoding: "utf-8", content: "Unchanged alternate" },
+			] } },
+		});
+		clientMock.resume.patch.mockResolvedValueOnce({ id: "draft", name: "Draft", updatedAt: nextUpdatedAt });
+		const tool = registered.find((item) => item.name === MCP_TOOL_NAME.editResumeLatex)!;
+		const result = await tool.handler({
+			id: "draft", expectedUpdatedAt: updatedAt.toISOString(),
+			edits: [{ path: "main.tex", oldText: "Built a prototype.", newText: "Built and tested a prototype." }],
+		});
+		expect(result.isError).not.toBe(true);
+		expect(clientMock.resume.patch).toHaveBeenCalledExactlyOnceWith({
+			id: "draft", expectedUpdatedAt: updatedAt,
+			operations: [{ op: "replace", path: "/latex/files/0/content", value: source.replace("Built a prototype.", "Built and tested a prototype.") }],
+		});
+		expect(result.structuredContent).toMatchObject({ updatedAt: nextUpdatedAt.toISOString(), appliedEdits: 1, changedFiles: ["main.tex"] });
+		expect(JSON.stringify(result)).not.toContain("Built and tested a prototype.");
 	});
 
 	describe("error hints", () => {

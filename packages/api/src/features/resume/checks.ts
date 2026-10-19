@@ -1,4 +1,5 @@
 import z from "zod";
+import { ORPCError } from "@orpc/server";
 import { ATS_CATEGORIES, ATS_RULE_CODES, lintResumeForAts } from "@reactive-resume/resume/ats";
 import {
 	analyzePdfResume,
@@ -79,7 +80,7 @@ export const matchResume = protectedProcedure
 		operationId: "createResumeJobMatch",
 		summary: "Match resume terms to a job posting",
 		description:
-			"Runs the editor's deterministic term matching and respects terms hidden on this resume. No AI provider is needed.",
+			"Runs deterministic term matching on structured resume fields and respects hidden terms. LaTeX resumes are unsupported: use their compiled PDF text and verified source evidence instead. No AI provider is needed.",
 	})
 	.input(z.object({ id: z.string().min(1), jobDescription: z.string().trim().min(1).max(20_000) }))
 	.output(
@@ -91,6 +92,12 @@ export const matchResume = protectedProcedure
 	)
 	.handler(async ({ input, context }) => {
 		const { data } = await resumeService.getById({ id: input.id, userId: context.user.id });
+		if (data.latex) {
+			throw new ORPCError("BAD_REQUEST", {
+				message:
+					"This matcher reads structured resume fields, which do not represent the LaTeX PDF. Use compile_resume_latex textExtraction and verified source evidence instead; a structured-field match would be misleading.",
+			});
+		}
 		const hidden = new Set(data.metadata.check?.hiddenTerms ?? []);
 		const terms = matchJobDescription({ jobDescription: input.jobDescription, resumeText: buildMarkdown(data) })
 			.terms.filter((term) => !hidden.has(term.term))

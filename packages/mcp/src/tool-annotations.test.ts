@@ -6,6 +6,7 @@ describe("tool annotations", () => {
 	it("marks tools that replace or remove existing data as destructive", () => {
 		for (const name of [
 			MCP_TOOL_NAME.patchResume,
+			MCP_TOOL_NAME.editResumeLatex,
 			MCP_TOOL_NAME.updateResume,
 			MCP_TOOL_NAME.deleteResume,
 			MCP_TOOL_NAME.updateApplication,
@@ -39,6 +40,7 @@ describe("tool annotations", () => {
 			MCP_TOOL_NAME.listCompanyNotes,
 			MCP_TOOL_NAME.readCompanyNote,
 			MCP_TOOL_NAME.readResumeMetadata,
+			MCP_TOOL_NAME.readResumeLatex,
 			MCP_TOOL_NAME.findRelatedResumes,
 			MCP_TOOL_NAME.findRelatedJobs,
 			MCP_TOOL_NAME.compareResumes,

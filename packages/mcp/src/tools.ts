@@ -12,6 +12,8 @@ import { createResumePdfDownloadUrl } from "@reactive-resume/api/features/resume
 import { env } from "@reactive-resume/env/server";
 import { readMcpFile } from "./files";
 import { registerLibraryTools } from "./library-tools";
+import { registerLatexTools } from "./latex-tools";
+import { compactCompileLog } from "./latex-context";
 import { MCP_TOOL_NAME } from "./mcp-tool-names";
 import { registerQueueTools } from "./queue-tools";
 import { json, text, withErrorHandling } from "./results";
@@ -66,11 +68,16 @@ export function registerTools(
 		withErrorHandling(
 			"compiling LaTeX resume",
 			async (params: z.infer<(typeof TOOL_META)[typeof T.compileResumeLatex]["inputSchema"]>) => {
-				const result = await client.resume.latex.compile(params);
+				const { includeLog, expectedUpdatedAt, ...options } = params;
+				const result = await client.resume.latex.compile({
+					...options,
+					...(expectedUpdatedAt ? { expectedUpdatedAt: new Date(expectedUpdatedAt) } : {}),
+				});
 				const checks = result.success ? result.checks ?? null : null;
 				return json({
 					success: result.success,
-					log: result.log,
+					...compactCompileLog(result.log, result.success, includeLog),
+					resumeUpdatedAt: result.resumeUpdatedAt ?? null,
 					checks,
 					diagnosticsNote: checks
 						? null
@@ -639,6 +646,7 @@ export function registerTools(
 	);
 
 	registerLibraryTools(server, client);
+	registerLatexTools(server, client);
 	registerQueueTools(server, client);
 }
 

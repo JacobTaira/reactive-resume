@@ -111,7 +111,9 @@ function mutate(
 			.from(schema.application)
 			.where(and(eq(schema.application.userId, userId), eq(schema.application.id, id)))
 			.for("update");
-		if (!row) throw new ORPCError("NOT_FOUND");
+		if (!row) throw new ORPCError("NOT_FOUND", {
+			message: "Application queue entry not found. Use the application ID from list_tailoring_queue as id; draftResumeId is the separate resume ID.",
+		});
 		// Expired leases derive a failed state, so claim can recover them with a new token.
 		const preparation = initialPreparation(row);
 		assertRevision(preparation, revision);
@@ -297,7 +299,7 @@ export const queueService = {
 				!profile.reviewedResumeUpdatedAt || new Date(profile.reviewedResumeUpdatedAt).getTime() !== currentTime
 			) {
 				throw new ORPCError("BAD_REQUEST", {
-					message: "Draft needs a current tailored evaluation and evidence review before it can be marked ready."
+					message: "Save the draft's current score and review with update_resume_metadata first: profile.purpose=tailored, score, evaluatedResumeUpdatedAt and reviewedResumeUpdatedAt must match expectedResumeUpdatedAt. Then call finish_queue_job with the APPLICATION id and draftResumeId separately. Do not rerun term matching or repeat this finish call without saving that metadata."
 				});
 			}
 			if (row.sentResumeVersionId && row.resumeId !== draftResumeId) throw new ORPCError("CONFLICT", {

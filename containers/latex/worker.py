@@ -30,6 +30,9 @@ MAX_LOG_BYTES = 64 * 1024
 MAX_INSPECTION_BYTES = 8 * 1024 * 1024
 MAX_EXTRACTED_TEXT_CHARS = 50_000
 MAX_TEXT_PREVIEW_CHARS = 1_000
+MAX_TEXT_PAGE_DETAILS = 10
+MAX_PAGE_EXCERPT_CHARS = 500
+MAX_PAGE_EXCERPT_LINES = 3
 MAX_OVERFULL_MESSAGES = 20
 ALLOWED_EXTENSIONS = {
     ".tex", ".sty", ".cls", ".clo", ".cfg", ".def", ".bib", ".bst", ".bbl",
@@ -202,6 +205,30 @@ def bounded_text(text, limit):
     return text.encode("utf-16-le")[:limit * 2].decode("utf-16-le", errors="ignore")
 
 
+def pdf_text_pages(text):
+    """Keep bounded page excerpts from pdftotext's existing form-feed boundaries."""
+    if not text:
+        return []
+    # The final form feed terminates the last page; it does not start another page.
+    # Bound splitting as well as returned details for documents with many pages.
+    pages = text.split("\x0c", MAX_TEXT_PAGE_DETAILS)
+    if len(pages) > 1 and not pages[-1].strip():
+        pages.pop()
+    details = []
+    for number, page in enumerate(pages[:MAX_TEXT_PAGE_DETAILS], start=1):
+        page_text = page.strip()
+        lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+        last_lines = "\n".join(lines[-MAX_PAGE_EXCERPT_LINES:])
+        details.append({
+            "page": number,
+            "characterCount": len(page_text),
+            "lineCount": len(lines),
+            "firstLines": bounded_text("\n".join(lines[:MAX_PAGE_EXCERPT_LINES]), MAX_PAGE_EXCERPT_CHARS),
+            "lastLines": last_lines.encode("utf-16-le")[-MAX_PAGE_EXCERPT_CHARS * 2:].decode("utf-16-le", errors="ignore"),
+        })
+    return details
+
+
 def inspect_pdf(pdf, overfull_boxes, expected_page_count=None):
     """Local, bounded PDF checks; these do not establish visual quality or ATS compatibility."""
     info = run_pdf_tool("pdfinfo", [str(pdf)], pdf.parent)
@@ -228,6 +255,7 @@ def inspect_pdf(pdf, overfull_boxes, expected_page_count=None):
             "preview": bounded_text(text, MAX_TEXT_PREVIEW_CHARS),
             "truncated": len(extracted) < len(text),
             "error": extraction["error"],
+            **({"pages": pdf_text_pages(extraction["output"])} if extraction["status"] == "success" else {}),
         },
     }
 

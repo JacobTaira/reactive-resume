@@ -31,7 +31,7 @@ describe("queue processing workflow", () => {
 		expect(prompt).toContain("Recover the existing preparation.draftResumeId");
 		expect(prompt).toContain("reread the application's linked draft before retrying");
 		expect(prompt).toContain("only processing progress, NEVER completion");
-		expect(prompt).toContain("expectedResumeUpdatedAt matching the final read_resume response");
+		expect(prompt).toContain("expectedResumeUpdatedAt matching the verified final read_resume response or matching saved-source compile receipt");
 		expect(prompt).toContain("outcome=failed");
 		expect(prompt).toContain("Never silently skip failed jobs");
 		expect(prompt).toContain("state clearly; do not claim it was saved");

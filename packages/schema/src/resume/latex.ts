@@ -79,6 +79,13 @@ export const latexCompileChecksSchema = z.object({
 		preview: z.string().max(1_000),
 		truncated: z.boolean(),
 		error: z.string().max(500).nullable(),
+		pages: z.array(z.object({
+			page: z.number().int().positive(),
+			characterCount: z.number().int().nonnegative(),
+			lineCount: z.number().int().nonnegative(),
+			firstLines: z.string().max(500),
+			lastLines: z.string().max(500),
+		})).max(10).optional(),
 	}),
 });
 

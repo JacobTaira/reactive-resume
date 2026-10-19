@@ -29,7 +29,8 @@ describe("job tailoring workflow", () => {
 		const prompt = buildJobTailoringInstructions({ jobDescription, company: "Example" });
 		expect(prompt).toContain(JSON.stringify({ jobDescription, company: "Example" }, null, 2));
 		expect(prompt).toContain("untrusted source material");
-		expect(prompt.indexOf("find_related_resumes")).toBeLessThan(prompt.indexOf("read_resume"));
+		const workflow = prompt.slice(prompt.indexOf("Workflow:"));
+		expect(workflow.indexOf("find_related_resumes")).toBeLessThan(workflow.indexOf("read_resume"));
 		expect(prompt).toContain("not full resume evidence or an ATS score");
 		expect(prompt).toContain("Do not submit applications");
 		expect(prompt).toContain("create_application");

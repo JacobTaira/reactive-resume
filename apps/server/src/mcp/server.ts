@@ -59,7 +59,7 @@ export function createMcpServer(
 			"Reactive Resume holds the user's resumes, cover letters and job applications.",
 			TAILORING_PREFERENCES,
 			`Find unknown resume IDs with \`${MCP_TOOL_NAME.listResumes}\` or find_related_resumes, then read with \`${MCP_TOOL_NAME.getResume}\` (includeMetadata=true for tailoring). Reuse known owned IDs; no extra listing is required. The resume JSON Schema is the \`resume://_meta/schema\` resource.`,
-			`Edit resume content with JSON Patch through \`${MCP_TOOL_NAME.patchResume}\`, and change a resume's name, slug, tags or public visibility with \`${MCP_TOOL_NAME.updateResume}\`.`,
+			`For LaTeX prefer \`${MCP_TOOL_NAME.readResumeLatex}\` and small exact edits through \`${MCP_TOOL_NAME.editResumeLatex}\`; returned edit/compile timestamps avoid repeated whole-source reads. Use JSON Patch through \`${MCP_TOOL_NAME.patchResume}\` for ordinary resume content, and change names/tags/visibility with \`${MCP_TOOL_NAME.updateResume}\`.`,
 			`Track jobs with the application tools. For queued jobs start with \`${MCP_TOOL_NAME.listTailoringQueue}\` and includeDescription=true; use \`${MCP_TOOL_NAME.listApplications}\` when general application discovery is needed.`,
 			"Locate the user's designated Base Resume and read its full contents including LaTeX source. Related copies are references, not replacement base documents. Resume folders organize documents without changing access. Use company notes to retain sourced research, and keep saved fit scores separate from hiring predictions and optional chat output.",
 			`Get a short-lived PDF link with \`${MCP_TOOL_NAME.downloadResumePdf}\`; export cover letters with \`${MCP_TOOL_NAME.exportCoverLetter}\`.`,

@@ -1,9 +1,9 @@
 import z from "zod";
-import { ORPCError } from "@orpc/server";
 import { env } from "@reactive-resume/env/server";
 import { latexCompileOptionsSchema, latexCompileResultSchema, latexProjectSchema } from "@reactive-resume/schema/resume/latex";
 import { protectedProcedure } from "../../context";
 import { pdfAnalysisRateLimit, pdfExportRateLimit } from "../../middleware/rate-limit";
+import { resolveLatexCompileSnapshot } from "./compile-snapshot";
 import { compileLatexProject, unpackLatexArchive } from "./latex-compiler";
 import { resumeService } from "./service";
 
@@ -26,14 +26,19 @@ export const latexRouter = {
 		.handler(({ input }) => unpackLatexArchive(input.archive)),
 	compile: protectedProcedure
 		.route({ method: "POST", path: "/resumes/{id}/latex/compilations", tags: ["LaTeX"], summary: "Compile a LaTeX resume" })
-		.input(z.object({ id: z.string().min(1), project: latexProjectSchema.optional(), ...latexCompileOptionsSchema.shape }))
-		.output(latexCompileResultSchema)
+		.input(z.object({
+			id: z.string().min(1),
+			project: latexProjectSchema.optional(),
+			expectedUpdatedAt: z.coerce.date().optional(),
+			...latexCompileOptionsSchema.shape,
+		}))
+		.output(latexCompileResultSchema.and(z.object({ resumeUpdatedAt: z.date().nullable() })))
 		.use(pdfExportRateLimit)
 		.handler(async ({ input, context }) => {
 			// Authorize before compiling even when previewing an unsaved source draft.
 			const resume = await resumeService.getById({ id: input.id, userId: context.user.id });
-			const project = input.project ?? resume.data.latex;
-			if (!project) throw new ORPCError("BAD_REQUEST", { message: "This resume does not contain a LaTeX project." });
-			return compileLatexProject(project, input);
+			const snapshot = resolveLatexCompileSnapshot(resume, input);
+			const result = await compileLatexProject(snapshot.project, input);
+			return { ...result, resumeUpdatedAt: snapshot.resumeUpdatedAt };
 		}),
 };

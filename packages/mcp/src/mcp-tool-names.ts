@@ -3,6 +3,8 @@ export const MCP_TOOL_NAME = {
 	listResumes: "list_resumes",
 	listResumeTags: "list_resume_tags",
 	getResume: "read_resume",
+	readResumeLatex: "read_resume_latex",
+	editResumeLatex: "edit_resume_latex",
 	downloadResumePdf: "download_resume_pdf",
 	compileResumeLatex: "compile_resume_latex",
 	createResume: "create_resume",

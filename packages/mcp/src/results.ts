@@ -4,6 +4,7 @@ import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { ORPCError } from "@orpc/server";
 import z from "zod";
 import { MCP_TOOL_NAME } from "./mcp-tool-names";
+import { withToolTiming } from "./performance";
 
 function errorMessage(error: unknown): string {
 	if (error instanceof ORPCError && error.status < 500) return error.message;
@@ -47,14 +48,14 @@ function errorHint(error: unknown): string {
 
 /**
  * Wraps an async tool handler with consistent error formatting.
- * On success, returns the handler's result directly.
+ * Adds content-free timing metadata and a server diagnostic on success or failure.
  * On failure, returns `{ isError: true, content: [{ type: "text", text }] }` with actionable hints.
  */
 export function withErrorHandling<T, Args extends unknown[]>(
 	label: string,
 	handler: (params: T, ...args: Args) => Promise<CallToolResult>,
 ) {
-	return async (params: T, ...args: Args): Promise<CallToolResult> => {
+	return withToolTiming(label, async (params: T, ...args: Args): Promise<CallToolResult> => {
 		try {
 			return await handler(params, ...args);
 		} catch (error) {
@@ -71,7 +72,7 @@ export function withErrorHandling<T, Args extends unknown[]>(
 				],
 			};
 		}
-	};
+	});
 }
 
 export function text(value: string, structured: Record<string, unknown> = { message: value }): CallToolResult {

@@ -21,6 +21,7 @@ import { latexCompileChecksSchema, latexCompileOptionsSchema } from "@reactive-r
 import { templateSchema } from "@reactive-resume/schema/templates";
 import { toWireObjectSchema, toWireSchema } from "./contracts";
 import { LIBRARY_TOOL_META } from "./library-tool-meta";
+import { LATEX_TOOL_META } from "./latex-tool-meta";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
 import { QUEUE_TOOL_META } from "./queue-tool-meta";
 
@@ -249,13 +250,20 @@ const idOutput = z.object({ id: z.string() });
 const BASE_TOOL_META = {
 	[T.compileResumeLatex]: {
 		title: "Compile LaTeX Resume",
-		description: "Compile a saved LaTeX resume using its original PDFLaTeX source. Returns success, a bounded compiler log and checks: page count, optional expected-page match, overfull box warnings, and bounded extracted text. Pass expectedPageCount only for the user's stated target. Missing diagnostics return checks=null and a diagnosticsNote; do not treat that as a pass. Machine checks do not prove visual quality or ATS compatibility. Use read_resume and apply_resume_patch for source edits, then download_resume_pdf for the PDF. PDF bytes are not returned here. No AI provider is invoked.",
-		inputSchema: wireInput(latexCompileOptionsSchema.extend({ id: resumeIdSchema }).strict()),
+		description: "Compile the saved LaTeX source and measure PDF page count, overflow and extracted text; per-page first/last lines show spillover when available. Pass expectedUpdatedAt from the latest edit receipt and expectedPageCount for the user's target. Returns resumeUpdatedAt for the exact source compiled: when it matches the content you reviewed, use that timestamp for saved review/evaluation instead of rereading the whole file. Successful logs are summarized by default; includeLog=true returns the full bounded log. Failure logs remain available. Missing diagnostics are unverified, not passed; machine checks do not establish visual quality or ATS success. Prefer read_resume_latex/edit_resume_latex for content changes. PDF bytes are not returned; no provider is invoked.",
+		inputSchema: wireInput(latexCompileOptionsSchema.extend({
+			id: resumeIdSchema,
+			expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
+			includeLog: z.boolean().optional(),
+		}).strict()),
 		outputSchema: z.object({
 			success: z.boolean(),
 			log: z.string(),
 			checks: latexCompileChecksSchema.nullable(),
 			diagnosticsNote: z.string().nullable(),
+			resumeUpdatedAt: z.iso.datetime({ offset: true }).nullable(),
+			logTruncated: z.boolean(),
+			logCharacters: z.number().int().nonnegative(),
 		}),
 		annotations: READ_IDEMPOTENT,
 	},
@@ -310,6 +318,7 @@ const BASE_TOOL_META = {
 			"location, website), summary, picture settings, all sections (experience, education, skills,",
 			"projects, etc.), custom sections, and metadata (template, layout, typography, colors).",
 			"LaTeX resumes include a latex project with engine, entrypoint, and files (path, encoding, content). The LaTeX source controls their PDF; structured section fields do not.",
+			"For LaTeX tailoring prefer read_resume_latex: it reads the active file and a complete file manifest without retransmitting unused alternative source files. This general read remains available for complete projects and ordinary resumes.",
 			"A master resume remains readable through this tool when moved into any owned folder. Find saved masters and related variants with find_related_resumes; read_resume_metadata holds their separate job profiles and lineage.",
 			"For tailoring, set includeMetadata=true to return the full resume envelope (data, id, updatedAt, applicationId) plus libraryMetadata (folder, source, company and complete profile) in one call. Both text and structured responses include this context. Reuse the returned content and timestamp instead of immediately calling read_resume_metadata or rereading the same draft. Conflicting content revisions fail rather than returning a mixed snapshot. With includeMetadata omitted/false, the text body remains the resume data JSON.",
 			"",
@@ -413,6 +422,7 @@ const BASE_TOOL_META = {
 		title: "Apply Resume Patch",
 		description: [
 			"Apply JSON Patch (RFC 6902) operations to partially update a resume's data.",
+			"For LaTeX body edits prefer edit_resume_latex with small exact replacements and expectedUpdatedAt; avoid resending a whole file or changing its preamble/layout. Its compact receipt supplies the timestamp for subsequent edits and compile.",
 			"",
 			`This is the primary way to edit resume content. Use \`${T.getResume}\` first to inspect the`,
 			"current structure, and `resume://_meta/schema` to understand valid paths and types.",
@@ -951,6 +961,7 @@ export const TOOL_META = withAnnotationTitles({
 	...BASE_TOOL_META,
 	...LIBRARY_TOOL_META,
 	...QUEUE_TOOL_META,
+	...LATEX_TOOL_META,
 	[T.listResumes]: {
 		...BASE_TOOL_META[T.listResumes],
 		inputSchema: wireInput(BASE_TOOL_META[T.listResumes].inputSchema.extend(pagination)),
