@@ -180,24 +180,20 @@ it("embeds actual resume JSON in prompts and propagates inaccessible-document er
 	);
 });
 
-it("includes the selected master's full LaTeX source in the job-tailoring prompt", async () => {
-	const data = {
-		latex: { engine: "pdflatex", entrypoint: "main.tex", files: [{ path: "main.tex", content: "Verified master source" }] },
-	};
-	calls.resume.getById.mockResolvedValueOnce({ data });
+it("returns job-saving guidance without an eager master read that could block tracking", async () => {
 	const prompt = await client.getPrompt({
 		name: "tailor_resume_for_job",
-		arguments: { masterResumeId: "master-1", jobDescription: "A robotics engineer posting", company: "Example" },
+		arguments: { masterResumeId: "master-1", jobDescription: "A robotics engineer posting", company: "Example", applicationId: "saved-job", jobUrl: "https://example.test/job" },
 	});
-	expect(calls.resume.getById).toHaveBeenCalledWith({ id: "master-1" });
-	const resource = prompt.messages.find(
-		(message) => message.content.type === "resource" && message.content.resource.uri === "resume://master-1",
-	)?.content;
-	if (resource?.type !== "resource" || !("text" in resource.resource)) throw new Error("Prompt lacks master source");
-	expect(JSON.parse(resource.resource.text).latex.files[0].content).toBe("Verified master source");
+	expect(calls.resume.getById).not.toHaveBeenCalled();
+	expect(prompt.messages).toHaveLength(1);
 	const instruction = prompt.messages.find((message) => message.content.type === "text")?.content;
 	if (instruction?.type !== "text") throw new Error("Prompt lacks workflow");
 	expect(instruction.text).toContain("A robotics engineer posting");
+	expect(instruction.text).toContain('"masterResumeId": "master-1"');
+	expect(instruction.text).toContain('"applicationId": "saved-job"');
+	expect(instruction.text).toContain("Saved to Applications");
+	expect(instruction.text).toContain("Tracking not confirmed");
 	expect(instruction.text).toContain("find_related_resumes");
 	expect(instruction.text).toContain("save_company_note");
 });

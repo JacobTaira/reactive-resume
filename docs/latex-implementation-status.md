@@ -23,6 +23,8 @@ This feature preserves a resume's PDFLaTeX source instead of converting it into 
 - Read-only saved-source comparison through MCP, including explicit historical source-version selection and bounded/coarse comparison flags. Change rationale remains separate from computed differences.
 - Compiler diagnostics for page count, an optional expected count, overfull box warnings and bounded PDF text extraction. Older workers with no checks remain explicitly unverified.
 - User-reported resume outcomes and related-resume reuse hints. Recorded hiring results are contextual observations, not causal evidence about resume quality; new drafts do not inherit them.
+- Career navigation and section removed; old links redirect to Applications, with Companies available in the mobile navigation.
+- Job-saving guidance now comes before research and resume reads, verifies the saved Applications record, retains unknown details with explicit placeholders and reports unconfirmed writes. Prompt retrieval no longer reads a master eagerly. External assistant execution remains outside the app's control.
 
 ## Verified
 

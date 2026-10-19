@@ -29,9 +29,8 @@ Connect your client to this installation's `/mcp` endpoint and sign in to the ac
 
 The `tailor_resume_for_job` MCP prompt describes this workflow:
 
-1. Find the master and related resumes with `find_related_resumes`, and related saved applications with `find_related_jobs`.
-   Reuse the exact posting's saved job record or save a new one, so later conversations can find the original job and its resume. Similar roles are useful comparisons, but are not automatically duplicate postings.
-2. Read the selected master and a few useful previous versions using `read_resume`. For LaTeX resumes this includes the original `latex.files[].content`, not merely the empty structured fields.
+1. Save the supplied job in Applications **before** browsing, company research or resume work. Reuse an exact saved posting, or create a record with `create_application` and `status=saved`. Read it back with `read_application`, then report the saved application ID. Missing role/company details use clearly marked placeholders and a `needs-details` tag; an unreadable page must not prevent capture.
+2. Find the master and related resumes with `find_related_resumes`, and related applications with `find_related_jobs`. Read the selected master and a few useful previous versions using `read_resume`. For LaTeX resumes this includes the original `latex.files[].content`, not merely the empty structured fields. Similar roles are useful comparisons, but are not automatically duplicate postings.
 3. Read the company's saved research, then choose the best starting resume. Check prior outcomes as context while prioritizing relevant, verified evidence. Preserve the master and earlier versions by duplicating the selected base.
 4. Map the posting's requirements to quoted resume evidence. Mark each requirement as supported, partially supported or a gap; distinguish required qualifications from preferences.
 5. Tailor the draft and save short before/after excerpts explaining why each section changed. Use `compare_resumes` when an actual saved-source comparison is needed.
@@ -42,6 +41,16 @@ The `tailor_resume_for_job` MCP prompt describes this workflow:
 The index lists concise metadata, lexical similarity, recorded outcomes and a reuse priority. These numbers help find candidates; they are not the resume's evaluation score. The index omits full source, full job descriptions, requirement citations and change notes. Read promising matches before reusing their claims. The full application remains available through `read_application`.
 
 `read_resume_metadata` reads the full saved job context and evaluation. Use `list_resume_folders`, `create_resume_folder`, `update_resume_folder`, and `move_resume` to organize documents. Company tools are `list_company_notes`, `read_company_note`, and `save_company_note`. These tools use the same authenticated API as the website and do not need a Reactive Resume AI provider.
+
+## Confirm the job was saved
+
+Claude's tool use is not guaranteed. The workflow tells it to save first, verify the saved record and report **Saved to Applications** with its ID. Failed saves or read-back checks must produce **Tracking not confirmed** and stop tailoring. A timeout can happen after a save committed, so Claude should find/read the record before retrying creation.
+
+Saving uses the pasted description and supplied URL directly. It does not need to fetch the website or use an AI provider. If the posting omits a company or role, Claude can save explicit **Company not provided** / **Role not provided** labels, mark `needs-details` and fill the details later. These labels are not verified company research.
+
+For the most dependable workflow, open **Applications → Save job**, enter the company and role, paste the description or URL, and save before starting Claude. Reading the posting is optional. Confirm the row appears, then give Claude its application ID with the job description. The MCP prompt accepts `applicationId` and `jobUrl` as optional context. Even a later research or tailoring failure leaves the already saved record available. A database/connection error still requires a successful save before treating the job as tracked.
+
+This fork's main navigation contains Documents, Companies, Applications and Settings. Career has been removed from navigation and its old URLs redirect to Applications.
 
 ## Review the evidence and changes
 

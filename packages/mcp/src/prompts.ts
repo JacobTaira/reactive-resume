@@ -20,6 +20,8 @@ const jobTailoringArgs = {
 	masterResumeId: z.string().min(1).optional().describe("Optional master resume ID; otherwise discover saved masters."),
 	company: z.string().max(200).optional().describe("Company name, when known."),
 	targetRole: z.string().max(200).optional().describe("Role title, when known."),
+	jobUrl: z.url({ protocol: /^https?$/ }).optional().describe("Original posting URL, when supplied; saving it does not fetch the page."),
+	applicationId: z.string().min(1).optional().describe("Existing saved application ID, for example after saving the job on the website first."),
 };
 
 const resumePromptArgument = { name: "id", description: resumeIdArg.description ?? "Resume ID.", required: true } as const;
@@ -42,7 +44,7 @@ export const PROMPT_META = {
 	tailor_resume_for_job: {
 		title: "Tailor Resume for a Job",
 		description:
-			"Use a pasted job posting, the saved master, related resumes and company research to create a draft with a transparent score out of 100. Preserves originals and returns a PDF for review; no provider setup or application submission.",
+			"Save and verify the pasted job in Applications before research or tailoring. Then use the saved master, related resumes and company notes to produce a draft and transparent score. No provider setup or application submission.",
 	},
 } as const;
 
@@ -256,7 +258,6 @@ export function registerPrompts(server: McpServer, client: RouterClient<typeof r
 		},
 		async (context) => ({
 			messages: [
-				...(context.masterResumeId ? await resumeContext(context.masterResumeId, client) : []),
 				{ role: "user" as const, content: { type: "text" as const, text: buildJobTailoringInstructions(context) } },
 			],
 		}),

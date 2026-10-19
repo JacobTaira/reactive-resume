@@ -149,29 +149,10 @@ function Plan({ application, interview, briefing, readOnly, go }: PlanProps) {
 	const generate = useGenerate(application.id);
 
 	const action = (row: SavedData<"briefing">["plan"][number]) => {
-		const className = cn(buttonVariants({ variant: "secondary", size: "sm" }));
 		switch (row.action) {
 			case "story":
-				return (
-					<Link
-						to="/dashboard/career/knowledge/stories/{-$storyId}"
-						params={{ storyId: row.storyId ?? undefined }}
-						className={className}
-					>
-						<Trans>Open story</Trans>
-					</Link>
-				);
 			case "draft-story":
-				return (
-					<Link
-						to="/dashboard/career/knowledge/stories/{-$storyId}"
-						params={{ storyId: undefined }}
-						search={{ edit: true }}
-						className={className}
-					>
-						<Trans>Draft story</Trans>
-					</Link>
-				);
+				return null;
 			case "questions":
 				return (
 					<Button size="sm" variant="secondary" onClick={() => flash(questionsRef.current)}>
@@ -411,15 +392,13 @@ function StoriesToBring({ application, briefing }: StoriesToBringProps) {
 				<Trans>Stories to bring</Trans>
 			</h3>
 			{bring.map((story) => (
-				<Link
+				<div
 					key={story.id}
-					to="/dashboard/career/knowledge/stories/{-$storyId}"
-					params={{ storyId: story.id }}
-					className="flex items-start gap-2 text-[13px] leading-[19px] text-ink hover:underline"
+					className="flex items-start gap-2 text-[13px] leading-[19px] text-ink"
 				>
 					<Icon name="book-open" size={18} className="shrink-0 text-ink-2" />
 					{story.data.title}
-				</Link>
+				</div>
 			))}
 			{briefing.data.missingStory && (
 				<p className="flex items-center gap-1.5 text-xs text-warn-text">
@@ -677,3 +656,4 @@ function Soon({ application, interview, briefing, now, go }: SoonProps) {
 		</div>
 	);
 }
+

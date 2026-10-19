@@ -715,7 +715,7 @@ const BASE_TOOL_META = {
 	},
 	[T.createApplication]: {
 		title: "Create Application",
-		description: "Create a tracked job application. Company and role are required.",
+		description: "Save a tracked job directly to this account. This does not fetch sourceUrl or require an AI provider. For a new pasted posting, save status=saved before browsing or tailoring, then verify with read_application using the returned ID. Company and role are required; when unknown, use explicit labels Company not provided / Role not provided with tag needs-details and preserve the original text or URL. Never report tracking as confirmed without verifying the saved record. Check for an existing exact posting before creating a duplicate, especially after a timeout.",
 		outputSchema: idOutput,
 		inputSchema: wireInput(createApplicationSchema),
 		annotations: WRITE_NON_IDEMPOTENT,

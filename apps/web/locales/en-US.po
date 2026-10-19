@@ -4805,9 +4805,17 @@ msgstr "Enter any model ID supported by your endpoint."
 msgid "Enter one of your saved backup codes to access your account"
 msgstr "Enter one of your saved backup codes to access your account"
 
+#: src/features/applications/components/add-application-dialog.tsx
+msgid "Enter the company and role to save this job now. Reading the posting is optional; saving does not need webpage access or an AI provider."
+msgstr "Enter the company and role to save this job now. Reading the posting is optional; saving does not need webpage access or an AI provider."
+
 #: src/features/auth/pages/resume-password.tsx
 msgid "Enter the password the resume owner shared with you."
 msgstr "Enter the password the resume owner shared with you."
+
+#: src/features/applications/components/add-application-dialog.tsx
+msgid "Enter the role and company to save the pasted text. An AI provider is optional for filling in these fields."
+msgstr "Enter the role and company to save the pasted text. An AI provider is optional for filling in these fields."
 
 #: src/features/auth/pages/verify-2fa.tsx
 msgid "Enter the verification code from your authenticator app"
@@ -8656,6 +8664,10 @@ msgstr "Paste description instead"
 #: src/features/applications/components/import-applications-sheet.tsx
 msgid "Paste rows or upload a .csv. Columns are matched automatically, and you check the match before anything is saved."
 msgstr "Paste rows or upload a .csv. Columns are matched automatically, and you check the match before anything is saved."
+
+#: src/features/applications/components/add-application-dialog.tsx
+msgid "Paste the description or link, then enter the company and role. Click Save job to store it in Applications."
+msgstr "Paste the description or link, then enter the company and role. Click Save job to store it in Applications."
 
 #: src/features/career/workspace/messages.tsx
 msgid "Paste the email or message, without the signature."
@@ -13964,6 +13976,10 @@ msgstr "You can keep editing. Changes sync when you're back online. Download and
 #: src/features/career/workspace/apply.tsx
 msgid "You can keep up to 30 application questions."
 msgstr "You can keep up to 30 application questions."
+
+#: src/features/applications/components/add-application-dialog.tsx
+msgid "You can try Read posting, or enter the role and company and save without reading the page."
+msgstr "You can try Read posting, or enter the role and company and save without reading the page."
 
 #: src/features/auth/pages/error.tsx
 msgid "You cancelled the sign-in before it finished."

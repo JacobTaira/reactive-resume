@@ -6,10 +6,9 @@ import { plural, t } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react";
 import { Trans } from "@lingui/react/macro";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { AnimatePresence } from "motion/react";
 import { useState } from "react";
-import { Button, buttonVariants } from "@reactive-resume/ui/components/button";
+import { Button } from "@reactive-resume/ui/components/button";
 import { Icon } from "@reactive-resume/ui/components/icon";
 import { IconButton } from "@reactive-resume/ui/components/icon-button";
 import { Skeleton } from "@reactive-resume/ui/components/skeleton";
@@ -185,18 +184,10 @@ function SavedRow({ item, applicationId, expanded, onToggle, onOpen, onDelete }:
 				</p>
 			</div>
 			<div className="col-start-2 mt-2 flex items-center gap-1 sm:col-start-3 sm:row-start-1 sm:mt-0">
-				{meta?.tab ? (
+				{meta?.tab && (
 					<Button size="sm" variant="secondary" className="h-8" onClick={() => meta.tab && onOpen(meta.tab)}>
 						{t`Open in ${tabLabel(meta.tab)}`}
 					</Button>
-				) : (
-					<Link
-						to="/dashboard/career/offers"
-						search={{ a: item.id }}
-						className={buttonVariants({ size: "sm", variant: "secondary", className: "h-8" })}
-					>
-						<Trans>Open in Offers</Trans>
-					</Link>
 				)}
 				<IconButton
 					icon="trash"
@@ -256,3 +247,4 @@ function summaryOf(item: SavedItem, locale: string): string {
 		}
 	}
 }
+

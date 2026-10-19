@@ -24,7 +24,7 @@ import { UserDropdownMenu } from "@/features/user/dropdown-menu";
 import { orpc } from "@/libs/orpc/client";
 
 type NavItem = {
-	to: "/dashboard" | "/dashboard/applications" | "/dashboard/career" | "/dashboard/trash" | "/dashboard/settings";
+	to: "/dashboard" | "/dashboard/applications" | "/dashboard/trash" | "/dashboard/settings";
 	icon: IconName;
 	label: string;
 	count?: number;
@@ -34,7 +34,6 @@ type NavItem = {
 function useNavItems() {
 	const { data: counts } = useQuery(orpc.documents.counts.queryOptions());
 	const { data: applications } = useQuery(applicationsListQueryOptions());
-	const { data: notifications } = useQuery(orpc.career.notifications.queryOptions({ input: {} }));
 
 	const items: NavItem[] = [
 		{
@@ -56,9 +55,6 @@ function useNavItems() {
 			...(applications ? { count: applications.filter((application) => application.status !== "closed").length } : {}),
 		},
 	];
-	const unread = notifications?.filter((notification) => !notification.readAt).length ?? 0;
-	// Career counts what's waiting for the user (unread notifications), so nothing shows at zero.
-	items.push({ to: "/dashboard/career", icon: "compass", label: t`Career`, ...(unread ? { count: unread } : {}) });
 	const settings: NavItem = { to: "/dashboard/settings", icon: "gear-six", label: t`Settings` };
 	const trash: NavItem | null = counts?.trash
 		? { to: "/dashboard/trash", icon: "trash", label: t`Trash`, count: counts.trash }
@@ -308,7 +304,7 @@ function RailTip({
 	);
 }
 
-/** Phones: Documents · Applications · New · Career · Settings, with New as an accent pill in the middle. */
+/** Phones: Documents · Applications · New · Companies · Settings, with New in the middle. */
 function MobileTabs() {
 	const isCurrent = useIsCurrent();
 	const openDialog = useDialogStore((state) => state.openDialog);
@@ -329,11 +325,11 @@ function MobileTabs() {
 			<Link
 				to="/dashboard"
 				search={{}}
-				aria-current={isCurrent("/dashboard") || isCurrent("/dashboard", "companies") ? "page" : undefined}
+				aria-current={isCurrent("/dashboard") ? "page" : undefined}
 				viewTransition={false}
 				className="relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 transition-[scale] duration-quick ease-enter active:scale-[0.97]"
 			>
-				{tab("file-text", t`Documents`, isCurrent("/dashboard") || isCurrent("/dashboard", "companies"))}
+				{tab("file-text", t`Documents`, isCurrent("/dashboard"))}
 			</Link>
 			<Link
 				to="/dashboard/applications"
@@ -356,12 +352,13 @@ function MobileTabs() {
 				</span>
 			</button>
 			<Link
-				to="/dashboard/career"
-				aria-current={isCurrent("/dashboard/career") ? "page" : undefined}
+				to="/dashboard"
+				search={{ area: "companies" }}
+				aria-current={isCurrent("/dashboard", "companies") ? "page" : undefined}
 				viewTransition={false}
 				className="relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 transition-[scale] duration-quick ease-enter active:scale-[0.97]"
 			>
-				{tab("compass", t`Career`, isCurrent("/dashboard/career"))}
+				{tab("building-office", t`Companies`, isCurrent("/dashboard", "companies"))}
 			</Link>
 			<Link
 				to="/dashboard/settings"
