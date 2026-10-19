@@ -19,7 +19,12 @@ const layoutCommands = new Set([
 	"restoregeometry", "setlength", "addtolength", "setstretch", "linespread", "fontsize", "selectfont",
 	"pagestyle", "thispagestyle", "pagenumbering", "titleformat", "titlespacing", "newcommand", "renewcommand",
 	"providecommand", "DeclareRobustCommand", "newenvironment", "renewenvironment", "def", "gdef", "edef", "xdef",
-	"vspace", "hspace", "enlargethispage", "resizebox", "scalebox", "input", "include", "includeonly",
+	"vspace", "hspace", "needspace", "Needspace", "enlargethispage", "resizebox", "scalebox", "input", "include", "includeonly",
+]);
+// Content removal can remove the spacing or page reservation belonging to that content.
+// Remaining commands must keep their original values and order; adding new layout overrides stays blocked.
+const removableLayoutCommands = new Set([
+	"vspace", "hspace", "needspace", "Needspace", "input", "include", "newpage", "clearpage", "pagebreak", "nopagebreak",
 ]);
 const argumentlessLayoutCommands = new Set([
 	"raggedright", "raggedleft", "centering", "raggedbottom", "flushbottom", "normalfont", "sffamily",
@@ -32,7 +37,7 @@ const unbracedTargets = new Set([
 ]);
 const layoutEnvironments = new Set(["document", "center", "flushleft", "flushright", "minipage", "multicols"]);
 
-function withoutComments(source: string): string {
+export function withoutComments(source: string): string {
 	return source.replace(/(\\[\s\S])|%[^\r\n]*/g, (match, escaped: string | undefined) => escaped ?? " ".repeat(match.length));
 }
 
@@ -48,12 +53,17 @@ function groupEnd(source: string, start: number): number {
 	throw new Error("Unbalanced LaTeX layout declaration. Preserve the template or explicitly allow formatting changes.");
 }
 
-function formattingSignatures(content: string): string[] {
+function formattingSignatures(content: string): { name: string; value: string }[] {
 	const source = withoutComments(content);
-	const signatures: string[] = [];
+	const signatures: { name: string; value: string }[] = [];
 	for (const match of source.matchAll(/\\([A-Za-z@]+|[^A-Za-z@])/g)) {
 		const name = match[1]!;
-		if (argumentlessLayoutCommands.has(name)) { signatures.push(name); continue; }
+		if (argumentlessLayoutCommands.has(name)) {
+			const priority = /^(?:pagebreak|nopagebreak)$/.test(name)
+				? /^\s*\[[^\]]*\]/.exec(source.slice(match.index + match[0].length))?.[0].replace(/\s+/g, "") ?? "" : "";
+			signatures.push({ name, value: name + priority });
+			continue;
+		}
 		if (!layoutCommands.has(name) && name !== "begin" && name !== "end") continue;
 		let end = match.index + match[0].length;
 		if (source[end] === "*") end++;
@@ -70,7 +80,7 @@ function formattingSignatures(content: string): string[] {
 			if (name === "begin" || name === "end") break;
 		}
 		if ((name === "begin" || name === "end") && !layoutEnvironments.has(groups[0]?.slice(1, -1).trim() ?? "")) continue;
-		signatures.push(source.slice(match.index, end).replace(/\s+/g, " "));
+		signatures.push({ name, value: source.slice(match.index, end).replace(/\s+/g, " ") });
 	}
 	return signatures;
 }
@@ -102,8 +112,21 @@ export function assertLatexFormattingPreserved(before: LatexProject, after: Late
 		if (beforePreamble !== afterPreamble || (original.path === before.entrypoint && beforePreamble === null)) {
 			throw new Error(`Preserve the original document preamble in ${original.path}; change resume body text only.`);
 		}
-		if (JSON.stringify(formattingSignatures(original.content)) !== JSON.stringify(formattingSignatures(edited.content))) {
+		const originalSignatures = formattingSignatures(original.content);
+		const editedSignatures = formattingSignatures(edited.content);
+		const fixed = (signatures: typeof originalSignatures) => signatures.filter(({ name }) => !removableLayoutCommands.has(name));
+		if (JSON.stringify(fixed(originalSignatures)) !== JSON.stringify(fixed(editedSignatures))) {
 			throw new Error(`Preserve existing LaTeX layout declarations in ${original.path}; change resume text instead of alignment, size or spacing.`);
+		}
+		const originalLocal = originalSignatures.filter(({ name }) => removableLayoutCommands.has(name)).map(({ value }) => value);
+		let localIndex = 0;
+		for (const { name, value } of editedSignatures) {
+			if (!removableLayoutCommands.has(name)) continue;
+			while (localIndex < originalLocal.length && originalLocal[localIndex] !== value) localIndex++;
+			if (localIndex === originalLocal.length) {
+				throw new Error(`Existing local spacing can be removed with its content, but do not add or change layout commands in ${original.path}.`);
+			}
+			localIndex++;
 		}
 	}
 }

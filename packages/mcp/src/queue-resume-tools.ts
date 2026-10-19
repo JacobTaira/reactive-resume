@@ -6,6 +6,7 @@ import { posix } from "node:path";
 import { ORPCError } from "@orpc/server";
 import { latexCompileChecksSchema } from "@reactive-resume/schema/resume/latex";
 import { applyLatexTextEdits } from "./latex-edits";
+import { applyLatexRegionEdits, latexSourceIndex } from "./latex-regions";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
 import { finishQueuedResumeInput, prepareQueuedResumeInput } from "./queue-resume-meta";
 import { prepareQueuedResume } from "./queue-session";
@@ -44,9 +45,13 @@ export function queuedResumeSource(resume: Resume) {
 		...(project ? {
 			latex: {
 				engine: project.engine, entrypoint: project.entrypoint,
-				files: project.files.filter((file) => included.has(file.path)),
+				files: project.files.filter((file) => included.has(file.path)).map((file) => ({
+					path: file.path, encoding: file.encoding,
+					...latexSourceIndex(file.path, file.content, file.path === project.entrypoint),
+				})),
 				omittedFiles: project.files.filter((file) => !included.has(file.path)).map((file) => file.path),
 				partialProject: included.size < project.files.length,
+				editPolicy: "Use section IDs or inclusive line ranges; send only new text. NUMBER| prefixes are display labels. Preamble, PDF metadata and header stay unchanged. Remove complete unwanted sections with their local spacing, without empty placeholders.",
 			},
 		} : { data: resume.data }),
 	};
@@ -76,6 +81,9 @@ function compactPdfFailure(data: unknown) {
 
 /** All model-visible completion bookkeeping happens here; content and queue CAS checks remain server-enforced. */
 export async function finishQueuedResume(client: Client, input: z.output<typeof finishQueuedResumeInput>) {
+	if (input.edits && (input.sectionEdits || input.lineEdits)) {
+		throw new ORPCError("BAD_REQUEST", { message: "Use sectionEdits/lineEdits together, or legacy edits separately; do not combine these modes." });
+	}
 	const current = await client.applications.queue.read({ id: input.applicationId, includeDescription: false });
 	// Renew validates this exact lease BEFORE editing, including expiry, revision and saved application status.
 	const claim = await client.applications.queue.claim({
@@ -90,10 +98,16 @@ export async function finishQueuedResume(client: Client, input: z.output<typeof 
 	}
 	if (!resume.data.latex) throw new ORPCError("BAD_REQUEST", { message: "This completion path requires a LaTeX draft. Use the ordinary resume tools for this document." });
 	let updatedAt = resume.updatedAt;
-	if (input.edits) {
+	let savedData = resume.data;
+	if (input.edits || input.sectionEdits || input.lineEdits) {
 		let changes: ReturnType<typeof applyLatexTextEdits>;
 		try {
-			changes = applyLatexTextEdits(resume.data.latex, { edits: input.edits, allowFormattingChanges: false });
+			changes = input.edits
+				? applyLatexTextEdits(resume.data.latex, { edits: input.edits, allowFormattingChanges: false })
+				: applyLatexRegionEdits(resume.data.latex, {
+					...(input.sectionEdits ? { sectionEdits: input.sectionEdits } : {}),
+					...(input.lineEdits ? { lineEdits: input.lineEdits } : {}),
+				});
 		} catch (error) {
 			throw new ORPCError("BAD_REQUEST", { message: error instanceof Error ? error.message : "Invalid exact edits." });
 		}
@@ -104,6 +118,7 @@ export async function finishQueuedResume(client: Client, input: z.output<typeof 
 				? [{ op: "replace" as const, path: `/latex/files/${index}/content`, value: file.content }] : []),
 		});
 		updatedAt = saved.updatedAt;
+		savedData = { ...resume.data, latex: changes.project };
 	}
 	const receipt = { applicationId: input.applicationId, draftResumeId: draftId, updatedAt: updatedAt.toISOString() };
 	try {
@@ -127,7 +142,10 @@ export async function finishQueuedResume(client: Client, input: z.output<typeof 
 		return {
 			success: false, ...receipt, saved: true, needsCorrection: pdfFailure,
 			error: error.message, code: error.code,
-			...(pdfFailure ? compactPdfFailure(error.data) : {}),
+			...(pdfFailure ? {
+				...compactPdfFailure(error.data),
+				draft: queuedResumeSource({ ...resume, data: savedData, updatedAt }),
+			} : {}),
 		};
 	}
 }

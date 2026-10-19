@@ -251,7 +251,7 @@ const idOutput = z.object({ id: z.string() });
 const BASE_TOOL_META = {
 	[T.compileResumeLatex]: {
 		title: "Compile LaTeX Resume",
-		description: "Standalone saved-source LaTeX compilation with page count, overflow and extracted text diagnostics. For queued tailoring use finish_queued_resume instead: it saves exact edits and performs this check automatically, so another compile call is unnecessary. For standalone work pass expectedUpdatedAt and the user's expectedPageCount; the response identifies the exact saved source compiled. Per-page lines show spillover when available. Successful logs are summarized; includeLog=true returns full bounded logs. Missing diagnostics are unverified, not passed; machine checks do not establish visual quality or ATS success. No PDF bytes or AI provider call.",
+		description: "Standalone saved-source LaTeX compilation with page count, overflow and extracted text diagnostics. For queued tailoring use finish_queued_resume instead: it saves section/line edits and performs this check automatically, so another compile call is unnecessary. For standalone work pass expectedUpdatedAt and the user's expectedPageCount; the response identifies the exact saved source compiled. Per-page lines show spillover when available. Successful logs are summarized; includeLog=true returns full bounded logs. Missing diagnostics are unverified, not passed; machine checks do not establish visual quality or ATS success. No PDF bytes or AI provider call.",
 		inputSchema: wireInput(latexCompileOptionsSchema.extend({
 			id: resumeIdSchema,
 			expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
@@ -422,7 +422,7 @@ const BASE_TOOL_META = {
 		title: "Apply Resume Patch",
 		description: [
 			"Apply JSON Patch (RFC 6902) operations to partially update a resume's data.",
-			"For queued LaTeX body edits use finish_queued_resume, which saves exact replacements and checks the PDF together. For other LaTeX edits use edit_resume_latex; avoid resending whole files or changing their preamble/layout.",
+			"For queued LaTeX body edits use finish_queued_resume, which saves section/line edits without repeating deleted source and checks the PDF together. For other LaTeX edits use edit_resume_latex; avoid resending whole files or changing their preamble/layout.",
 			"",
 			`This edits ordinary resume content. Use \`${T.getResume}\` first to inspect the`,
 			"current structure, and `resume://_meta/schema` to understand valid paths and types.",

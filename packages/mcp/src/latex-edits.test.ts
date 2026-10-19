@@ -116,6 +116,15 @@ describe("exact LaTeX source edits", () => {
 });
 
 describe("LaTeX design preservation", () => {
+	it("allows deletion of body spacing with its removed content while forbidding new or changed spacing", () => {
+		const content = source.replace("\\section{Experience}", "\\needspace{5\\baselineskip}\n\\vspace{2pt}\n\\section{Experience}");
+		const result = applyLatexTextEdits(project(content), replaceBody("\\needspace{5\\baselineskip}\n\\vspace{2pt}\n", ""));
+		expect(result.project.files[0]!.content).toBe(source);
+		expect(() => applyLatexTextEdits(project(content), replaceBody("\\vspace{2pt}", "\\vspace{-20pt}"))).toThrow();
+		expect(() => applyLatexTextEdits(project(), replaceBody("Candidate Name", "\\vspace{-20pt} Candidate Name"))).toThrow();
+		const pageBreak = source.replace("\\section{Experience}", "\\pagebreak[4]\n\\section{Experience}");
+		expect(() => applyLatexTextEdits(project(pageBreak), replaceBody("\\pagebreak[4]", "\\pagebreak[1]"))).toThrow();
+	});
 	it("rejects preamble changes and document boundary deletion by default", () => {
 		expect(() => applyLatexTextEdits(project(), replaceBody("[10pt]", "[9pt]"))).toThrow();
 		expect(() => applyLatexTextEdits(project(), replaceBody(String.raw`\end{document}`, ""))).toThrow();

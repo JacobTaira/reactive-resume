@@ -35,7 +35,7 @@ describe("job tailoring workflow", () => {
 	it("uses compound completion and server checks with a bounded correction instead of local polish loops", () => {
 		const prompt = buildJobTailoringInstructions({ jobDescription: "Engineer" });
 		expect(prompt.indexOf("prepare_queued_resume")).toBeLessThan(prompt.indexOf("finish_queued_resume"));
-		for (const requirement of ["expectedUpdatedAt=draft.updatedAt", "one batch of exact edits", "expectedPageCount", "page count and extractable text", "overflow warnings", "at most one consolidated content correction", "Stop after a passing result", "Never create local files", "preserve the draft"]) {
+		for (const requirement of ["expectedUpdatedAt=draft.updatedAt", "sectionEdits", "lineEdits", "never deleted text", "numberedSource", "expectedPageCount", "page count and extractable text", "overflow warnings", "at most one consolidated content correction", "Stop after a passing result", "Never create local files", "preserve the draft"]) {
 			expect(prompt).toContain(requirement);
 		}
 		expect(prompt.includes("reviewedResumeUpdatedAt")).toBe(false);

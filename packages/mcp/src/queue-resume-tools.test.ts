@@ -218,6 +218,70 @@ describe("compact queued-resume tools", () => {
 		expect(client.library.resumes.setMetadata).not.toHaveBeenCalled();
 		expect(client.applications.queue.finish.mock.calls[0]?.[0]).not.toHaveProperty("score");
 	});
+	it("saves compact section IDs and line replacements in one guarded completion", async () => {
+		const { client, draft } = fixture();
+		const text = String.raw`\documentclass[10pt]{article}
+\begin{document}
+\begin{center}Candidate Name\end{center}
+\needspace{5\baselineskip}
+\section{Experience}
+Built a sensor pipeline.
+\vspace{2pt}
+\needspace{5\baselineskip}
+\section{Projects}
+Documented system interfaces.
+\end{document}`;
+		draft.data.latex.files[0]!.content = text;
+		const view = queuedResumeSource(draft as never).latex!.files[0]!;
+		const section = view.sections.find((entry) => entry.title === "Projects")!;
+		const line = text.split("\n").findIndex((entry) => entry === "Built a sensor pipeline.") + 1;
+		const result = await finishQueuedResume(client as never, input({ edits: undefined,
+			sectionEdits: [{ path: "main.tex", sectionId: section.id }],
+			lineEdits: [{ path: "main.tex", startLine: line, endLine: line, newText: "Implemented a verified sensor pipeline." }],
+		}));
+		expect(result).toMatchObject({ success: true, updatedAt: savedAt.toISOString() });
+		expect(client.resume.patch).toHaveBeenCalledOnce();
+		expect(client.applications.queue.finish).toHaveBeenCalledOnce();
+		expect(draft.data.latex.files[0]!.content).not.toContain("Documented system interfaces.");
+		expect(draft.data.latex.files[0]!.content).toContain("Implemented a verified sensor pipeline.");
+		expect(draft.data.latex.files[0]!.content).not.toContain("\\section{Projects}");
+		expect(draft.data.latex.files[0]!.content).toContain("\\begin{center}Candidate Name\\end{center}");
+		expect(draft.data.latex.files[0]!.content.match(/\\needspace\{/g)).toHaveLength(1);
+	});
+
+	it("rejects mixed edit modes, stale IDs and protected line ranges without saving", async () => {
+		for (const extra of [
+			{ lineEdits: [{ path: "main.tex", startLine: 4, endLine: 4, newText: "New content" }] },
+			{ edits: undefined, sectionEdits: [{ path: "main.tex", sectionId: "stale-id" }] },
+			{ edits: undefined, lineEdits: [{ path: "main.tex", startLine: 1, endLine: 1, newText: "New preamble" }] },
+		]) {
+			const { client } = fixture();
+			await expect(finishQueuedResume(client as never, input(extra))).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			expect(client.resume.patch).not.toHaveBeenCalled();
+			expect(client.applications.queue.finish).not.toHaveBeenCalled();
+		}
+	});
+
+	it("returns the saved numbered draft on a fit failure so correction needs no extra read", async () => {
+		const { client } = fixture();
+		client.applications.queue.finish.mockRejectedValueOnce(new ORPCError("QUEUE_PDF_CHECK_FAILED", {
+			status: 400, message: "Two pages; target one.", data: { compilationSucceeded: true },
+		}));
+		const first = await finishQueuedResume(client as never, input({ edits: undefined,
+			lineEdits: [{ path: "main.tex", startLine: 4, endLine: 4, newText: "Implemented a verified sensor pipeline." }],
+		}));
+		if (!("draft" in first) || !first.draft?.latex) throw new Error("Missing saved correction source");
+		const current = first.draft.latex.files[0]!;
+		expect(first).toMatchObject({ success: false, saved: true, updatedAt: savedAt.toISOString() });
+		expect(current.numberedSource).toContain("4|Implemented a verified sensor pipeline.");
+		expect(current.numberedSource).not.toContain("4|Built a sensor pipeline.");
+		const second = await finishQueuedResume(client as never, input({ edits: undefined,
+			expectedUpdatedAt: first.updatedAt,
+			lineEdits: [{ path: "main.tex", startLine: 5, endLine: 5 }],
+		}));
+		expect(second).toMatchObject({ success: true });
+		expect(client.resume.getById.mock.calls).toHaveLength(2);
+	});
 
 	it("does not edit after a missing, expired or competing claim", async () => {
 		const { client } = fixture();

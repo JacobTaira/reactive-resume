@@ -58,7 +58,7 @@ export function createMcpServer(
 		instructions: [
 			"Reactive Resume holds the user's resumes, cover letters and job applications.",
 			TAILORING_PREFERENCES,
-			`For queued LaTeX jobs: \`${MCP_TOOL_NAME.listTailoringQueue}\`, then \`${MCP_TOOL_NAME.prepareQueuedResume}\`, reason about the supplied source, then \`${MCP_TOOL_NAME.finishQueuedResume}\` with one batch of exact text edits. These operations handle Base discovery, copying, linking, claims, saved timestamps and server PDF checks. Do not recreate those steps manually.`,
+			`For queued LaTeX jobs: \`${MCP_TOOL_NAME.listTailoringQueue}\`, then \`${MCP_TOOL_NAME.prepareQueuedResume}\`, reason about numberedSource and section IDs, then \`${MCP_TOOL_NAME.finishQueuedResume}\` with sectionEdits/lineEdits. Delete sections by ID; send only final replacement text, never the old text being removed. Preamble, PDF metadata and header are locked; complete section removal includes its local spacing. These operations handle copying, linkage, claims, saved timestamps and server PDF checks.`,
 			"Preparation includes compact related-resume references and saved company notes. Read another source only when its factual evidence is useful. Do not create local files, run local TeX, calculate checksums, fetch PDFs or write detailed metadata reports during this routine.",
 			`For other document work, find unknown IDs with \`${MCP_TOOL_NAME.listResumes}\`, read LaTeX with \`${MCP_TOOL_NAME.readResumeLatex}\` and ordinary resumes with \`${MCP_TOOL_NAME.getResume}\`. The resume JSON Schema is the \`resume://_meta/schema\` resource.`,
 			"Tools named api_* expose the rest of the Reactive Resume API. Tools that involve passwords, API keys or AI provider keys return a link to finish in the app.",

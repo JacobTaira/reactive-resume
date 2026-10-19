@@ -40,7 +40,7 @@ export const LATEX_TOOL_META = {
 	},
 	[T.editResumeLatex]: {
 		title: "Edit LaTeX Resume Text",
-		description: "Standalone LaTeX text edit using exact replacements [{path,oldText,newText}] and expectedUpdatedAt. Each oldText must match once in the original saved source; edits cannot overlap. One guarded save preserves other files and existing template/layout. allowFormattingChanges=true only for a user-requested redesign. Returns updatedAt for subsequent work; reread only on conflict. For queued jobs prefer finish_queued_resume, which saves exact edits and runs server checks/progress together. No compilation or AI provider call here.",
+		description: "Standalone LaTeX text edit using exact replacements [{path,oldText,newText}] and expectedUpdatedAt. Each oldText must match once in the original saved source; edits cannot overlap. One guarded save preserves other files and existing template/layout. allowFormattingChanges=true only for a user-requested redesign. Returns updatedAt for subsequent work; reread only on conflict. For queued jobs prefer finish_queued_resume, which accepts section IDs or line ranges without repeating deleted source and runs server checks/progress together. No compilation or AI provider call here.",
 		inputSchema: latexEditInput,
 		outputSchema: z.object({
 			id: z.string(), name: z.string(), updatedAt: z.iso.datetime({ offset: true }),

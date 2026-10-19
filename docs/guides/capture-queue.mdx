@@ -78,9 +78,9 @@ Tell Claude: **“Process my queue using my master resume. Start with four jobs.
 For LaTeX resumes, the workflow instructs the assistant to:
 
 1. Read the saved batch once with `list_tailoring_queue(includeDescription=true)`. Stored descriptions are sufficient; reopening the posting is unnecessary when the saved source is complete.
-2. Call `prepare_queued_resume` for each actionable job. The server resolves Base Resume, claims the job, recovers or creates its **Company — Role** copy and links it. Claude receives the current active source, related-resume references and saved company information together.
+2. Call `prepare_queued_resume` for each actionable job. The server resolves Base Resume, claims the job, recovers or creates its **Company — Role** copy and links it. Claude receives the numbered source, editable ranges, section IDs, related-resume references and saved company information together.
 3. Plan truthful, concise edits using your project background and useful saved references. Ask once about shared material unknowns; confirmed experience gaps remain honest gaps. Preserve blocking questions on affected jobs as Missing details. Add facts to Base Resume only after you confirm them for inclusion; existing copies do not update automatically.
-4. Use `finish_queued_resume` with one batch of exact content replacements. The server saves, compiles, checks the page target and extractable text, returns overflow warnings, and records progress. Include an editorial score or brief notes when requested; separate citation maps, rubrics, diffs and review-timestamp reports are unnecessary.
+4. Use `finish_queued_resume` with one batch of section-ID deletions/replacements or inclusive line-range edits. The server saves, compiles, checks the page target and extractable text, returns overflow warnings, and records progress. Include an editorial score or brief notes when requested; separate citation maps, rubrics, diffs and review-timestamp reports are unnecessary.
 5. Make at most one consolidated content correction for an actual compile or page-fit failure, using the server's returned diagnostics and saved timestamp. Stop after passing checks. Claude must preserve unfinished drafts and report remaining failures or unverified checks rather than claim completion.
 
 Claude uses the server compiler rather than creating local files, running local TeX, calculating checksums, fetching PDFs or repeatedly polishing spacing. It still reads useful related resumes and company information, reuses verified evidence across similar jobs, and can create or update Companies entries when useful new findings arise. These changes remove extra work; they do not guarantee a particular completion time.
@@ -97,7 +97,7 @@ Ordinary JSON resumes and advanced manual workflows still use separate edit/expo
 | --- | --- |
 | `list_tailoring_queue` | Compact oldest-first index; description omitted by default. Supports states and pagination. |
 | `prepare_queued_resume` | Preferred LaTeX start: resolve Base, claim/resume, create/link the draft, and return active source plus related/company context. |
-| `finish_queued_resume` | Preferred LaTeX completion: save exact edits, compile/check the saved PDF, and record progress plus an optional score. |
+| `finish_queued_resume` | Preferred LaTeX completion: remove/replace by section ID or line range without echoing deleted text, compile/check the saved PDF, and record progress plus an optional score. |
 | `read_tailoring_queue_job` | Current revision, preparation notes, draft link and captured text. |
 | `claim_queue_job` | Advanced/manual workflow: acquire or renew an expiring exclusive processing lease. |
 | `update_queue_job` | Save corrected details, shared questions, draft progress or blocking state. |

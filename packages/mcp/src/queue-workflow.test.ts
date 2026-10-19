@@ -25,7 +25,7 @@ describe("queue processing workflow", () => {
 
 	it("delegates saved-source checks and progress to the server with one actual correction", () => {
 		const prompt = buildQueueProcessingInstructions({});
-		for (const requirement of ["one batch", "oldText,newText", "page count and extractable text", "overflow warnings", "at most one consolidated content correction", "After a passing result, stop", "draft", "unverified"]) {
+		for (const requirement of ["one batch", "sectionEdits", "lineEdits", "never echo deleted source", "numberedSource", "page count and extractable text", "overflow warnings", "at most one consolidated content correction", "After a passing result, stop", "draft", "unverified"]) {
 			expect(prompt).toContain(requirement);
 		}
 		expect(prompt).toContain("Do not create local files, run shell/TeX, check hashes, fetch PDFs");
