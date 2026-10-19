@@ -4,6 +4,7 @@ import { t } from "@lingui/core/macro";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useRef, useState } from "react";
 import { toast } from "@reactive-resume/ui/components/toast";
+import { setResumeDragPreview } from "./resume-drag-preview";
 import { getOrpcErrorMessage } from "@/libs/error-message";
 import { orpc } from "@/libs/orpc/client";
 
@@ -73,6 +74,7 @@ export function ResumeFolderDragProvider({ children }: ResumeFolderDragProviderP
 					event.dataTransfer.clearData();
 					event.dataTransfer.setData(RESUME_DRAG_TYPE, document.id);
 					event.dataTransfer.effectAllowed = "move";
+					setResumeDragPreview(event.dataTransfer, document.name, event.currentTarget.ownerDocument);
 					const dragging = { ...document };
 					activeRef.current = dragging;
 					setActive(dragging);

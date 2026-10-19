@@ -44,6 +44,7 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 vi.mock("@reactive-resume/ui/components/toast", () => ({ toast: { add: notify } }));
 vi.mock("@/hooks/use-confirm", () => ({ useConfirm: () => vi.fn() }));
+vi.mock("./resume-drag-preview", () => ({ setResumeDragPreview: vi.fn() }));
 
 beforeEach(() => {
 	i18n.loadAndActivate({ locale: "en-US", messages: {} });
@@ -101,6 +102,7 @@ function transfer() {
 		getData: (type: string) => values.get(type) ?? "",
 		setData: (type: string, value: string) => values.set(type, value),
 		clearData: () => values.clear(),
+		setDragImage: vi.fn(),
 		effectAllowed: "none",
 		dropEffect: "none",
 	};
