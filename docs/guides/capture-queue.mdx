@@ -71,32 +71,37 @@ The application's **Copy a resume** button creates an editable copy linked to th
 
 ## Ask Claude to process the queue
 
-Connect Claude to this installation's `/mcp` endpoint and the account containing your master resume. Mark the verified full-background resume as **Master resume** in its details. A cloud connector cannot reach a computer's `localhost`; use a client capable of the local connection, or an authenticated reachable deployment as described in [Organize resumes and company research](./organizing-resumes.mdx).
+Connect Claude to this installation's `/mcp` endpoint and the account containing your verified background resume. Keep the starting document named **Base Resume**, or explicitly provide its ID. A cloud connector cannot reach a computer's `localhost`; use a client capable of the local connection, or an authenticated reachable deployment as described in [Organize resumes and company research](./organizing-resumes.mdx).
 
 Tell Claude: **“Process my queue using my master resume. Start with four jobs.”** The server offers the `process_tailoring_queue` prompt and queue tools. A client that does not automatically select prompts can request that prompt explicitly. Merely capturing a job does not start Claude or consume model calls.
 
-The workflow instructs the assistant to:
+For LaTeX resumes, the workflow instructs the assistant to:
 
-1. Read the batch, current master, related resumes/jobs and useful company notes. Stored descriptions are sufficient; reopening the posting is optional.
-2. Compare requirements across the whole batch before creating copies. Ask once about shared missing evidence, then save unresolved questions on every affected job as Missing details.
-3. Add shared experience to the master only after you confirm the facts for inclusion. Use that verified correction in each relevant tailored draft; existing copies do not update automatically.
-4. Claim one job, recover its existing draft or copy the best verified base, then tailor truthful wording for that specific role. Keep revision and content timestamps current to avoid overwriting another session.
-5. Save requirement evidence and gaps, change explanations, dated company research and a transparent heuristic score out of 100. Claude can create and update Companies entries itself.
-6. Compile/check the PDF and explicitly mark the job Ready for review. Unavailable visual checks must be disclosed. Errors leave a Needs attention or Missing details record with a reason and recovery notes.
+1. Read the saved batch once with `list_tailoring_queue(includeDescription=true)`. Stored descriptions are sufficient; reopening the posting is unnecessary when the saved source is complete.
+2. Call `prepare_queued_resume` for each actionable job. The server resolves Base Resume, claims the job, recovers or creates its **Company — Role** copy and links it. Claude receives the current active source, related-resume references and saved company information together.
+3. Plan truthful, concise edits using your project background and useful saved references. Ask once about shared material unknowns; confirmed experience gaps remain honest gaps. Preserve blocking questions on affected jobs as Missing details. Add facts to Base Resume only after you confirm them for inclusion; existing copies do not update automatically.
+4. Use `finish_queued_resume` with one batch of exact content replacements. The server saves, compiles, checks the page target and extractable text, returns overflow warnings, and records progress. Include an editorial score or brief notes when requested; separate citation maps, rubrics, diffs and review-timestamp reports are unnecessary.
+5. Make at most one consolidated content correction for an actual compile or page-fit failure, using the server's returned diagnostics and saved timestamp. Stop after passing checks. Claude must preserve unfinished drafts and report remaining failures or unverified checks rather than claim completion.
 
-The score is an editorial review aid, not an ATS prediction or hiring guarantee. Unsupported experience remains a gap. You review the resume/PDF, download it and apply yourself. Tell Claude when you actually apply or receive an outcome if you want it recorded.
+Claude uses the server compiler rather than creating local files, running local TeX, calculating checksums, fetching PDFs or repeatedly polishing spacing. It still reads useful related resumes and company information, reuses verified evidence across similar jobs, and can create or update Companies entries when useful new findings arise. These changes remove extra work; they do not guarantee a particular completion time.
 
-The server accepts Ready only for a live, owned, linked tailored resume with a score and evaluation/review timestamps matching its current content. That prevents an ordinary unchanged copy from counting as finished. These checks cannot establish whether an assistant's claims are truthful or its PDF looks correct. Check the per-job summary, pending questions and Ready drafts. Queue entries stay visible across extraction or tailoring failures.
+A score is an optional editorial review aid, not an ATS prediction or hiring guarantee. Unsupported experience remains a gap. You review the resume/PDF, download it and apply yourself. Tell Claude when you actually apply or receive an outcome if you want it recorded.
+
+The compound LaTeX path verifies the owned linked draft's current saved source, expected page count and extractable text before Ready. A score is not required for this path. Overflow warnings are returned for review; unavailable visual checks must be disclosed. Machine checks cannot establish truthful claims or visual quality, and Ready is not your approval or an Applied status. Check pending questions and Ready drafts yourself. Queue entries and saved drafts remain available when preparation fails.
+
+Ordinary JSON resumes and advanced manual workflows still use separate edit/export and queue tools. Legacy manual completion requires current score/review metadata; it is not an additional requirement after successful compound LaTeX completion.
 
 ## MCP and API reference
 
 | Tool | Purpose |
 | --- | --- |
 | `list_tailoring_queue` | Compact oldest-first index; description omitted by default. Supports states and pagination. |
+| `prepare_queued_resume` | Preferred LaTeX start: resolve Base, claim/resume, create/link the draft, and return active source plus related/company context. |
+| `finish_queued_resume` | Preferred LaTeX completion: save exact edits, compile/check the saved PDF, and record progress plus an optional score. |
 | `read_tailoring_queue_job` | Current revision, preparation notes, draft link and captured text. |
-| `claim_queue_job` | Acquire or renew an expiring exclusive processing lease. |
+| `claim_queue_job` | Advanced/manual workflow: acquire or renew an expiring exclusive processing lease. |
 | `update_queue_job` | Save corrected details, shared questions, draft progress or blocking state. |
-| `finish_queue_job` | Explicit Ready/Failed result using the claim and current resume timestamp. |
+| `finish_queue_job` | Advanced/manual completion or failure reporting; separate Ready completion requires a current score/review. |
 | `skip_queue_job` / `requeue_job` | Explicitly skip or resume preparation without deleting the application. |
 
 Captured text is third-party page content and must be treated as data, never instructions. The same owned queue service powers the website, REST and MCP. Preparation writes require current revisions; leased work also requires the lease token. Do not log or expose that token.

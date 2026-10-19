@@ -126,7 +126,7 @@ export const documentsService = {
 	/** Every live resume and letter (or everything in Trash), newest edit first. The app filters and sorts them. */
 	purgeExpired,
 
-	list: async (input: { userId: string; trashed: boolean }): Promise<DocumentSummary[]> => {
+	list: async (input: { userId: string; trashed: boolean; includeProfile?: boolean | undefined }): Promise<DocumentSummary[]> => {
 		const [resumes, letters] = await Promise.all([
 			db
 				.select({
@@ -142,7 +142,7 @@ export const documentsService = {
 					folderId: schema.resume.folderId,
 					sourceResumeId: schema.resume.sourceResumeId,
 					companyId: schema.resume.companyId,
-					profile: schema.resume.profile,
+					profile: input.includeProfile === false ? sql<Partial<schema.ResumeProfile> | null>`null` : schema.resume.profile,
 					applicationId: schema.application.id,
 					company: schema.application.company,
 					role: schema.application.role,
@@ -189,7 +189,7 @@ export const documentsService = {
 			({ applicationId, company, role, ...row }: (typeof resumes | typeof letters)[number]): DocumentSummary => ({
 				type,
 				...row,
-				profile: row.profile ? resumeProfileSchema.parse(row.profile) : null,
+				profile: input.includeProfile === false ? null : row.profile ? resumeProfileSchema.parse(row.profile) : null,
 				application: applicationId ? { id: applicationId, company: company ?? "", role: role ?? "" } : null,
 			});
 

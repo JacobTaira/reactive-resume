@@ -192,13 +192,13 @@ it("returns job-saving guidance without an eager master read that could block tr
 	expect(instruction.text).toContain("A robotics engineer posting");
 	expect(instruction.text).toContain('"masterResumeId": "master-1"');
 	expect(instruction.text).toContain('"applicationId": "saved-job"');
-	expect(instruction.text).toContain("Saved to Applications");
 	expect(instruction.text).toContain("Tracking not confirmed");
-	expect(instruction.text).toContain("find_related_resumes");
+	expect(instruction.text).toContain("prepare_queued_resume");
+	expect(instruction.text).toContain("finish_queued_resume");
 	expect(instruction.text).toContain("save_company_note");
 });
 
-it("discovers a master through library tools when the tailoring prompt has no master ID", async () => {
+it("delegates Base resolution without an eager read when the prompt has no master ID", async () => {
 	const prompt = await client.getPrompt({
 		name: "tailor_resume_for_job",
 		arguments: { jobDescription: "A robotics engineer posting" },
@@ -221,9 +221,9 @@ it("registers queue processing as an explicit prompt without eagerly reading or 
 	expect(prompt.messages).toHaveLength(1);
 	const content = prompt.messages[0]?.content;
 	if (content?.type !== "text") throw new Error("Prompt lacks queue instructions");
-	expect(content.text).toContain("Ask once about each shared gap");
-	expect(content.text).toContain("reuseExisting=true");
-	expect(content.text).toContain("finish_queue_job");
+	expect(content.text).toContain("Ask once about shared unknown facts");
+	expect(content.text).toContain("prepare_queued_resume");
+	expect(content.text).toContain("finish_queued_resume");
 	const { prompts } = await client.listPrompts();
 	const args = prompts.find((item) => item.name === "process_tailoring_queue")?.arguments;
 	expect(args?.every((arg) => !arg.required)).toBe(true);

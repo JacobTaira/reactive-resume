@@ -24,6 +24,7 @@ import { LIBRARY_TOOL_META } from "./library-tool-meta";
 import { LATEX_TOOL_META } from "./latex-tool-meta";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
 import { QUEUE_TOOL_META } from "./queue-tool-meta";
+import { QUEUE_RESUME_META } from "./queue-resume-meta";
 
 // Contracts remain derived from the allowlisted API procedures in parity.ts.
 export const PARITY_TOOL_DESCRIPTIONS: Record<string, string> = {
@@ -250,7 +251,7 @@ const idOutput = z.object({ id: z.string() });
 const BASE_TOOL_META = {
 	[T.compileResumeLatex]: {
 		title: "Compile LaTeX Resume",
-		description: "Compile the saved LaTeX source and measure PDF page count, overflow and extracted text; per-page first/last lines show spillover when available. Pass expectedUpdatedAt from the latest edit receipt and expectedPageCount for the user's target. Returns resumeUpdatedAt for the exact source compiled: when it matches the content you reviewed, use that timestamp for saved review/evaluation instead of rereading the whole file. Successful logs are summarized by default; includeLog=true returns the full bounded log. Failure logs remain available. Missing diagnostics are unverified, not passed; machine checks do not establish visual quality or ATS success. Prefer read_resume_latex/edit_resume_latex for content changes. PDF bytes are not returned; no provider is invoked.",
+		description: "Standalone saved-source LaTeX compilation with page count, overflow and extracted text diagnostics. For queued tailoring use finish_queued_resume instead: it saves exact edits and performs this check automatically, so another compile call is unnecessary. For standalone work pass expectedUpdatedAt and the user's expectedPageCount; the response identifies the exact saved source compiled. Per-page lines show spillover when available. Successful logs are summarized; includeLog=true returns full bounded logs. Missing diagnostics are unverified, not passed; machine checks do not establish visual quality or ATS success. No PDF bytes or AI provider call.",
 		inputSchema: wireInput(latexCompileOptionsSchema.extend({
 			id: resumeIdSchema,
 			expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
@@ -278,7 +279,7 @@ const BASE_TOOL_META = {
 			"",
 			"Use this when resume IDs are unknown; IDs already returned by related-resume, queue, application or copy tools do not require another listing.",
 			"Results can be filtered by tags and sorted by last updated date, creation date, or name.",
-			`For master discovery, folder membership and reusable job variants, start with \`${T.findRelatedResumes}\` instead; then read selected documents in full.`,
+			`For queued preparation use \`${T.prepareQueuedResume}\` to resolve Base Resume and receive useful related references automatically. Optional broader library searches use \`${T.findRelatedResumes}\`.`,
 		].join("\n"),
 		outputSchema: toWireObjectSchema(resumeDto.list.output),
 		inputSchema: wireInput(
@@ -318,9 +319,8 @@ const BASE_TOOL_META = {
 			"location, website), summary, picture settings, all sections (experience, education, skills,",
 			"projects, etc.), custom sections, and metadata (template, layout, typography, colors).",
 			"LaTeX resumes include a latex project with engine, entrypoint, and files (path, encoding, content). The LaTeX source controls their PDF; structured section fields do not.",
-			"For LaTeX tailoring prefer read_resume_latex: it reads the active file and a complete file manifest without retransmitting unused alternative source files. This general read remains available for complete projects and ordinary resumes.",
-			"A master resume remains readable through this tool when moved into any owned folder. Find saved masters and related variants with find_related_resumes; read_resume_metadata holds their separate job profiles and lineage.",
-			"For tailoring, set includeMetadata=true to return the full resume envelope (data, id, updatedAt, applicationId) plus libraryMetadata (folder, source, company and complete profile) in one call. Both text and structured responses include this context. Reuse the returned content and timestamp instead of immediately calling read_resume_metadata or rereading the same draft. Conflicting content revisions fail rather than returning a mixed snapshot. With includeMetadata omitted/false, the text body remains the resume data JSON.",
+			"For queued LaTeX preparation use prepare_queued_resume to receive the current draft and Base evidence together. For an additional LaTeX reference use read_resume_latex; this full read remains available for complete projects and ordinary resumes.",
+			"A master resume remains readable through this tool in any owned folder. Separate optional library metadata is available with includeMetadata=true. Reuse returned content and updatedAt; do not immediately reread unchanged documents. With includeMetadata omitted/false, the text body remains the resume data JSON.",
 			"",
 			"An ID from another owned resume discovery/copy tool is sufficient; list_resumes is not a prerequisite.",
 			"The `resume://_meta/schema` resource describes the full data structure for JSON Patch paths.",
@@ -422,9 +422,9 @@ const BASE_TOOL_META = {
 		title: "Apply Resume Patch",
 		description: [
 			"Apply JSON Patch (RFC 6902) operations to partially update a resume's data.",
-			"For LaTeX body edits prefer edit_resume_latex with small exact replacements and expectedUpdatedAt; avoid resending a whole file or changing its preamble/layout. Its compact receipt supplies the timestamp for subsequent edits and compile.",
+			"For queued LaTeX body edits use finish_queued_resume, which saves exact replacements and checks the PDF together. For other LaTeX edits use edit_resume_latex; avoid resending whole files or changing their preamble/layout.",
 			"",
-			`This is the primary way to edit resume content. Use \`${T.getResume}\` first to inspect the`,
+			`This edits ordinary resume content. Use \`${T.getResume}\` first to inspect the`,
 			"current structure, and `resume://_meta/schema` to understand valid paths and types.",
 			"",
 			"Supported operations: add, remove, replace, move, copy, test.",
@@ -961,6 +961,7 @@ export const TOOL_META = withAnnotationTitles({
 	...BASE_TOOL_META,
 	...LIBRARY_TOOL_META,
 	...QUEUE_TOOL_META,
+	...QUEUE_RESUME_META,
 	...LATEX_TOOL_META,
 	[T.listResumes]: {
 		...BASE_TOOL_META[T.listResumes],

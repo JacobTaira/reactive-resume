@@ -17,6 +17,7 @@ const { documentsService } = await import("./service");
 
 // `select().from().where()` resolving to `rows`.
 const rows = (result: unknown[]) => ({ from: () => ({ where: () => Promise.resolve(result) }) });
+const joinedRows = (result: unknown[]) => ({ from: () => ({ leftJoin: () => ({ where: () => Promise.resolve(result) }) }) });
 
 const updates = () => {
 	const set = vi.fn((_changes: Record<string, unknown>) => ({
@@ -39,6 +40,45 @@ beforeEach(() => {
 			update: dbMock.update,
 		}),
 	);
+});
+
+describe("list profiles", () => {
+	const summary = {
+		id: "r1", name: "Base Resume", tags: ["robotics"], isLocked: false, isPublic: false,
+		slug: "base", trashedAt: null, createdAt: new Date("2026-10-01T00:00:00Z"),
+		updatedAt: new Date("2026-10-19T00:00:00Z"), folderId: null, sourceResumeId: null,
+		companyId: null, applicationId: "a1", company: "Orbital", role: "Engineer",
+	};
+
+	it("omits invalid legacy audit metadata without blocking document discovery", async () => {
+		dbMock.select.mockReturnValueOnce(joinedRows([{ ...summary, profile: { score: "invalid legacy value" } }]));
+		dbMock.select.mockReturnValueOnce(joinedRows([]));
+		const result = await documentsService.list({ userId: "u1", trashed: false, includeProfile: false });
+
+		expect(result).toHaveLength(1);
+		expect(result[0]).toMatchObject({
+			id: "r1", name: "Base Resume", tags: ["robotics"], profile: null,
+			application: { id: "a1", company: "Orbital", role: "Engineer" },
+		});
+		// A SQL null projection keeps even oversized/unparseable profiles out of the database result.
+		expect(dbMock.select.mock.calls[0]?.[0].profile).toHaveProperty("queryChunks");
+	});
+
+	it.each([undefined, true])("keeps normal profile behavior when includeProfile is %s", async includeProfile => {
+		dbMock.select.mockReturnValueOnce(joinedRows([{ ...summary, profile: { purpose: "master", score: 85 } }]));
+		dbMock.select.mockReturnValueOnce(joinedRows([]));
+		const result = await documentsService.list({
+			userId: "u1", trashed: false, ...(includeProfile !== undefined ? { includeProfile } : {}),
+		});
+		expect(result[0]?.profile).toMatchObject({ purpose: "master", score: 85, requirementEvidence: [] });
+		expect(dbMock.select.mock.calls[0]?.[0].profile).not.toHaveProperty("queryChunks");
+	});
+
+	it("retains legacy validation failures when profile inclusion is requested", async () => {
+		dbMock.select.mockReturnValueOnce(joinedRows([{ ...summary, profile: { score: "invalid legacy value" } }]));
+		dbMock.select.mockReturnValueOnce(joinedRows([]));
+		await expect(documentsService.list({ userId: "u1", trashed: false })).rejects.toBeDefined();
+	});
 });
 
 describe("Trash", () => {

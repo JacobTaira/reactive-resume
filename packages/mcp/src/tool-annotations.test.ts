@@ -7,6 +7,8 @@ describe("tool annotations", () => {
 		for (const name of [
 			MCP_TOOL_NAME.patchResume,
 			MCP_TOOL_NAME.editResumeLatex,
+			MCP_TOOL_NAME.finishQueuedResume,
+			MCP_TOOL_NAME.prepareQueuedResume,
 			MCP_TOOL_NAME.updateResume,
 			MCP_TOOL_NAME.deleteResume,
 			MCP_TOOL_NAME.updateApplication,

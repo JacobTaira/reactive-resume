@@ -16,6 +16,7 @@ import { registerLatexTools } from "./latex-tools";
 import { compactCompileLog } from "./latex-context";
 import { MCP_TOOL_NAME } from "./mcp-tool-names";
 import { registerQueueTools } from "./queue-tools";
+import { registerQueueResumeTools } from "./queue-resume-tools";
 import { json, text, withErrorHandling } from "./results";
 import { readResumeContext } from "./resume-read";
 import { TOOL_META } from "./tool-meta";
@@ -648,5 +649,6 @@ export function registerTools(
 	registerLibraryTools(server, client);
 	registerLatexTools(server, client);
 	registerQueueTools(server, client);
+	registerQueueResumeTools(server, client);
 }
 

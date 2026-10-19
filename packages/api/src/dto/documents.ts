@@ -37,6 +37,7 @@ export const documentsDto = {
 			.object({
 				...paginationShape,
 				trashed: z.boolean().default(false).describe("List the documents in Trash instead."),
+				includeProfile: z.boolean().optional().describe("Omit private indexing/audit profiles when false; existing clients include them by default."),
 			})
 			.default({ trashed: false }),
 		output: z.array(documentSchema),

@@ -28,7 +28,7 @@ const fileManifestSchema = z.object({
 export const LATEX_TOOL_META = {
 	[T.readResumeLatex]: {
 		title: "Read LaTeX Resume Source",
-		description: "Preferred evidence read for a LaTeX resume. Returns the saved entrypoint's exact source by default, a manifest of every project file with original index/size/SHA-256, current updatedAt/applicationId, and optional libraryMetadata (included by default). Other file contents are explicitly omitted, not deleted or empty; request filePaths for included dependencies or relevant supporting evidence when needed. An unused alternative such as ACS.tex need not be retransmitted. Never replace the project using this partial view. Save exact returned UTF-8 bytes and verify SHA-256 before local pdflatex; do not retype the preamble. A local compile is optional preliminary page-fit work, and the final server compile remains authoritative. Does not call an AI provider.",
+		description: "Read exact saved LaTeX source: active entrypoint by default, file manifest, updatedAt/applicationId and optional metadata. Other files are omitted, not deleted; use filePaths only for needed dependencies or evidence. Never replace the project from this partial view. For queued jobs prefer prepare_queued_resume, which returns source and job context together. Use server checks; do not create local files, run TeX/shell, calculate checksums or fetch PDFs during normal tailoring. No AI provider call.",
 		inputSchema: latexReadInput,
 		outputSchema: toWireObjectSchema(z.object({
 			id: z.string(), name: z.string(), updatedAt: z.date(), applicationId: z.string().nullable(),
@@ -40,7 +40,7 @@ export const LATEX_TOOL_META = {
 	},
 	[T.editResumeLatex]: {
 		title: "Edit LaTeX Resume Text",
-		description: "Preferred LaTeX content edit: send small exact replacements [{path,oldText,newText}] instead of resending an entire .tex file. Each oldText must occur exactly once in the ORIGINAL saved source; edits must not overlap. All edits validate before one version-guarded save, preserving other project files. expectedUpdatedAt is required. Default protection preserves the preamble and known layout declarations; allowFormattingChanges=true only when the user explicitly requested template/layout changes. Returns a compact receipt with updatedAt and changed-file hashes, not the whole resume; reuse that timestamp for the next edit/compile instead of rereading unchanged source. On conflict reread/recompute. No compilation, AI provider or application submission occurs.",
+		description: "Standalone LaTeX text edit using exact replacements [{path,oldText,newText}] and expectedUpdatedAt. Each oldText must match once in the original saved source; edits cannot overlap. One guarded save preserves other files and existing template/layout. allowFormattingChanges=true only for a user-requested redesign. Returns updatedAt for subsequent work; reread only on conflict. For queued jobs prefer finish_queued_resume, which saves exact edits and runs server checks/progress together. No compilation or AI provider call here.",
 		inputSchema: latexEditInput,
 		outputSchema: z.object({
 			id: z.string(), name: z.string(), updatedAt: z.iso.datetime({ offset: true }),

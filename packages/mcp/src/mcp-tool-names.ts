@@ -41,6 +41,8 @@ export const MCP_TOOL_NAME = {
 	importCoverLetter: "import_cover_letter",
 	listApplications: "list_applications",
 	listTailoringQueue: "list_tailoring_queue",
+	prepareQueuedResume: "prepare_queued_resume",
+	finishQueuedResume: "finish_queued_resume",
 	readTailoringQueueJob: "read_tailoring_queue_job",
 	claimQueueJob: "claim_queue_job",
 	updateQueueJob: "update_queue_job",

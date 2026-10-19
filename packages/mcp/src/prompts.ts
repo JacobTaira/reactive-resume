@@ -50,12 +50,12 @@ export const PROMPT_META = {
 	tailor_resume_for_job: {
 		title: "Tailor Resume for a Job",
 		description:
-			"Save and verify the pasted job in Applications before research or tailoring. Use the user-designated Base Resume, with related resumes as references; save evidence and score in the app and follow the project's brief reply format. No provider setup or application submission.",
+			"Save the pasted job, then prepare and finish its Base Resume copy with the compound queue tools. Related resumes and company notes remain available as references. Follow the project's brief reply format; no provider setup or submission.",
 	},
 	process_tailoring_queue: {
 		title: "Process Tailoring Queue",
 		description:
-			"Read captured jobs and Base Resume, asking once only about shared unknown facts that materially affect preparation. Claim/resume each draft, tailor truthful content, check PDFs and save a transparent review score. Incomplete and failed work stays visible; no employer submissions or saved AI provider required.",
+			"Process saved jobs with prepare_queued_resume and finish_queued_resume. Use truthful Base facts and useful related/company references; the server handles copying, linkage and PDF checks. Ask once about material unknowns. No mandatory audit report, provider call or employer submission.",
 	},
 } as const;
 

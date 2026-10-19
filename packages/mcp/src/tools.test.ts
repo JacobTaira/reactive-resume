@@ -120,6 +120,7 @@ describe("registerTools", () => {
 		registerTools(server as never, clientMock as never, new Headers());
 		for (const name of [
 			MCP_TOOL_NAME.listTailoringQueue, MCP_TOOL_NAME.readTailoringQueueJob, MCP_TOOL_NAME.claimQueueJob,
+			MCP_TOOL_NAME.prepareQueuedResume, MCP_TOOL_NAME.finishQueuedResume,
 			MCP_TOOL_NAME.updateQueueJob, MCP_TOOL_NAME.finishQueueJob, MCP_TOOL_NAME.skipQueueJob, MCP_TOOL_NAME.requeueJob,
 		]) expect(registered.filter((item) => item.name === name)).toHaveLength(1);
 		clientMock.applications.queue.list.mockResolvedValueOnce({ items: [{ id: "app" }], total: 1, nextOffset: null });

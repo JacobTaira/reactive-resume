@@ -1,6 +1,6 @@
 import { captureProcedure, protectedProcedure } from "../../context";
 import { captureDto, queueDto } from "../../dto/capture";
-import { resumeMutationRateLimit } from "../../middleware/rate-limit";
+import { pdfExportRateLimit, resumeMutationRateLimit } from "../../middleware/rate-limit";
 import { captureService } from "./capture";
 import { queueService } from "./queue";
 
@@ -92,6 +92,7 @@ export const queueRouter = {
 		.input(queueDto.finish.input)
 		.output(queueDto.finish.output)
 		.use(resumeMutationRateLimit)
+		.use(pdfExportRateLimit)
 		.handler(({ context, input }) => queueService.finish({ ...input, userId: context.user.id })),
 	action: protectedProcedure
 		.route(route(

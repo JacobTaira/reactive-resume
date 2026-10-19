@@ -157,10 +157,27 @@ export const queueDto = {
 			expectedResumeUpdatedAt: z.iso.datetime({
 				offset: true
 			}).optional(),
+			verifyPdf: z.literal(true).optional().describe(
+				"Compile and check the saved LaTeX draft on the server before completing preparation. Requires expectedResumeUpdatedAt; no score or review metadata is required.",
+			),
+			expectedPageCount: z.number().int().min(1).max(100).optional(),
+			score: z.number().int().min(0).max(100).optional().describe(
+				"Optional heuristic assessment saved for the server-verified draft. Requires verifyPdf=true; it is never an ATS guarantee.",
+			),
 			error: z.string().max(2000).optional(),
 			notes: z.string().max(5000).optional()
 		}),
-		output: queueItemSchema
+		output: queueItemSchema.extend({
+			pdfVerification: z.object({
+				pageCount: z.number().int().positive(),
+				overfullBoxes: z.object({
+					count: z.number().int().nonnegative(),
+					messages: z.array(z.string().max(500)).max(20),
+					truncated: z.boolean(),
+				}),
+				textExtractionStatus: z.literal("success"),
+			}).optional(),
+		}),
 	},
 	action: {
 		input: z.strictObject({

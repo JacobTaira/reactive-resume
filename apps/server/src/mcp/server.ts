@@ -58,11 +58,9 @@ export function createMcpServer(
 		instructions: [
 			"Reactive Resume holds the user's resumes, cover letters and job applications.",
 			TAILORING_PREFERENCES,
-			`Find unknown resume IDs with \`${MCP_TOOL_NAME.listResumes}\` or find_related_resumes, then read with \`${MCP_TOOL_NAME.getResume}\` (includeMetadata=true for tailoring). Reuse known owned IDs; no extra listing is required. The resume JSON Schema is the \`resume://_meta/schema\` resource.`,
-			`For LaTeX prefer \`${MCP_TOOL_NAME.readResumeLatex}\` and small exact edits through \`${MCP_TOOL_NAME.editResumeLatex}\`; returned edit/compile timestamps avoid repeated whole-source reads. Use JSON Patch through \`${MCP_TOOL_NAME.patchResume}\` for ordinary resume content, and change names/tags/visibility with \`${MCP_TOOL_NAME.updateResume}\`.`,
-			`Track jobs with the application tools. For queued jobs start with \`${MCP_TOOL_NAME.listTailoringQueue}\` and includeDescription=true; use \`${MCP_TOOL_NAME.listApplications}\` when general application discovery is needed.`,
-			"Locate the user's designated Base Resume and read its full contents including LaTeX source. Related copies are references, not replacement base documents. Resume folders organize documents without changing access. Use company notes to retain sourced research, and keep saved fit scores separate from hiring predictions and optional chat output.",
-			`Get a short-lived PDF link with \`${MCP_TOOL_NAME.downloadResumePdf}\`; export cover letters with \`${MCP_TOOL_NAME.exportCoverLetter}\`.`,
+			`For queued LaTeX jobs: \`${MCP_TOOL_NAME.listTailoringQueue}\`, then \`${MCP_TOOL_NAME.prepareQueuedResume}\`, reason about the supplied source, then \`${MCP_TOOL_NAME.finishQueuedResume}\` with one batch of exact text edits. These operations handle Base discovery, copying, linking, claims, saved timestamps and server PDF checks. Do not recreate those steps manually.`,
+			"Preparation includes compact related-resume references and saved company notes. Read another source only when its factual evidence is useful. Do not create local files, run local TeX, calculate checksums, fetch PDFs or write detailed metadata reports during this routine.",
+			`For other document work, find unknown IDs with \`${MCP_TOOL_NAME.listResumes}\`, read LaTeX with \`${MCP_TOOL_NAME.readResumeLatex}\` and ordinary resumes with \`${MCP_TOOL_NAME.getResume}\`. The resume JSON Schema is the \`resume://_meta/schema\` resource.`,
 			"Tools named api_* expose the rest of the Reactive Resume API. Tools that involve passwords, API keys or AI provider keys return a link to finish in the app.",
 		].join(" "),
 	});
