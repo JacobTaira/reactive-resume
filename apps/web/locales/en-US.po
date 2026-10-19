@@ -253,6 +253,11 @@ msgstr "{0} closed"
 msgid "{0} days left"
 msgstr "{0} days left"
 
+#. placeholder {0}: item.descriptionLength
+#: src/features/applications/queue-view.tsx
+msgid "{0} description characters"
+msgstr "{0} description characters"
+
 #. placeholder {0}: proposals.length
 #: src/features/assistant/document.ts
 #: src/features/resume/editor/proposals/proposals.ts
@@ -297,6 +302,11 @@ msgstr "{0} in {1} is {2} in your timezone ({preferredZone})."
 #: src/features/career/workspace/shell.tsx
 msgid "{0} interview"
 msgstr "{0} interview"
+
+#. placeholder {0}: list.data.total
+#: src/features/applications/queue-view.tsx
+msgid "{0} jobs in this view"
+msgstr "{0} jobs in this view"
 
 #. placeholder {0}: i18n.number(row.minutes)
 #. placeholder {0}: row.minutes
@@ -2411,6 +2421,10 @@ msgstr "Can software read your resume?"
 msgid "Cancel"
 msgstr "Cancel"
 
+#: src/features/settings/ai/api-keys.tsx
+msgid "Capture only"
+msgstr "Capture only"
+
 #: src/routes/dashboard/-components/app-shell.tsx
 #: src/routes/dashboard/career/route.tsx
 msgid "Career"
@@ -2673,6 +2687,10 @@ msgstr "Choose another file"
 msgid "Choose color"
 msgstr "Choose color"
 
+#: src/features/settings/ai/api-keys.tsx
+msgid "Choose full access for Claude or capture only for the job capture extension."
+msgstr "Choose full access for Claude or capture only for the job capture extension."
+
 #: src/components/level/combobox.tsx
 msgid "Circle"
 msgstr "Circle"
@@ -2688,6 +2706,14 @@ msgstr "Classic"
 #: src/features/settings/ai/api-keys.tsx
 msgid "Claude Desktop"
 msgstr "Claude Desktop"
+
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Claude is working on this job. Edit its details after processing finishes."
+msgstr "Claude is working on this job. Edit its details after processing finishes."
+
+#: src/features/applications/queue-view.tsx
+msgid "Claude is working on this job. If its session stops, you can resume later without losing the saved job or draft."
+msgstr "Claude is working on this job. If its session stops, you can resume later without losing the saved job or draft."
 
 #: src/features/applications/components/detail/next-step-card.tsx
 #: src/features/applications/components/list-view.tsx
@@ -2960,6 +2986,14 @@ msgstr "Confirm Password"
 msgid "Confirm submission and choose the documents you actually sent. Their current versions will be saved."
 msgstr "Confirm submission and choose the documents you actually sent. Their current versions will be saved."
 
+#: src/features/applications/queue-view.tsx
+msgid "Confirm the company and role, and add a description if it is missing."
+msgstr "Confirm the company and role, and add a description if it is missing."
+
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Confirm the company, role and description before Claude works on this job."
+msgstr "Confirm the company, role and description before Claude works on this job."
+
 #: src/features/career/workspace/messages.tsx
 msgid "Confirm the time before adding a new interview."
 msgstr "Confirm the time before adding a new interview."
@@ -3184,6 +3218,10 @@ msgstr "Copy answers"
 msgid "Copy Backup Codes"
 msgstr "Copy Backup Codes"
 
+#: src/features/applications/queue-view.tsx
+msgid "Copy Claude prompt"
+msgstr "Copy Claude prompt"
+
 #: src/features/career/coach.tsx
 msgid "Copy conversation"
 msgstr "Copy conversation"
@@ -3361,6 +3399,10 @@ msgstr "Couldn't connect. Check the key and try again."
 msgid "Couldn't continue as a guest. Please try again."
 msgstr "Couldn't continue as a guest. Please try again."
 
+#: src/features/applications/queue-view.tsx
+msgid "Couldn't copy the prompt. Tell Claude: Process my queue using my master resume."
+msgstr "Couldn't copy the prompt. Tell Claude: Process my queue using my master resume."
+
 #: src/features/career/offers.tsx
 msgid "Couldn't copy the questions. Select the text and copy it manually."
 msgstr "Couldn't copy the questions. Select the text and copy it manually."
@@ -3486,9 +3528,17 @@ msgstr "Couldn't load interviews. Retry"
 msgid "Couldn't load related resumes."
 msgstr "Couldn't load related resumes."
 
+#: src/features/applications/queue-view.tsx
+msgid "Couldn't load the queue. Your saved jobs remain in Applications."
+msgstr "Couldn't load the queue. Your saved jobs remain in Applications."
+
 #: src/features/ats-checker/checker.tsx
 msgid "Couldn't load the sample file. Try again."
 msgstr "Couldn't load the sample file. Try again."
+
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Couldn't load this saved job. Try again."
+msgstr "Couldn't load this saved job. Try again."
 
 #: src/features/career/load-state.tsx
 msgid "Couldn't load this. Your saved data hasn't changed."
@@ -3620,6 +3670,10 @@ msgstr "Couldn't save the tags."
 msgid "Couldn't save the timezone."
 msgstr "Couldn't save the timezone."
 
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Couldn't save these details. Your edits are still here."
+msgstr "Couldn't save these details. Your edits are still here."
+
 #: src/features/career/today.tsx
 msgid "Couldn't save this role to Applications."
 msgstr "Couldn't save this role to Applications."
@@ -3701,6 +3755,10 @@ msgstr "Couldn't update the applications. Try again."
 #: src/features/applications/components/interview-dialog.tsx
 msgid "Couldn't update the interview."
 msgstr "Couldn't update the interview."
+
+#: src/features/applications/queue-view.tsx
+msgid "Couldn't update the queue. Refresh and try again."
+msgstr "Couldn't update the queue. Refresh and try again."
 
 #: src/features/applications/components/detail/activity.tsx
 msgid "Couldn't update the timeline. Try again."
@@ -4176,6 +4234,10 @@ msgstr "Description"
 #: src/features/resume/editor/write/entries.tsx
 msgid "Description of role {0}"
 msgstr "Description of role {0}"
+
+#: src/features/applications/queue-view.tsx
+msgid "Description shortened"
+msgstr "Description shortened"
 
 #: src/features/homepage/design.tsx
 #: src/features/homepage/header.tsx
@@ -5363,6 +5425,10 @@ msgid "For portals or recruiters who ask for Word. Layout is simplified."
 msgstr "For portals or recruiters who ask for Word. Layout is simplified."
 
 #: src/features/settings/ai/api-keys.tsx
+msgid "For scripts, extensions and MCP clients. Choose the access each key needs."
+msgstr "For scripts, extensions and MCP clients. Choose the access each key needs."
+
+#: src/features/settings/ai/api-keys.tsx
 msgid "For scripts, extensions and MCP clients. Keys act as you and can read and edit your documents."
 msgstr "For scripts, extensions and MCP clients. Keys act as you and can read and edit your documents."
 
@@ -5990,6 +6056,10 @@ msgstr "Improving…"
 msgid "In good company"
 msgstr "In good company"
 
+#: src/features/applications/queue-view.tsx
+msgid "In progress"
+msgstr "In progress"
+
 #: src/features/ats-checker/messages.ts
 msgid "Increase line spacing so two lines are not merged into one."
 msgstr "Increase line spacing so two lines are not merged into one."
@@ -6268,6 +6338,10 @@ msgstr "Job posting URL"
 msgid "Job requirements and resume evidence"
 msgstr "Job requirements and resume evidence"
 
+#: src/features/applications/queue-view.tsx
+msgid "Job returned to the queue. Ask Claude when you want to resume."
+msgstr "Job returned to the queue. Ask Claude when you want to resume."
+
 #: src/features/applications/components/add-application-dialog.tsx
 msgid "Job search failed. Try again or paste a posting link."
 msgstr "Job search failed. Try again or paste a posting link."
@@ -6283,6 +6357,10 @@ msgstr "Job tracker"
 #: src/features/command-palette/pages/navigation.tsx
 msgid "Jobs"
 msgstr "Jobs"
+
+#: src/features/applications/queue-view.tsx
+msgid "Jobs stay here through missing details, interrupted work and draft creation. Only completed resumes move to Ready for review."
+msgstr "Jobs stay here through missing details, interrupted work and draft creation. Only completed resumes move to Ready for review."
 
 #. Example full name placeholder on registration form
 #: src/features/auth/pages/register.tsx
@@ -7238,6 +7316,10 @@ msgstr "Microphone blocked. Allow it in your browser settings, or type your answ
 msgid "Minimum base salary"
 msgstr "Minimum base salary"
 
+#: src/features/applications/queue-view.tsx
+msgid "Missing details"
+msgstr "Missing details"
+
 #: src/features/homepage/prepare.tsx
 msgid "Missing evidence means your notes don’t show it yet, not that you lack it."
 msgstr "Missing evidence means your notes don’t show it yet, not that you lack it."
@@ -7513,6 +7595,10 @@ msgstr "Needs attention"
 msgid "Needs review"
 msgstr "Needs review"
 
+#: src/features/applications/queue-view.tsx
+msgid "Needs work"
+msgstr "Needs work"
+
 #: src/features/career/today.tsx
 msgid "Needs you"
 msgstr "Needs you"
@@ -7617,6 +7703,10 @@ msgstr "New section"
 #: src/features/homepage/remember.tsx
 msgid "New teams at Northwind were stalling in setup; most never got through."
 msgstr "New teams at Northwind were stalling in setup; most never got through."
+
+#: src/features/applications/queue-view.tsx
+msgid "Next"
+msgstr "Next"
 
 #: src/features/resume/editor/check/page-layer.tsx
 msgid "Next issue"
@@ -7759,6 +7849,10 @@ msgstr "No issues detected by these checks"
 msgid "No job yet"
 msgstr "No job yet"
 
+#: src/features/applications/queue-view.tsx
+msgid "No jobs in this queue view."
+msgstr "No jobs in this queue view."
+
 #: src/features/settings/ai/api-keys.tsx
 msgid "No keys yet."
 msgstr "No keys yet."
@@ -7820,6 +7914,10 @@ msgstr "No photo. Most ATS ignore photos; some regions expect one."
 msgid "No postings found. Try different keywords."
 msgstr "No postings found. Try different keywords."
 
+#: src/features/applications/queue-view.tsx
+msgid "No queued jobs match this search."
+msgstr "No queued jobs match this search."
+
 #: src/features/resume/latex/compile-checks.tsx
 msgid "No readable text was extracted."
 msgstr "No readable text was extracted."
@@ -7844,6 +7942,10 @@ msgstr "No results found."
 msgid "No resume"
 msgstr "No resume"
 
+#: src/features/applications/queue-view.tsx
+msgid "No resumes ready for review yet."
+msgstr "No resumes ready for review yet."
+
 #: src/features/applications/components/application-form-sheet.tsx
 msgid "No resumes yet."
 msgstr "No resumes yet."
@@ -7851,6 +7953,10 @@ msgstr "No resumes yet."
 #: src/features/ats-checker/messages.ts
 msgid "No skills section was found."
 msgstr "No skills section was found."
+
+#: src/features/applications/queue-view.tsx
+msgid "No skipped jobs."
+msgstr "No skipped jobs."
 
 #: src/features/applications/components/insights-view.tsx
 msgid "No source data yet."
@@ -8290,9 +8396,17 @@ msgstr "Open {title}"
 msgid "Open AI settings"
 msgstr "Open AI settings"
 
+#: src/features/applications/queue-view.tsx
+msgid "Open application"
+msgstr "Open application"
+
 #: src/features/career/today.tsx
 msgid "Open briefing"
 msgstr "Open briefing"
+
+#: src/features/applications/queue-view.tsx
+msgid "Open draft"
+msgstr "Open draft"
 
 #. Button label to open the user's default email app
 #: src/features/auth/pages/forgot-password.tsx
@@ -8440,6 +8554,10 @@ msgstr "Organize this resume and give Claude context to find, compare, and reuse
 #: src/features/ats-checker/checker.tsx
 msgid "Original page"
 msgstr "Original page"
+
+#: src/features/applications/queue-view.tsx
+msgid "Original posting"
+msgstr "Original posting"
 
 #: src/features/resume/editor/write/rich-text-editor.tsx
 msgid "Original table formatting is preserved. This content is read-only because it cannot be edited safely."
@@ -8676,6 +8794,10 @@ msgstr "Paste the email or message, without the signature."
 #: src/features/applications/components/application-form-sheet.tsx
 msgid "Paste the full job description here…"
 msgstr "Paste the full job description here…"
+
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Paste the full posting if capture missed it. Saving here does not use AI."
+msgstr "Paste the full posting if capture missed it. Saving here does not use AI."
 
 #: src/features/ats-checker/checker.tsx
 msgid "Paste the posting to see which of its terms your resume already has."
@@ -8963,6 +9085,10 @@ msgstr "Preferences"
 msgid "Preferred"
 msgstr "Preferred"
 
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Preparation notes"
+msgstr "Preparation notes"
+
 #: src/features/career/schedule-sheet.tsx
 #: src/features/career/shared.tsx
 #: src/features/homepage/header.tsx
@@ -9030,6 +9156,10 @@ msgstr "Press <0>Enter</0> to open"
 msgid "Previewing {0} · click to apply"
 msgstr "Previewing {0} · click to apply"
 
+#: src/features/applications/queue-view.tsx
+msgid "Previous"
+msgstr "Previous"
+
 #: src/features/resume/editor/check/page-layer.tsx
 msgid "Previous issue"
 msgstr "Previous issue"
@@ -9069,6 +9199,10 @@ msgstr "Private"
 #: src/routes/builder/$resumeId/-components/document-details.tsx
 msgid "Private. Only you can see it."
 msgstr "Private. Only you can see it."
+
+#: src/features/applications/queue-view.tsx
+msgid "Process my Reactive Resume tailoring queue using my master resume. Read the saved job descriptions, related resumes and company notes. Before drafting, compare the jobs for shared requirements and gaps. Ask me once about shared missing evidence, and add only facts I confirm to my master resume. Use the queue tools to keep progress and failures visible. Reuse an existing draft when resuming. Mark a resume ready only after tailoring, scoring and PDF checks. Do not submit applications or mark them Applied."
+msgstr "Process my Reactive Resume tailoring queue using my master resume. Read the saved job descriptions, related resumes and company notes. Before drafting, compare the jobs for shared requirements and gaps. Ask me once about shared missing evidence, and add only facts I confirm to my master resume. Use the queue tools to keep progress and failures visible. Reuse an existing draft when resuming. Mark a resume ready only after tailoring, scoring and PDF checks. Do not submit applications or mark them Applied."
 
 #: src/features/homepage/footer.tsx
 msgid "Product"
@@ -9133,6 +9267,10 @@ msgstr "Projects"
 #: src/features/homepage/hero.tsx
 msgid "Promoted to lead, 2021"
 msgstr "Promoted to lead, 2021"
+
+#: src/features/applications/queue-view.tsx
+msgid "Prompt copied. Paste it into Claude connected to this installation."
+msgstr "Prompt copied. Paste it into Claude connected to this installation."
 
 #: src/features/career/workspace/messages.tsx
 msgid "Proposed changes"
@@ -9246,6 +9384,26 @@ msgstr "Questions copied"
 #: src/features/homepage/prepare.tsx
 msgid "Questions to ask"
 msgstr "Questions to ask"
+
+#: src/routes/dashboard/applications/index.tsx
+msgid "Queue"
+msgstr "Queue"
+
+#: src/routes/dashboard/applications/index.tsx
+msgid "Queue ({queuedCount})"
+msgstr "Queue ({queuedCount})"
+
+#: src/features/applications/queue-view.tsx
+msgid "Queue again"
+msgstr "Queue again"
+
+#: src/features/applications/queue-view.tsx
+msgid "Queue status"
+msgstr "Queue status"
+
+#: src/features/applications/queue-view.tsx
+msgid "Queued"
+msgstr "Queued"
 
 #: src/features/homepage/remember.tsx
 msgid "R"
@@ -9467,6 +9625,10 @@ msgstr "Reads supported public job pages. No account needed."
 #: src/features/settings/ai/providers.tsx
 msgid "Ready"
 msgstr "Ready"
+
+#: src/features/applications/queue-view.tsx
+msgid "Ready for review"
+msgstr "Ready for review"
 
 #: src/features/documents/new-document-dialog.tsx
 msgid "ready to compile"
@@ -10013,6 +10175,10 @@ msgstr "Resume line"
 msgid "Resume page"
 msgstr "Resume page"
 
+#: src/features/applications/queue-view.tsx
+msgid "Resume preparation queue"
+msgstr "Resume preparation queue"
+
 #: src/features/documents/resume-details-dialog.tsx
 msgid "Resume purpose"
 msgstr "Resume purpose"
@@ -10092,6 +10258,10 @@ msgstr "Reuse priority {0}/100"
 msgid "Review"
 msgstr "Review"
 
+#: src/features/applications/queue-view.tsx
+msgid "Review details"
+msgstr "Review details"
+
 #: src/features/career/today.tsx
 msgid "Review draft"
 msgstr "Review draft"
@@ -10115,6 +10285,14 @@ msgstr "Review needs updating"
 #: src/features/career/workspace/apply.tsx
 msgid "Review required form answers and remove unsupported claims."
 msgstr "Review required form answers and remove unsupported claims."
+
+#: src/features/applications/queue-view.tsx
+msgid "Review resume"
+msgstr "Review resume"
+
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Review saved job details"
+msgstr "Review saved job details"
 
 #: src/features/career/workspace/apply.tsx
 msgid "Review the selected resume and cover letter in their editors."
@@ -10358,6 +10536,10 @@ msgstr "Save interview"
 msgid "Save job"
 msgstr "Save job"
 
+#: src/features/applications/queue-view.tsx
+msgid "Save jobs with the Chrome extension or the Save job button. Then ask Claude to process your queue. Capturing a job does not start resume writing."
+msgstr "Save jobs with the Chrome extension or the Save job button. Then ask Claude to process your queue. Capturing a job does not start resume writing."
+
 #: src/features/documents/companies-library.tsx
 msgid "Save research"
 msgstr "Save research"
@@ -10445,6 +10627,18 @@ msgstr "Saved content comparison"
 msgid "Saved description"
 msgstr "Saved description"
 
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Saved job description"
+msgstr "Saved job description"
+
+#: src/features/applications/queue-details-sheet.tsx
+msgid "Saved job details. Missing information is checked again automatically."
+msgstr "Saved job details. Missing information is checked again automatically."
+
+#: src/features/applications/queue-view.tsx
+msgid "Saved jobs, ready when you are"
+msgstr "Saved jobs, ready when you are"
+
 #: src/features/career/knowledge/preferences.tsx
 msgid "Saved just now"
 msgstr "Saved just now"
@@ -10474,10 +10668,18 @@ msgstr "Saved to Knowledge, private to this application."
 msgid "Saved to Saved · Practice"
 msgstr "Saved to Saved · Practice"
 
+#: src/features/settings/ai/api-keys.tsx
+msgid "Saves jobs through the capture extension. Cannot read your resumes or other applications."
+msgstr "Saves jobs through the capture extension. Cannot read your resumes or other applications."
+
 #. placeholder {0}: window.location.host
 #: src/features/resume/share/link-tab.tsx
 msgid "Saving {0}/{username}/{slug}… Copy is available after saving."
 msgstr "Saving {0}/{username}/{slug}… Copy is available after saving."
+
+#: src/features/applications/queue-view.tsx
+msgid "Saving a job keeps its description here even if the original posting disappears. Claude works on it after you ask."
+msgstr "Saving a job keeps its description here even if the original posting disappears. Claude works on it after you ask."
 
 #: src/features/resume/builder/draft.ts
 msgid "Saving is taking longer than expected. Your changes are still open."
@@ -11209,6 +11411,14 @@ msgstr "Skip to main content"
 #: src/routes/builder/letter/-components/letter-shell.tsx
 msgid "Skip to the page"
 msgstr "Skip to the page"
+
+#: src/features/applications/queue-view.tsx
+msgid "Skipped"
+msgstr "Skipped"
+
+#: src/features/applications/queue-view.tsx
+msgid "Skipped. This job stays in Applications."
+msgstr "Skipped. This job stays in Applications."
 
 #: src/libs/locale.ts
 msgid "Slovak"
@@ -12089,6 +12299,10 @@ msgstr "The assistant uses your own key. Nothing is sent anywhere until you conn
 #: src/features/settings/ai/web-access.tsx
 msgid "The built-in reader remains active."
 msgstr "The built-in reader remains active."
+
+#: src/features/applications/queue-details-sheet.tsx
+msgid "The captured description was shortened. Check that the important requirements are included."
+msgstr "The captured description was shortened. Check that the important requirements are included."
 
 #: src/features/resume/editor/check/writing-tab.tsx
 msgid "The checks are mechanical. This asks a language model how a reader might react to your bullets and suggests rewrites. It isn't part of the score."

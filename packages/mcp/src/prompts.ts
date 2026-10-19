@@ -4,6 +4,7 @@ import type router from "@reactive-resume/api/routers";
 import z from "zod";
 import { createResumeDataJsonSchema } from "@reactive-resume/schema/resume/json-schema";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
+import { buildQueueProcessingInstructions } from "./queue-workflow";
 import { safeMcpError } from "./results";
 import { buildJobTailoringInstructions } from "./tailoring-workflow";
 
@@ -26,6 +27,11 @@ const jobTailoringArgs = {
 
 const resumePromptArgument = { name: "id", description: resumeIdArg.description ?? "Resume ID.", required: true } as const;
 
+const queueProcessingArgs = {
+	masterResumeId: z.string().min(1).optional().describe("Optional verified master ID; otherwise discover saved masters."),
+	limit: z.string().regex(/^(?:[1-9]|[1-4][0-9]|50)$/).optional().describe("Maximum jobs in this batch, 1–50; default 10."),
+};
+
 /** Shared prompt titles/descriptions, also consumed by the static MCP server card. */
 export const PROMPT_META = {
 	build_resume: {
@@ -46,6 +52,11 @@ export const PROMPT_META = {
 		description:
 			"Save and verify the pasted job in Applications before research or tailoring. Then use the saved master, related resumes and company notes to produce a draft and transparent score. No provider setup or application submission.",
 	},
+	process_tailoring_queue: {
+		title: "Process Tailoring Queue",
+		description:
+			"Read captured jobs and the master, identify shared evidence gaps and ask once before generating a batch. Claim/resume each draft, tailor truthful content, check PDFs and save a transparent review score. Incomplete and failed work stays visible; no employer submissions or saved AI provider required.",
+	},
 } as const;
 
 /** Prompt discovery mirrors the registered argument names and required status. */
@@ -54,6 +65,11 @@ export const PROMPT_ARGUMENTS = {
 	improve_resume: [resumePromptArgument],
 	review_resume: [resumePromptArgument],
 	tailor_resume_for_job: Object.entries(jobTailoringArgs).map(([name, schema]) => ({
+		name,
+		description: schema.description,
+		required: !schema.isOptional(),
+	})),
+	process_tailoring_queue: Object.entries(queueProcessingArgs).map(([name, schema]) => ({
 		name,
 		description: schema.description,
 		required: !schema.isOptional(),
@@ -256,9 +272,21 @@ export function registerPrompts(server: McpServer, client: RouterClient<typeof r
 			...PROMPT_META.tailor_resume_for_job,
 			argsSchema: jobTailoringArgs,
 		},
-		async (context) => ({
+		(context) => ({
 			messages: [
 				{ role: "user" as const, content: { type: "text" as const, text: buildJobTailoringInstructions(context) } },
+			],
+		}),
+	);
+	server.registerPrompt(
+		"process_tailoring_queue",
+		{
+			...PROMPT_META.process_tailoring_queue,
+			argsSchema: queueProcessingArgs,
+		},
+		(context) => ({
+			messages: [
+				{ role: "user" as const, content: { type: "text" as const, text: buildQueueProcessingInstructions(context) } },
 			],
 		}),
 	);

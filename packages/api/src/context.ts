@@ -7,8 +7,10 @@ import { getTrustedOrigins } from "@reactive-resume/auth/trusted-origins";
 import { db } from "@reactive-resume/db/client";
 import { user } from "@reactive-resume/db/schema";
 import { env } from "@reactive-resume/env/server";
+import type { RequestPermission } from "./credential-permissions";
+import { canCapture, fullPermissions, parseApiKeyPermissions } from "./credential-permissions";
 
-export type RequestPermission = "read" | "write" | "delete";
+export type { RequestPermission } from "./credential-permissions";
 export type RequestAuthentication = {
 	user: User;
 	method: "apiKey" | "bearer" | "session";
@@ -25,7 +27,6 @@ interface ORPCContext {
 }
 
 const TRUSTED_ORIGINS = getTrustedOrigins(env.APP_URL);
-const fullPermissions: readonly RequestPermission[] = ["read", "write", "delete"];
 
 async function findActiveUser(id: string): Promise<User | null> {
 	const [result] = await db.select().from(user).where(eq(user.id, id)).limit(1);
@@ -60,12 +61,7 @@ async function getAuthenticationFromApiKey(apiKey: string): Promise<RequestAuthe
 		if (!result.key || !result.valid) return null;
 		const activeUser = await findActiveUser(result.key.referenceId);
 		if (!activeUser) return null;
-		const statements: unknown = result.key.permissions;
-		const apiPermissions = statements && typeof statements === "object" && "api" in statements ? statements.api : [];
-		const permissions =
-			statements == null
-				? fullPermissions
-				: fullPermissions.filter((permission) => Array.isArray(apiPermissions) && apiPermissions.includes(permission));
+		const permissions = parseApiKeyPermissions(result.key.permissions);
 		return { user: activeUser, method: "apiKey", permissions };
 	} catch {
 		return null;
@@ -150,3 +146,17 @@ export const protectedProcedure = publicProcedure
 			},
 		});
 	});
+
+/** Extension capture accepts explicit API keys only, even when a browser session is also present. */
+export const captureProcedure = publicProcedure
+	.route({ spec: (operation) => ({ ...operation, security: [{ apiKey: [] }] }) })
+	.use(({ context, next }) => {
+		if (!context.user || !context.reqHeaders.get("x-api-key") || context.authentication?.method !== "apiKey") {
+			throw new ORPCError("UNAUTHORIZED", { message: "Capture requires an x-api-key credential." });
+		}
+		if (!canCapture(context.authentication.permissions)) {
+			throw new ORPCError("FORBIDDEN", { message: "This API key requires capture or write permission." });
+		}
+		return next({ context: { ...context, user: context.user } });
+	});
+

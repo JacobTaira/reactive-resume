@@ -13,6 +13,7 @@ import { detachEmbeddedLetters } from "@reactive-resume/resume/cover-letter";
 import { applyResumePatches, ResumePatchError } from "@reactive-resume/resume/patch";
 import { defaultResumeData } from "@reactive-resume/schema/resume/default";
 import { generateId } from "@reactive-resume/utils/string";
+import { resumeProfileSchema } from "../../dto/library";
 import { adoptEmbeddedLetters } from "../cover-letters/embedded";
 import { lockDocumentOwner } from "../documents/ownership";
 import { getStorageService } from "../storage/service";
@@ -568,6 +569,9 @@ export const resumeService = {
 		autoName?: boolean;
 		/** Internal duplication context: inherit the owned source's folder and record lineage atomically. */
 		copyFromResumeId?: string;
+		/** Internal Saved-job duplication: insert and select the working copy atomically. */
+		jobApplicationId?: string;
+		reuseApplicationDraft?: boolean;
 	}) => {
 		const id = input.id ?? generateId();
 		const data = parseWritableResumeData(structuredClone(input.data ?? defaultResumeData));
@@ -575,8 +579,8 @@ export const resumeService = {
 
 		try {
 			const slug = input.slug ?? (await findFreeSlug(db, input.userId, input.name));
-			await db.transaction(async (tx) => {
-				let copyContext: { folderId: string | null; sourceResumeId: string } | undefined;
+			const createdId = await db.transaction(async (tx) => {
+				let copyContext: Partial<typeof schema.resume.$inferInsert> | undefined;
 				if (input.copyFromResumeId) {
 					await lockDocumentOwner(tx, input.userId);
 					const [original] = await tx.select({ folderId: schema.resume.folderId }).from(schema.resume).where(and(
@@ -586,6 +590,35 @@ export const resumeService = {
 					)).for("key share");
 					if (!original) throw new ORPCError("NOT_FOUND");
 					copyContext = { folderId: original.folderId, sourceResumeId: input.copyFromResumeId };
+				}
+				if (input.jobApplicationId) {
+					if (!input.copyFromResumeId) throw new ORPCError("BAD_REQUEST");
+					const [application] = await tx.select().from(schema.application).where(and(
+						eq(schema.application.id, input.jobApplicationId),
+						eq(schema.application.userId, input.userId),
+					)).for("update");
+					if (!application) throw new ORPCError("NOT_FOUND");
+					if (application.status !== "saved" || application.sentResumeVersionId) {
+						throw new ORPCError("CONFLICT", { message: "The job was submitted while its draft was being prepared." });
+					}
+					if (input.reuseApplicationDraft && application.resumeId) {
+						const [draft] = await tx.select().from(schema.resume).where(and(
+							eq(schema.resume.id, application.resumeId),
+							eq(schema.resume.userId, input.userId),
+							eq(schema.resume.applicationId, application.id),
+							eq(schema.resume.sourceResumeId, input.copyFromResumeId),
+							isNull(schema.resume.trashedAt),
+						)).for("update");
+						if (draft?.profile?.purpose === "tailored") {
+							if (draft.isLocked) throw new ORPCError("RESUME_LOCKED", { status: 403 });
+							return draft.id;
+						}
+					}
+					copyContext = {
+						...copyContext,
+						applicationId: application.id,
+						profile: resumeProfileSchema.parse({ purpose: "tailored", company: application.company, targetRole: application.role }),
+					};
 				}
 				// The resume row comes first: letters an imported file carried are saved linked to it.
 				const stored = structuredClone(data);
@@ -601,7 +634,14 @@ export const resumeService = {
 					...copyContext,
 				});
 				await adoptEmbeddedLetters(tx, { userId: input.userId, resumeId: id, resumeName: input.name, data });
+				if (input.jobApplicationId) {
+					await tx.update(schema.application).set({ resumeId: id }).where(and(
+						eq(schema.application.id, input.jobApplicationId), eq(schema.application.userId, input.userId),
+					));
+				}
+				return id;
 			});
+			if (createdId !== id) return createdId;
 
 			// History is never empty: its first entry is where the document came from (best effort).
 			await writeVersion(db, { resumeId: id, userId: input.userId, data, kind: input.origin ?? "created" }).catch(

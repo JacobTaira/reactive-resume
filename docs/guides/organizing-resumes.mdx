@@ -25,6 +25,8 @@ Company documents use revision checks. If another conversation updates a documen
 
 ## Give Claude a job description
 
+To avoid copying and pasting postings, use the [Chrome capture queue](./capture-queue.mdx). Capture saves jobs first; ask Claude to process the queue later. The queue workflow compares similar jobs before generating copies, asks once about shared evidence gaps, and retains unfinished work after copying a base resume. New confirmed facts can be added to the master and reused in affected drafts; this requires assistant edits, not automatic synchronization.
+
 Connect your client to this installation's `/mcp` endpoint and sign in to the account containing your master. A connector pointing to another hosted installation uses that installation's accounts and documents.
 
 The `tailor_resume_for_job` MCP prompt describes this workflow:
@@ -49,6 +51,8 @@ Claude's tool use is not guaranteed. The workflow tells it to save first, verify
 Saving uses the pasted description and supplied URL directly. It does not need to fetch the website or use an AI provider. If the posting omits a company or role, Claude can save explicit **Company not provided** / **Role not provided** labels, mark `needs-details` and fill the details later. These labels are not verified company research.
 
 For the most dependable workflow, open **Applications → Save job**, enter the company and role, paste the description or URL, and save before starting Claude. Reading the posting is optional. Confirm the row appears, then give Claude its application ID with the job description. The MCP prompt accepts `applicationId` and `jobUrl` as optional context. Even a later research or tailoring failure leaves the already saved record available. A database/connection error still requires a successful save before treating the job as tracked.
+
+The Chrome extension provides another save-first path: it keeps an unsynced capture locally when the installation is unavailable, then confirms its saved Applications record after syncing. Check whether the outbox says pending or saved; a local waiting item has not yet reached the server. See [Capture jobs and process your queue](./capture-queue.mdx).
 
 This fork's main navigation contains Documents, Companies, Applications and Settings. Career has been removed from navigation and its old URLs redirect to Applications.
 

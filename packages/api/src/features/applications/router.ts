@@ -1,7 +1,10 @@
 import { aiRouter } from "./ai";
+import { captureRouter, queueRouter } from "./capture-router";
 import { crudRouter } from "./crud";
 
 export const applicationsRouter = {
+	capture: captureRouter,
+	queue: queueRouter,
 	list: crudRouter.list,
 	getById: crudRouter.getById,
 	create: crudRouter.create,
@@ -21,3 +24,4 @@ export const applicationsRouter = {
 	tags: crudRouter.tags,
 	ai: aiRouter,
 };
+

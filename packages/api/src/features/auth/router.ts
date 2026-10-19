@@ -44,13 +44,13 @@ export const authRouter = {
 			operationId: "createScopedApiKey",
 			summary: "Create an API key",
 			description:
-				"Create a read-only or full-access API key. Requires a browser session; keys and OAuth tokens cannot create credentials.",
+				"Create a read-only, capture-only, or full-access API key. Capture-only keys can save job postings and test the capture connection, but cannot read or edit account documents. Requires a browser session; keys and OAuth tokens cannot create credentials.",
 		})
 		.input(
 			z.object({
 				name: z.string().trim().min(1).max(64),
 				expiresIn: z.number().int().positive().nullable(),
-				access: z.enum(["read", "full"]),
+				access: z.enum(["read", "full", "capture"]),
 			}),
 		)
 		.output(z.object({ key: z.string() }))
@@ -62,7 +62,9 @@ export const authRouter = {
 					userId: context.user.id,
 					name: input.name,
 					expiresIn: input.expiresIn,
-					permissions: { api: input.access === "read" ? ["read"] : ["read", "write", "delete"] },
+					permissions: {
+						api: input.access === "full" ? ["read", "write", "delete"] : [input.access],
+					},
 				},
 			});
 			return { key: result.key };

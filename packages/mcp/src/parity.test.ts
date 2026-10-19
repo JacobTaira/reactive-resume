@@ -212,3 +212,22 @@ it("discovers a master through library tools when the tailoring prompt has no ma
 	expect(buildMcpServerCard("1.0.0").prompts.find((item) => item.name === "tailor_resume_for_job")?.arguments).toEqual(args);
 });
 
+it("registers queue processing as an explicit prompt without eagerly reading or generating documents", async () => {
+	const prompt = await client.getPrompt({
+		name: "process_tailoring_queue",
+		arguments: { limit: "4", masterResumeId: "master-1" },
+	});
+	expect(calls.resume.getById).not.toHaveBeenCalled();
+	expect(prompt.messages).toHaveLength(1);
+	const content = prompt.messages[0]?.content;
+	if (content?.type !== "text") throw new Error("Prompt lacks queue instructions");
+	expect(content.text).toContain("Ask once about each shared gap");
+	expect(content.text).toContain("reuseExisting=true");
+	expect(content.text).toContain("finish_queue_job");
+	const { prompts } = await client.listPrompts();
+	const args = prompts.find((item) => item.name === "process_tailoring_queue")?.arguments;
+	expect(args?.every((arg) => !arg.required)).toBe(true);
+	expect(buildMcpServerCard("1.0.0").prompts.find((item) => item.name === "process_tailoring_queue")?.arguments).toEqual(args);
+	await expect(client.getPrompt({ name: "process_tailoring_queue", arguments: { limit: "51" } })).rejects.toThrow();
+});
+

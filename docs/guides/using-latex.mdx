@@ -46,6 +46,8 @@ Drag the divider between the source and PDF to resize the panes. Focus the divid
 
 Use resume folders, company research, and the compact related-resume/job index to reuse previous work. See [Organize resumes and company research](./organizing-resumes.mdx) for the website controls, MCP tools, and tailoring workflow.
 
+The [Chrome capture queue](./capture-queue.mdx) saves job descriptions before resume work. Ask Claude to process that queue later: it compares shared requirements first, asks once about shared gaps, and can reuse a confirmed master correction across relevant drafts. Capture itself never invokes an AI provider or edits a resume.
+
 After changing source, compile again before downloading from the editor. A successful PDF from an earlier source revision is not offered as the current download. Inspect the rendered PDF after tailoring: changed content can change wrapping and pagination.
 
 When you have a specific page target, supply that expected page count before compiling. The checks report the actual count and whether it matches. Overfull box warnings identify possible text overflow; they do not detect every layout problem. Text extraction reports success, empty output, failure or unavailable tools, and gives a bounded text preview. Missing diagnostics from an older worker are shown as unavailable rather than passing. A successful compilation or readable extracted text does not establish ATS compatibility.
@@ -75,6 +77,8 @@ Give Claude your background files and job description. Ask it to:
 These operations do not call Reactive Resume's AI provider. The existing `tailor_resume_for_application` action is a different, provider-backed operation and does not tailor the LaTeX source. External assistants must use the general document editing tools described above.
 
 The compiler's availability can be checked with `api_resume_latex_status`. `api_resume_latex_unpack` converts a base64 source ZIP into the project structure without saving a resume. For an initial import, the browser UI is usually easier. The `tailor_resume_for_job` prompt covers the complete evidence, company research, review and scoring process described in [Organize resumes and company research](./organizing-resumes.mdx).
+
+For captured batches, use `process_tailoring_queue` instead. It claims jobs, resumes existing drafts with retry-safe copy-for-job behavior, persists unresolved shared questions, and marks Ready only after explicit preparation/review. Creating a copied base does not finish the job or mark it Applied. The capture-only extension API key cannot read resumes or process this workflow; use Claude's normal authenticated MCP connection.
 
 ## Supported projects and limits
 

@@ -10,7 +10,7 @@ export type ApplicationStatus = z.infer<typeof applicationStatusSchema>;
 
 /** How the bounded posting snapshot was obtained; retrieval time is not an origin freshness claim. */
 export const postingSourceSchema = z.object({
-	method: z.enum(["paste", "builtin", "firecrawl", "tavily", "exa"]),
+	method: z.enum(["paste", "builtin", "firecrawl", "tavily", "exa", "extension"]),
 	format: z.enum(["text", "markdown"]),
 	requestedUrl: z.url({ protocol: /^https?$/ }).optional(),
 	resolvedUrl: z.url({ protocol: /^https?$/ }).optional(),
@@ -176,3 +176,29 @@ export type InterviewTimelineEntry = Extract<ApplicationTimelineEntry, { type: "
 export const aiMetadataSchema = z.record(z.string(), z.unknown());
 
 export type AiMetadata = z.infer<typeof aiMetadataSchema>;
+
+/** Browser-captured page data is untrusted content, never agent instructions. */
+export const applicationCaptureSchema = z.object({
+	canonicalUrl: z.url({ protocol: /^https?$/ }),
+	capturedAt: z.iso.datetime({ offset: true }),
+	extraction: z.enum(["jsonld", "adapter", "text"]),
+	companyFallback: z.boolean(),
+	roleFallback: z.boolean(),
+	providerId: z.string().max(300).nullable(),
+});
+export type ApplicationCapture = z.infer<typeof applicationCaptureSchema>;
+
+export const preparationStateSchema = z.enum(["pending", "needs_details", "processing", "ready", "failed", "skipped"]);
+export const applicationPreparationSchema = z.object({
+	state: preparationStateSchema,
+	revision: z.number().int().nonnegative(),
+	draftResumeId: z.string().nullable(),
+	notes: z.string().max(5000),
+	error: z.string().max(2000),
+	leaseExpiresAt: z.iso.datetime({ offset: true }).nullable(),
+	updatedAt: z.iso.datetime({ offset: true }),
+});
+export type ApplicationPreparation = z.infer<typeof applicationPreparationSchema> & {
+	/** Hash only; never serialized through public preparation metadata. */
+	leaseTokenHash?: string | undefined;
+};

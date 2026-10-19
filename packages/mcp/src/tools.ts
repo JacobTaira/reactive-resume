@@ -13,6 +13,7 @@ import { env } from "@reactive-resume/env/server";
 import { readMcpFile } from "./files";
 import { registerLibraryTools } from "./library-tools";
 import { MCP_TOOL_NAME } from "./mcp-tool-names";
+import { registerQueueTools } from "./queue-tools";
 import { json, text, withErrorHandling } from "./results";
 import { TOOL_META } from "./tool-meta";
 
@@ -634,5 +635,6 @@ export function registerTools(
 	);
 
 	registerLibraryTools(server, client);
+	registerQueueTools(server, client);
 }
 

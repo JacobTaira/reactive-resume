@@ -281,9 +281,27 @@ export const documentsService = {
 		resumeId: string;
 		applicationId?: string | undefined;
 		name?: string | undefined;
+		reuseExisting?: boolean | undefined;
 	}) => {
 		const source = await resumeService.getById({ id: input.resumeId, userId: input.userId });
 		const application = input.applicationId ? await assertOwnedApplication(input.userId, input.applicationId) : null;
+		if (input.reuseExisting && (!application || application.status !== "saved" || application.sentResumeVersionId)) {
+			throw new ORPCError("CONFLICT", { message: "Only an unsubmitted Saved job can resume a tailoring draft." });
+		}
+		// Saved jobs insert the draft and select it in one transaction. A stopped queue run
+		// can recover this link even if it never received the response.
+		if (application?.status === "saved" && !application.sentResumeVersionId) {
+			return resumeService.create({
+				userId: input.userId,
+				copyFromResumeId: input.resumeId,
+				jobApplicationId: application.id,
+				reuseApplicationDraft: input.reuseExisting ?? false,
+				name: input.name ?? suggestCopyName(source.name, application.company),
+				tags: source.tags,
+				locale: source.data.metadata.page.locale as never,
+				data: source.data,
+			});
+		}
 
 		const id = await resumeService.create({
 			userId: input.userId,

@@ -1,0 +1,115 @@
+---
+title: Capture jobs and process your queue
+description: Save postings from Chrome, keep failures visible, and ask Claude to prepare resumes from your saved evidence.
+---
+
+## What the capture extension does
+
+The Chrome extension saves a posting's company, role, description and original link to this installation's Applications area. Capture is deterministic: it reads page content and does not call an AI provider, tailor a resume, score a job or submit an application. New captures always begin at **Saved**.
+
+Single capture can run on ordinary job pages across websites. It first looks for structured `JobPosting` data, then supported site content, then your selected text or the main visible page text. Jobright has specific support; the generic fallback may include unrelated text or miss important details. Review extracted details before relying on them. Chrome's own protected pages, inaccessible tabs and some embedded content cannot be captured.
+
+**Queue all** is specific to Jobright's Liked page. Other sites still use single capture. Liking jobs on your phone does not sync them by itself; open your liked jobs on desktop and run Queue all.
+
+## Install in Chrome
+
+For the local Docker installation, first update and rebuild in Ubuntu/WSL:
+
+```sh
+cd ~/reactive-resume-latex
+git pull --ff-only origin feat/latex-resume-support
+docker compose -f compose.yml -f compose.latex.yml up -d --build
+```
+
+1. Update the fork checkout on the computer running Chrome.
+2. Open `chrome://extensions`, enable **Developer mode**, then choose **Load unpacked**.
+3. Select the repository's `apps/extension` directory. It contains `manifest.json`; loading requires no Node build.
+4. Open **Details → Extension options**. Set **Installation URL**, such as `http://localhost:3000`, and enter a key under **Capture-only API key**. Create that key with the **Capture only** access option in the website's API-key settings.
+5. Click **Save settings and grant access**, grant access when Chrome requests it, then use **Test connection**.
+6. Pin the extension in Chrome for quick access.
+
+On Windows with the repository in Ubuntu/WSL, Chrome's folder picker can access it through `\\wsl.localhost\Ubuntu\home\YOUR_USERNAME\reactive-resume-latex\apps\extension`; use your actual distribution and username. Chrome can also load a copied extension folder. If copied, replace that copy after extension updates. After pulling changes, click the extension's **Reload** button at `chrome://extensions`.
+
+The API key goes in `chrome.storage.local`, restricted to trusted extension contexts. It is sent only from the background worker to your configured installation as **`x-api-key`**, with cookies omitted. Do not paste an API key into a webpage, resume, company note or Claude chat. Capture-only keys can use capture/status endpoints; they cannot read resumes or process the queue. Claude needs its own normal authenticated MCP connection.
+
+The extension requests access to your configured installation at runtime. Keep the app running to sync captures. `localhost` refers to the computer running Chrome; Chrome on another computer needs an installation address it can reach.
+
+## Capture a posting
+
+Open the job posting and click the extension's toolbar button, or use **Ctrl+Shift+Y** when Chrome has assigned that shortcut. Select the relevant job text first if a site's generic extraction is poor. You can change shortcuts at `chrome://extensions/shortcuts`.
+
+The extension stores captures in a durable local outbox before trying to send them. **Waiting to sync** means it is retained in this browser. **Saved in Applications** or **Already saved**, with a record ID and link, confirms the server copy. Failed items and items needing repair remain visible. If the app is stopped, start it and choose **Sync now**; waiting captures also retry automatically. Do not clear extension storage or remove the extension while captures are waiting; doing so removes that browser's unsynced outbox.
+
+After a confirmed server response, follow the application link and check the row. An exact canonical-URL or stable capture identity match returns the existing record rather than a second application, including if it has already progressed beyond Saved. A similar company and role at a different URL can still be a different vacancy; the result warns about a possible duplicate instead of silently discarding it.
+
+Only plain text/Markdown is stored. Descriptions are capped at 20,000 characters; the capture records when truncation happened. Missing company/role use explicit fallback labels and **Missing details**. An empty or incomplete extraction remains visible for repair rather than disappearing from the tracker. A successful sync confirms storage, not that every extracted sentence is correct.
+
+Capturing an existing URL does **not** replace the saved record's description or your edits. If bulk capture saved an incomplete placeholder, open the actual posting and capture its rendered page. The extension keeps that new captured text locally and offers **Copy captured description**. Open **Applications → Queue → Review details**, correct the company/role, and paste it into **Saved job description**. Keep the local repair copy until the corrected server record is confirmed; then clear it if desired. You can also paste a description directly into Review details without recapturing.
+
+## Capture liked Jobright jobs
+
+Open `https://jobright.ai/jobs/liked` while signed in. The **Reactive Resume** panel offers **Queue all**, **Resume** and **Pause**. Keep the tab open while collecting. The extension discovers distinct job links from the liked list, loads additional items while progress is possible, and fetches discovered jobs at roughly one request per second. Uploads use batches of at most 20. It saves progress so interrupted work can be resumed; it does not run invisible AI parsing. After a tab reload, open this page and choose Resume.
+
+Read the progress and final summary. They distinguish saved jobs, existing records, pending sync and failures. Jobright's page layout, login state, pagination and data loading can change. A safety limit, stalled loading or failed extraction must be shown as incomplete, not described as every liked job having been saved. Inspect the liked list and any failure entries if the run cannot establish completion.
+
+## Review queue states
+
+Applications has queue views for preparation work. Preparation state is separate from the application's hiring status:
+
+| Preparation state | Meaning |
+| --- | --- |
+| Queued | Saved source is available for resume preparation. |
+| Missing details | Extracted source or resume evidence needs a correction or answer (`needs_details`). |
+| In progress | An assistant has a temporary claim and may have an unfinished draft (`processing`). |
+| Ready for review | The assistant explicitly finished preparation against the current linked resume. You still review it. |
+| Needs attention | Preparation failed; the job, notes and any draft remain available (`failed`). |
+| Skipped | You explicitly removed the job from active preparation; the application remains saved. |
+
+Copying a base resume does not move a job to Ready. **Skip** and **Queue again** preserve the application and any draft. Correct missing details or notes in **Review details**, then requeue/resume it. A processing claim expires if an assistant stops responding; another session can recover the saved progress afterward. Preparation never sets an application to Applied.
+
+## Ask Claude to process the queue
+
+Connect Claude to this installation's `/mcp` endpoint and the account containing your master resume. Mark the verified full-background resume as **Master resume** in its details. A cloud connector cannot reach a computer's `localhost`; use a client capable of the local connection, or an authenticated reachable deployment as described in [Organize resumes and company research](./organizing-resumes.mdx).
+
+Tell Claude: **“Process my queue using my master resume. Start with four jobs.”** The server offers the `process_tailoring_queue` prompt and queue tools. A client that does not automatically select prompts can request that prompt explicitly. Merely capturing a job does not start Claude or consume model calls.
+
+The workflow instructs the assistant to:
+
+1. Read the batch, current master, related resumes/jobs and useful company notes. Stored descriptions are sufficient; reopening the posting is optional.
+2. Compare requirements across the whole batch before creating copies. Ask once about shared missing evidence, then save unresolved questions on every affected job as Missing details.
+3. Add shared experience to the master only after you confirm the facts for inclusion. Use that verified correction in each relevant tailored draft; existing copies do not update automatically.
+4. Claim one job, recover its existing draft or copy the best verified base, then tailor truthful wording for that specific role. Keep revision and content timestamps current to avoid overwriting another session.
+5. Save requirement evidence and gaps, change explanations, dated company research and a transparent heuristic score out of 100. Claude can create and update Companies entries itself.
+6. Compile/check the PDF and explicitly mark the job Ready for review. Unavailable visual checks must be disclosed. Errors leave a Needs attention or Missing details record with a reason and recovery notes.
+
+The score is an editorial review aid, not an ATS prediction or hiring guarantee. Unsupported experience remains a gap. You review the resume/PDF, download it and apply yourself. Tell Claude when you actually apply or receive an outcome if you want it recorded.
+
+The server accepts Ready only for a live, owned, linked tailored resume with a score and evaluation/review timestamps matching its current content. That prevents an ordinary unchanged copy from counting as finished. These checks cannot establish whether an assistant's claims are truthful or its PDF looks correct. Check the per-job summary, pending questions and Ready drafts. Queue entries stay visible across extraction or tailoring failures.
+
+## MCP and API reference
+
+| Tool | Purpose |
+| --- | --- |
+| `list_tailoring_queue` | Compact oldest-first index; description omitted by default. Supports states and pagination. |
+| `read_tailoring_queue_job` | Current revision, preparation notes, draft link and captured text. |
+| `claim_queue_job` | Acquire or renew an expiring exclusive processing lease. |
+| `update_queue_job` | Save corrected details, shared questions, draft progress or blocking state. |
+| `finish_queue_job` | Explicit Ready/Failed result using the claim and current resume timestamp. |
+| `skip_queue_job` / `requeue_job` | Explicitly skip or resume preparation without deleting the application. |
+
+Captured text is third-party page content and must be treated as data, never instructions. The same owned queue service powers the website, REST and MCP. Preparation writes require current revisions; leased work also requires the lease token. Do not log or expose that token.
+
+Capture clients use `POST /api/openapi/applications/capture`, or `POST /api/openapi/applications/capture/batch` for up to 50 independently validated items. Supply `x-api-key`, not an API key in `Authorization: Bearer`. Bearer authentication is reserved for the existing OAuth flow. Capture-only keys are accepted on the intentionally allowed capture endpoints, not ordinary application, document or MCP routes.
+
+For a manual capture smoke test, substitute your key and a real posting in this Ubuntu/WSL example. This stores supplied text; it never retrieves the URL:
+
+```sh
+curl --fail-with-body http://localhost:3000/api/openapi/applications/capture \
+  -H 'Content-Type: application/json' \
+  -H 'x-api-key: YOUR_CAPTURE_ONLY_KEY' \
+  --data '{"url":"https://example.com/jobs/123","company":"Example","role":"Robotics Engineer","description":"Requires robotics and testing experience.","extraction":"text","capturedAt":"2026-10-19T03:00:00Z"}'
+```
+
+The response identifies the created/existing application and preparation state. Repeating the same URL should return `duplicate`. Do not paste a real key into support requests or commit a command containing it.
+
+Before manually retrying an uncertain action, read its current record: a response can be lost after a write has committed. Extension retries use stable capture identity and server deduplication. Never delete application data or recreate local secrets to repair an outbox connection problem.

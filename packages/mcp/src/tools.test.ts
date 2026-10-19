@@ -83,6 +83,7 @@ const clientMock = {
 		import: vi.fn(),
 	},
 	applications: {
+		queue: { list: vi.fn(), read: vi.fn(), claim: vi.fn(), update: vi.fn(), finish: vi.fn(), action: vi.fn() },
 		list: vi.fn(),
 		getById: vi.fn(),
 		tags: vi.fn(),
@@ -112,6 +113,51 @@ const clientMock = {
 describe("registerTools", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+	});
+
+	it("registers every queue tool, lists compact records and reads full source separately", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		for (const name of [
+			MCP_TOOL_NAME.listTailoringQueue, MCP_TOOL_NAME.readTailoringQueueJob, MCP_TOOL_NAME.claimQueueJob,
+			MCP_TOOL_NAME.updateQueueJob, MCP_TOOL_NAME.finishQueueJob, MCP_TOOL_NAME.skipQueueJob, MCP_TOOL_NAME.requeueJob,
+		]) expect(registered.filter((item) => item.name === name)).toHaveLength(1);
+		clientMock.applications.queue.list.mockResolvedValueOnce({ items: [{ id: "app" }], total: 1, nextOffset: null });
+		await registered.find((item) => item.name === MCP_TOOL_NAME.listTailoringQueue)!.handler({});
+		expect(clientMock.applications.queue.list).toHaveBeenCalledWith({ limit: 30, offset: 0, includeDescription: false });
+		clientMock.applications.queue.read.mockResolvedValueOnce({ id: "app", description: "Captured evidence" });
+		await registered.find((item) => item.name === MCP_TOOL_NAME.readTailoringQueueJob)!.handler({ id: "app" });
+		expect(clientMock.applications.queue.read).toHaveBeenCalledWith({ id: "app", includeDescription: true });
+		expect(clientMock.applications.ai.autofill).not.toHaveBeenCalled();
+		expect(clientMock.applications.ai.tailorResume).not.toHaveBeenCalled();
+	});
+
+	it("forwards current lease/revision snapshots and leaves finish validation to the shared API", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		const leaseToken = "private-workflow-token-123";
+		clientMock.applications.queue.claim.mockResolvedValueOnce({ item: { id: "app", preparation: { revision: 2 } }, leaseToken });
+		await registered.find((item) => item.name === MCP_TOOL_NAME.claimQueueJob)!.handler({ id: "app", expectedRevision: 1 });
+		expect(clientMock.applications.queue.claim).toHaveBeenCalledWith({ id: "app", expectedRevision: 1, leaseSeconds: 900 });
+		const input = { id: "app", expectedRevision: 2, leaseToken, outcome: "ready", draftResumeId: "draft", expectedResumeUpdatedAt: "2026-10-19T03:00:00Z" };
+		clientMock.applications.queue.finish.mockResolvedValueOnce({ id: "app", preparation: { state: "ready", revision: 3 } });
+		await registered.find((item) => item.name === MCP_TOOL_NAME.finishQueueJob)!.handler(input);
+		expect(clientMock.applications.queue.finish).toHaveBeenCalledWith(input);
+		expect(clientMock.applications.update).not.toHaveBeenCalled();
+	});
+
+	it("uses explicit skip/requeue actions and reports claim conflicts without preparing a duplicate", async () => {
+		const { server, registered } = makeFakeServer();
+		registerTools(server as never, clientMock as never, new Headers());
+		await registered.find((item) => item.name === MCP_TOOL_NAME.skipQueueJob)!.handler({ id: "app", expectedRevision: 4 });
+		await registered.find((item) => item.name === MCP_TOOL_NAME.requeueJob)!.handler({ id: "app", expectedRevision: 5 });
+		expect(clientMock.applications.queue.action).toHaveBeenNthCalledWith(1, { id: "app", expectedRevision: 4, action: "skip" });
+		expect(clientMock.applications.queue.action).toHaveBeenNthCalledWith(2, { id: "app", expectedRevision: 5, action: "requeue" });
+		clientMock.applications.queue.claim.mockRejectedValueOnce(new ORPCError("CONFLICT", { message: "Already processing." }));
+		const result = await registered.find((item) => item.name === MCP_TOOL_NAME.claimQueueJob)!.handler({ id: "app", expectedRevision: 1 });
+		expect(result.isError).toBe(true);
+		expect(result.content[0]!.text).toContain("Already processing");
+		expect(clientMock.resume.duplicate).not.toHaveBeenCalled();
 	});
 
 	it("compiles LaTeX using document tools without returning PDF bytes to the model", async () => {

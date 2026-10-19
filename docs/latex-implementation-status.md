@@ -25,6 +25,7 @@ This feature preserves a resume's PDFLaTeX source instead of converting it into 
 - User-reported resume outcomes and related-resume reuse hints. Recorded hiring results are contextual observations, not causal evidence about resume quality; new drafts do not inherit them.
 - Career navigation and section removed; old links redirect to Applications, with Companies available in the mobile navigation.
 - Job-saving guidance now comes before research and resume reads, verifies the saved Applications record, retains unknown details with explicit placeholders and reports unconfirmed writes. Prompt retrieval no longer reads a master eagerly. External assistant execution remains outside the app's control.
+- Capture-queue MCP contracts and an explicit `process_tailoring_queue` prompt: shared-gap preflight, user-confirmed master corrections, expiring per-job claims, resumable drafts, revision-guarded preparation notes and explicit Ready/Failed completion. Creating a copy does not finish preparation or mark an application Applied. Installation and recovery steps are in `docs/guides/capture-queue.mdx`.
 
 ## Verified
 
@@ -34,11 +35,14 @@ This feature preserves a resume's PDFLaTeX source instead of converting it into 
 - `git diff --check` passes.
 - Offline native checks exercise folder navigation, metadata patch behavior, lexical ranking, stale evaluations, external tailoring instructions, actual source comparison, and evidence/outcome contracts. DTO checks use an available bundled Zod 4.4.3 rather than the project's locked 4.6.7; they do not establish compatibility with every installed dependency. Full MCP SDK execution and Vitest remain pending.
 - The additive library migration's SQL and snapshot have been checked for existing-schema preservation and matching tables, columns, constraints, and indexes. PostgreSQL execution remains unverified.
+- All 16 dependency-free extension tests pass, including actual worker code under Chrome/network mocks for restart recovery, lost responses, partial batch failures, credential isolation and bulk progress races. Four extraction fixtures pass through an lxml-backed Document adapter; this is not a Chrome test.
+- Native adapters exercise capture/queue transactions, permission/validation policies, shared-gap instructions and atomic draft creation/reuse against production source. Database/auth boundaries are mocked. The capture migration preserves all 741 prior snapshot entries and adds three nullable columns and two indexes; real PostgreSQL execution remains pending.
 
 ## Remaining verification
 
 - Install the locked workspace dependencies, then run the new Vitest suites, affected-package typechecks, `pnpm lint:agent`, `pnpm format:check`, Lingui extraction, API documentation generation, and the production build.
 - Run a Docker/browser smoke test: import, edit, autosave, duplicate, compile, download, restore a version, and link a tailored resume to an application.
+- Load the Chrome extension unpacked, capture an actual posting, check duplicate/offline recovery, then process it through the authenticated MCP connection. Test signed-in Jobright Liked pagination, extraction, pause/resume and the reported discovery limits. No real Chrome or signed-in Jobright end-to-end run was possible here.
 - Exercise requirement citations, rationale notes, current/historical source comparisons, stale review conflicts, unavailable/mismatched PDF checks, and user-reported outcomes through both website and MCP. Confirm generated drafts never inherit an earlier outcome and do not submit applications.
 - Review snapshots guard resume content and its direct source. Job metadata has no independent revision guard yet; concurrent chats should reread job context before saving a new assessment. A metadata revision guard remains a follow-up.
 - Match the TeX environment before claiming identical Overleaf pagination. The available older PDFLaTeX produces five pages for the supplied source, compared with four in the reference PDF; text and fonts match.

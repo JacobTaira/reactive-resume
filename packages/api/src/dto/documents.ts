@@ -70,6 +70,7 @@ export const documentsDto = {
 		input: z.object({
 			resumeId: z.string().min(1).describe("The resume to copy."),
 			applicationId: z.string().min(1).optional().describe("The job the copy is for; omit for no job yet."),
+			reuseExisting: z.boolean().optional().describe("Resume an existing live tailored draft for this Saved job and source instead of creating another copy. Use true when processing the tailoring queue."),
 			name: z.string().trim().min(1).max(100).optional().describe("Defaults to “{source} — {company}”."),
 		}),
 		output: z.string().describe("The ID of the copy."),

@@ -23,7 +23,8 @@
 		"./pagination": "./src/pagination.ts",
 		"./features/mcp/transport": "./src/features/mcp/transport.ts",
 		"./features/career/jobs": "./src/features/career/jobs.ts",
-		"./dto/resume-comparison": "./src/dto/resume-comparison.ts"
+		"./dto/resume-comparison": "./src/dto/resume-comparison.ts",
+		"./dto/capture": "./src/dto/capture.ts"
 	},
 	"scripts": {
 		"typecheck": "tsgo --noEmit",
@@ -90,4 +91,3 @@
 		"typescript": "catalog:"
 	}
 }
-

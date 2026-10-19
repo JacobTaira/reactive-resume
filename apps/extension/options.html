@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Reactive Resume Capture Queue</title>
+		<link rel="stylesheet" href="options.css" />
+	</head>
+	<body>
+		<main>
+			<h1>Reactive Resume Capture Queue</h1>
+			<p>Click the extension button on a job posting to save it. No AI is used during capture.</p>
+			<form id="settings">
+				<label>Installation URL <input id="base-url" type="url" required placeholder="http://localhost:3000" /></label>
+				<label>Capture-only API key <input id="api-key" type="password" autocomplete="off" placeholder="Enter a key; leave blank to keep the saved key" /></label>
+				<p>Create a key with the <strong>Capture only</strong> permission in your installation’s API settings. The key stays in this browser.</p>
+				<button type="submit">Save settings and grant access</button>
+				<button id="test" type="button">Test connection</button>
+			</form>
+			<p id="message" role="status" aria-live="polite"></p>
+			<h2>Capture outbox</h2>
+			<p>Waiting items remain in this browser until your installation confirms an application ID. Keep the local website running to sync.</p>
+			<div class="actions"><button id="sync" type="button">Sync now</button><button id="retry" type="button">Retry failed items</button></div>
+			<p id="summary"></p>
+			<div id="outbox"></div>
+			<h2>Jobright liked-list capture</h2>
+			<p>Open <a href="https://jobright.ai/jobs/liked" target="_blank" rel="noreferrer">Jobright Liked</a>, then click Queue all. Resume on that page after a pause or reload.</p>
+			<div id="bulk"></div>
+			<button id="pause" type="button">Pause liked-list capture</button>
+		</main>
+		<script type="module" src="src/options.js"></script>
+	</body>
+</html>

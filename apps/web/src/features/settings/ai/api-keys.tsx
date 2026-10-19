@@ -84,7 +84,7 @@ export function ApiKeysSection() {
 		<SettingsSection
 			title={<Trans>API keys</Trans>}
 			description={
-				<Trans>For scripts, extensions and MCP clients. Keys act as you and can read and edit your documents.</Trans>
+				<Trans>For scripts, extensions and MCP clients. Choose the access each key needs.</Trans>
 			}
 			action={
 				<Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
@@ -189,7 +189,7 @@ function NewKeyDialog({ open, onOpenChange, onCreated }: NewKeyDialogProps) {
 	const id = useId();
 	const [name, setName] = useState("");
 	const [expiry, setExpiry] = useState(0);
-	const [access, setAccess] = useState<"read" | "full">("full");
+	const [access, setAccess] = useState<"read" | "full" | "capture">("full");
 	const [key, setKey] = useState<string | null>(null);
 	const [failure, setFailure] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
@@ -232,7 +232,7 @@ function NewKeyDialog({ open, onOpenChange, onCreated }: NewKeyDialogProps) {
 						<Trans>New API key</Trans>
 					</DialogTitle>
 					<DialogDescription className={cn(key && "sr-only")}>
-						<Trans>Keys act as you and can read and edit your documents.</Trans>
+						<Trans>Choose full access for Claude or capture only for the job capture extension.</Trans>
 					</DialogDescription>
 				</DialogHeader>
 
@@ -306,12 +306,21 @@ function NewKeyDialog({ open, onOpenChange, onCreated }: NewKeyDialogProps) {
 							<select
 								id={`${id}-access`}
 								value={access}
-								onChange={(event) => setAccess(event.target.value === "read" ? "read" : "full")}
+								onChange={(event) => {
+									const value = event.target.value;
+									setAccess(value === "read" || value === "capture" ? value : "full");
+								}}
 								className="h-9 rounded-lg border border-line-2 bg-bg px-3 text-sm"
 							>
 								<option value="read">{t`Read only`}</option>
+								<option value="capture">{t`Capture only`}</option>
 								<option value="full">{t`Read, write and delete`}</option>
 							</select>
+							{access === "capture" && (
+								<p className="text-xs text-ink-2">
+									<Trans>Saves jobs through the capture extension. Cannot read your resumes or other applications.</Trans>
+								</p>
+							)}
 						</div>
 						<fieldset className="grid gap-1.5">
 							<legend className="mb-1.5 text-sm font-medium">
@@ -357,3 +366,4 @@ function NewKeyDialog({ open, onOpenChange, onCreated }: NewKeyDialogProps) {
 		</Dialog>
 	);
 }
+

@@ -77,7 +77,10 @@ describe("account backup", () => {
 				transcripts: [{ id: "transcript", original: "I lead the migration.", edited: "I led the migration." }],
 			};
 			mocks.exportCareer.mockResolvedValue(career);
-			const application = { id: "application", userId: "owner", company: "Lumen", role: "Designer" };
+			const application = {
+				id: "application", userId: "owner", company: "Lumen", role: "Designer",
+				captureIdentity: null, preparation: null,
+			};
 			for (const rows of [
 				[{ id: "owner", name: "Owner" }],
 				[{ id: "resume", data: defaultResumeData }],
@@ -98,7 +101,9 @@ describe("account backup", () => {
 			const exported = await authService.exportData({ userId: "owner" });
 			expect(exported).toMatchObject({ coverLetters: [resolved], resumes: [{ id: "resume" }] });
 			// Applications come along, without the owner's id.
-			expect(exported.applications).toEqual([{ id: "application", company: "Lumen", role: "Designer" }]);
+			expect(exported.applications).toEqual([{
+				id: "application", company: "Lumen", role: "Designer", preparation: null,
+			}]);
 			expect(mocks.predicates).toContainEqual({ column: "coverLetter.userId", value: "owner" });
 			expect(mocks.exportCareer).toHaveBeenCalledExactlyOnceWith("owner");
 			expect(exported.career).toEqual(career);
@@ -110,5 +115,52 @@ describe("account backup", () => {
 			expect(mocks.predicates).toContainEqual({ column: "companyResearch.userId", value: "owner" });
 		},
 	);
+
+	it("exports captured-job preparation without its internal identity or active lease hash", async () => {
+		const preparation = {
+			state: "processing",
+			revision: 3,
+			draftResumeId: "draft",
+			notes: "Confirm project evidence before tailoring.",
+			error: "",
+			leaseExpiresAt: "2026-10-19T04:00:00.000Z",
+			updatedAt: "2026-10-19T03:45:00.000Z",
+		};
+		const capture = {
+			canonicalUrl: "https://jobs.example/roles/42",
+			capturedAt: "2026-10-19T03:00:00.000Z",
+			extraction: "jsonld",
+			companyFallback: false,
+			roleFallback: false,
+			providerId: "42",
+		};
+		mocks.exportCareer.mockResolvedValue({});
+		for (const rows of [
+			[{ id: "owner", name: "Owner" }],
+			[],
+			[],
+			[{
+				id: "captured-job",
+				userId: "owner",
+				company: "Lumen",
+				role: "Designer",
+				captureIdentity: "owner-scoped-internal-identity",
+				capture,
+				preparation: { ...preparation, leaseTokenHash: "sensitive-active-lease-hash" },
+			}],
+			[],
+			[],
+		]) {
+			mocks.select.mockReturnValueOnce({ from: () => ({ where: async () => rows }) });
+		}
+
+		const exported = await authService.exportData({ userId: "owner" });
+		expect(exported.applications).toEqual([{
+			id: "captured-job", company: "Lumen", role: "Designer", capture, preparation,
+		}]);
+		expect(exported.applications[0]).not.toHaveProperty("captureIdentity");
+		expect(exported.applications[0]?.preparation).not.toHaveProperty("leaseTokenHash");
+		expect(JSON.stringify(exported)).not.toContain("sensitive-active-lease-hash");
+	});
 });
 

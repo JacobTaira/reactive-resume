@@ -5,6 +5,7 @@ import { isCustomOAuthProviderEnabled } from "@reactive-resume/auth/config";
 import { db } from "@reactive-resume/db/client";
 import * as schema from "@reactive-resume/db/schema";
 import { env } from "@reactive-resume/env/server";
+import { applicationPreparationSchema } from "@reactive-resume/schema/applications/data";
 import { resumeProfileSchema } from "../../dto/library";
 import { careerService } from "../career/service";
 import { coverLetterService } from "../cover-letters/service";
@@ -80,7 +81,12 @@ export const authService = {
 			coverLetters: await Promise.all(
 				coverLetters.map(({ id }) => coverLetterService.getById({ id, userId: input.userId })),
 			),
-			applications: applications.map(({ userId: _userId, ...application }) => application),
+			applications: applications.map(({ userId: _userId, captureIdentity: _captureIdentity, ...application }) => ({
+				...application,
+				preparation: application.preparation
+					? applicationPreparationSchema.parse(application.preparation)
+					: application.preparation,
+			})),
 			library: {
 				folders: folders.map(({ userId: _userId, ...folder }) => folder),
 				companies: companies.map(({ userId: _userId, companyKey: _companyKey, ...company }) => company),

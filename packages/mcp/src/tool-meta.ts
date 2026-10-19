@@ -21,6 +21,7 @@ import { templateSchema } from "@reactive-resume/schema/templates";
 import { toWireObjectSchema, toWireSchema } from "./contracts";
 import { LIBRARY_TOOL_META } from "./library-tool-meta";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
+import { QUEUE_TOOL_META } from "./queue-tool-meta";
 
 // Contracts remain derived from the allowlisted API procedures in parity.ts.
 export const PARITY_TOOL_DESCRIPTIONS: Record<string, string> = {
@@ -945,6 +946,7 @@ function withAnnotationTitles<T extends Record<string, { title: string; annotati
 export const TOOL_META = withAnnotationTitles({
 	...BASE_TOOL_META,
 	...LIBRARY_TOOL_META,
+	...QUEUE_TOOL_META,
 	[T.listResumes]: {
 		...BASE_TOOL_META[T.listResumes],
 		inputSchema: wireInput(BASE_TOOL_META[T.listResumes].inputSchema.extend(pagination)),
