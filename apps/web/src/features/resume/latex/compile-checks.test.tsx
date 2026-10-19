@@ -21,7 +21,7 @@ beforeEach(() => {
 });
 
 function show(checks: LatexCompileChecks | undefined, stale = false) {
-	render(<I18nProvider i18n={i18n}><LatexPdfChecks checks={checks} stale={stale} /></I18nProvider>);
+	render(<I18nProvider i18n={i18n}><LatexPdfChecks checks={checks} stale={stale} expanded onExpandedChange={() => {}} /></I18nProvider>);
 }
 
 it("reports absent diagnostics from an older worker as unavailable", () => {

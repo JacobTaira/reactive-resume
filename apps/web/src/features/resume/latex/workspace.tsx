@@ -88,6 +88,7 @@ function LatexDocument({ project, readOnly }: LatexDocumentProps) {
 	const [selected, setSelected] = useState(project.entrypoint);
 	const [requested, setRequested] = useState({ project, expectedPageCount });
 	const [logOpen, setLogOpen] = useState(false);
+	const [checksExpanded, setChecksExpanded] = useState(true);
 	const [parserOpen, setParserOpen] = useState(false);
 	const [parserText, setParserText] = useState("");
 	const upload = useRef<HTMLInputElement>(null);
@@ -194,7 +195,7 @@ function LatexDocument({ project, readOnly }: LatexDocumentProps) {
 				{!validPageTarget && <p role="alert" className="text-xs text-danger-text"><Trans>Use a page target from 1 to 100, or leave it blank.</Trans></p>}
 			</div>
 			{stale && <p role="status" className="border-b border-line bg-accent-soft px-4 py-2 text-sm"><Trans>Source or page target changed. Compile again to refresh the PDF checks.</Trans></p>}
-			{result.data?.success && !failed && <LatexPdfChecks checks={result.data.checks} stale={stale} />}
+			{result.data?.success && !failed && <LatexPdfChecks checks={result.data.checks} stale={stale} expanded={checksExpanded} onExpandedChange={setChecksExpanded} />}
 			{failed && <p role="alert" className="bg-danger-soft px-4 py-3 text-sm text-danger-text"><Trans>Compilation failed. Check the compiler log below.</Trans></p>}
 			{(logOpen || failed) && <pre className="max-h-52 shrink-0 overflow-auto border-b border-line p-3 font-mono text-xs whitespace-pre-wrap" aria-label={t`Compiler output`}>{log}</pre>}
 			{parserOpen && <div className="max-h-64 shrink-0 overflow-auto border-b border-line bg-surface p-4"><Button variant="ghost" size="sm" onClick={() => setParserOpen(false)}><Trans>Close extracted text</Trans></Button>{result.data?.success && result.data.checks?.textExtraction.truncated && <p className="mt-2 text-xs text-ink-3"><Trans>The extracted text shown is limited to 50,000 characters.</Trans></p>}<pre className="mt-2 text-xs whitespace-pre-wrap">{parserText}</pre></div>}

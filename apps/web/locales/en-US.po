@@ -2811,6 +2811,10 @@ msgstr "Coach"
 msgid "Code"
 msgstr "Code"
 
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Collapse PDF checks"
+msgstr "Collapse PDF checks"
+
 #: src/routes/builder/$resumeId/-components/design-panel.tsx
 #: src/routes/builder/letter/-components/design-panel.tsx
 msgid "Color"
@@ -4968,6 +4972,10 @@ msgstr "Evidence and notes"
 #: src/features/resume/stylesheet/toolbar.tsx
 msgid "Exit focus mode"
 msgstr "Exit focus mode"
+
+#: src/features/resume/latex/compile-checks.tsx
+msgid "Expand PDF checks"
+msgstr "Expand PDF checks"
 
 #: src/features/resume/latex/workspace.tsx
 msgid "Expected pages"
