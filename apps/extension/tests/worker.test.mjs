@@ -42,6 +42,7 @@ function chromeMock(storage) {
 			onClicked: event("clicked")
 		},
 		runtime: {
+			id: "fixture",
 			getURL: path => "chrome-extension://fixture/" + path,
 			openOptionsPage: async () => {},
 			onInstalled: event("installed"),
@@ -91,7 +92,9 @@ async function worker(storage, fetch) {
 	const module = await load(path.join(ROOT, "background.js"));
 	await module.evaluate();
 	async function message(value, sender = {
-		url: "chrome-extension://fixture/options.html"
+		id: "fixture",
+		url: "chrome-extension://fixture/options.html",
+		tab: { id: 2, url: "chrome-extension://fixture/options.html" }
 	}) {
 		return new Promise((resolve, reject) => {
 			const timeout = setTimeout(() => reject(new Error("Message did not respond")), 2000);
@@ -154,6 +157,41 @@ function serverResponse(body, result = "created") {
 		json: async () => resultBody
 	};
 }
+test("settings opened in a browser tab can save configuration and test the connection", async () => {
+	const storage = {};
+	const calls = [];
+	const instance = await worker(storage, async (url, options) => {
+		calls.push({ url, options });
+		return { ok: true, status: 200, json: async () => ({ connected: true, captureAllowed: true, version: 1 }) };
+	});
+	await instance.message({ type: "configure", ...config });
+	assert.deepEqual(storage.config, config);
+	const result = await instance.message({ type: "test" });
+	assert.equal(result.connected, true);
+	assert.equal(result.captureAllowed, true);
+	assert.equal(calls.length, 1);
+	assert.equal(calls[0].url, `${config.baseUrl}/api/openapi/applications/capture/status`);
+	assert.equal(calls[0].options.headers["x-api-key"], config.apiKey);
+	assert.equal(calls[0].options.credentials, "omit");
+});
+test("settings access rejects other extensions, web pages and lookalike extension paths", async () => {
+	const storage = { config };
+	const instance = await worker(storage, async () => { throw new Error("No request expected"); });
+	const senders = [
+		{ id: "different", url: "chrome-extension://fixture/options.html" },
+		{ id: "fixture", url: "chrome-extension://different/options.html" },
+		{ id: "fixture", url: "https://example.com/options.html" },
+		{ id: "fixture", url: "chrome-extension://fixture/options.html/lookalike" },
+		{ id: "fixture", url: "chrome-extension://fixture/tests/extractor-browser.html" },
+		{ url: "chrome-extension://fixture/options.html" },
+	];
+	for (const sender of senders) {
+		for (const type of ["state", "configure", "test"]) {
+			await assert.rejects(instance.message({ type, ...config }, sender), /only in extension settings/);
+		}
+	}
+	assert.deepEqual(storage.config, config);
+});
 test("actual worker saves locally before configuration and preserves pending data across restart", async () => {
 	const storage = {};
 	let calls = 0;

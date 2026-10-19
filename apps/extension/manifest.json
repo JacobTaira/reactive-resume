@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "Reactive Resume Capture Queue",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Save job postings to your own Reactive Resume installation without AI calls.",
 	"minimum_chrome_version": "120",
 	"permissions": ["storage", "activeTab", "scripting", "alarms"],

@@ -11,7 +11,17 @@ const mutate = (operation) => {
 	return run;
 };
 const read = async () => { await initialize; return chrome.storage.local.get({ config: null, outbox: [], bulk: null }); };
-const extensionPage = (sender) => !sender.tab && sender.url?.startsWith(chrome.runtime.getURL(""));
+const extensionPage = (sender) => {
+	if (sender.id !== chrome.runtime.id || typeof sender.url !== "string") return false;
+	try {
+		const url = new URL(sender.url);
+		// Options open in a normal browser tab. Authenticate the extension and page,
+		// rather than rejecting every sender that has a tab.
+		return url.protocol === "chrome-extension:" && url.host === chrome.runtime.id && url.pathname === "/options.html";
+	} catch {
+		return false;
+	}
+};
 const jobrightPage = (sender) => {
 	try { return new URL(sender.tab?.url || sender.url).origin === "https://jobright.ai"; } catch { return false; }
 };

@@ -35,7 +35,7 @@ This feature preserves a resume's PDFLaTeX source instead of converting it into 
 - `git diff --check` passes.
 - Offline native checks exercise folder navigation, metadata patch behavior, lexical ranking, stale evaluations, external tailoring instructions, actual source comparison, and evidence/outcome contracts. DTO checks use an available bundled Zod 4.4.3 rather than the project's locked 4.6.7; they do not establish compatibility with every installed dependency. Full MCP SDK execution and Vitest remain pending.
 - The additive library migration's SQL and snapshot have been checked for existing-schema preservation and matching tables, columns, constraints, and indexes. PostgreSQL execution remains unverified.
-- All 16 dependency-free extension tests pass, including actual worker code under Chrome/network mocks for restart recovery, lost responses, partial batch failures, credential isolation and bulk progress races. Four extraction fixtures pass through an lxml-backed Document adapter; this is not a Chrome test.
+- All 18 dependency-free extension tests pass, including actual worker code under Chrome/network mocks for settings opened in a browser tab, restart recovery, lost responses, partial batch failures, credential isolation and bulk progress races. Four extraction fixtures pass through an lxml-backed Document adapter; this is not a Chrome test.
 - Native adapters exercise capture/queue transactions, permission/validation policies, shared-gap instructions and atomic draft creation/reuse against production source. Database/auth boundaries are mocked. The capture migration preserves all 741 prior snapshot entries and adds three nullable columns and two indexes; real PostgreSQL execution remains pending.
 
 ## Remaining verification
