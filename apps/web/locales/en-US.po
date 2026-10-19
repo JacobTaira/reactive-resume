@@ -5256,6 +5256,10 @@ msgstr "Filling in entries"
 msgid "Filter by tag"
 msgstr "Filter by tag"
 
+#: src/features/applications/queue-view.tsx
+msgid "Final requirement: the compiled resume must fit on exactly one page. Preserve readable fonts and margins, trim less relevant content as needed, and report completion only after finish_queued_resume with expectedPageCount=1 confirms one page."
+msgstr "Final requirement: the compiled resume must fit on exactly one page. Preserve readable fonts and margins, trim less relevant content as needed, and report completion only after finish_queued_resume with expectedPageCount=1 confirms one page."
+
 #: src/features/homepage/remember.tsx
 msgid "Find out why, and shorten setup without adding support work."
 msgstr "Find out why, and shorten setup without adding support work."

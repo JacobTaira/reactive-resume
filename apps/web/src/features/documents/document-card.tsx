@@ -2,7 +2,7 @@ import type { DocumentSummary } from "./filter";
 import { t } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react";
 import { Trans } from "@lingui/react/macro";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { Checkbox } from "@reactive-resume/ui/components/checkbox";
 import { ContextMenu, ContextMenuTrigger } from "@reactive-resume/ui/components/context-menu";
@@ -56,6 +56,7 @@ function OpenLink({
 	onSelect?: (() => void) | undefined;
 }) {
 	const markOpened = useNewDocumentsStore((state) => state.markOpened);
+	const { folderId } = useSearch({ strict: false });
 	if (document.trashedAt) return <span className={className}>{children}</span>;
 	const onClick = (event: React.MouseEvent) => {
 		if (!onSelect) return markOpened(document.id);
@@ -65,7 +66,12 @@ function OpenLink({
 	const common = { "aria-label": label, className, onClick, draggable: false };
 
 	return document.type === "resume" ? (
-		<Link to="/builder/$resumeId" params={{ resumeId: document.id }} {...common}>
+		<Link
+			to="/builder/$resumeId"
+			params={{ resumeId: document.id }}
+			search={{ returnFolderId: folderId }}
+			{...common}
+		>
 			{children}
 		</Link>
 	) : (
@@ -360,13 +366,18 @@ export function DocumentRow({
 /** Open from a menu: resumes in the editor, letters in the letter editor. */
 function useOpenDocument() {
 	const navigate = useNavigate();
+	const { folderId } = useSearch({ strict: false });
 	return (document: DocumentSummary) => {
 		useNewDocumentsStore.getState().markOpened(document.id);
 		if (document.type === "letter") {
 			void navigate({ to: "/builder/letter/$coverLetterId", params: { coverLetterId: document.id } });
 			return;
 		}
-		void navigate({ to: "/builder/$resumeId", params: { resumeId: document.id } });
+		void navigate({
+			to: "/builder/$resumeId",
+			params: { resumeId: document.id },
+			search: { returnFolderId: folderId },
+		});
 	};
 }
 

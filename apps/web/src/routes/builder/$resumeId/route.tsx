@@ -10,6 +10,8 @@ import { orpc } from "@/libs/orpc/client";
 import { createNoindexFollowMeta } from "@/libs/seo";
 
 const searchSchema = z.object({
+	// Keep the originating library folder in the URL, including an empty string for Unfiled resumes.
+	returnFolderId: z.string().max(100).optional().catch(undefined),
 	// Write is the default and stays out of the URL.
 	mode: z.enum(EDITOR_MODES).optional().catch(undefined),
 	// Opens History on this version, read-only; Applications' "Open" on what was sent links here.

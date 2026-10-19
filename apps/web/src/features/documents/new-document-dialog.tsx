@@ -175,6 +175,7 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 			to: "/builder/$resumeId",
 			params: { resumeId },
 			search: {
+				returnFolderId: data?.folderId,
 				...(withAssistant ? { assistant: "new" } : {}),
 				...(importedFrom ? { imported: importedFrom } : {}),
 			},

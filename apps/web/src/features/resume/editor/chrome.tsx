@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { t } from "@lingui/core/macro";
 import { Plural, Trans } from "@lingui/react/macro";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { buttonVariants } from "@reactive-resume/ui/components/button";
 import { Icon } from "@reactive-resume/ui/components/icon";
@@ -100,6 +100,7 @@ export function DocumentMenuTrigger({ name, isLocked, ...props }: DocumentMenuTr
 /** Leaving the editor is navigation, so it's a link styled as an icon button. */
 export function BackLink() {
 	const label = t`Back to documents`;
+	const { returnFolderId } = useSearch({ strict: false });
 
 	return (
 		<Tooltip>
@@ -107,6 +108,7 @@ export function BackLink() {
 				render={
 					<Link
 						to="/dashboard"
+						search={{ folderId: returnFolderId }}
 						aria-label={label}
 						className={buttonVariants({ variant: "ghost", size: "icon", className: "text-ink-2" })}
 					/>

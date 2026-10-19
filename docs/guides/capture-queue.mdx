@@ -85,6 +85,8 @@ For LaTeX resumes, the workflow instructs the assistant to:
 
 Claude uses the server compiler rather than creating local files, running local TeX, calculating checksums, fetching PDFs or repeatedly polishing spacing. It still reads useful related resumes and company information, reuses verified evidence across similar jobs, and can create or update Companies entries when useful new findings arise. These changes remove extra work; they do not guarantee a particular completion time.
 
+**Copy Claude prompt** ends with an explicit one-page requirement: keep readable fonts and margins, trim less relevant content as needed, and report completion only after `finish_queued_resume` with `expectedPageCount=1` confirms one page. This uses the existing verification; it does not add another compile after a passing result. A saved draft can remain available while its page-fit correction is unfinished.
+
 A score is an optional editorial review aid, not an ATS prediction or hiring guarantee. Unsupported experience remains a gap. You review the resume/PDF, download it and apply yourself. Tell Claude when you actually apply or receive an outcome if you want it recorded.
 
 The compound LaTeX path verifies the owned linked draft's current saved source, expected page count and extractable text before Ready. A score is not required for this path. Overflow warnings are returned for review; unavailable visual checks must be disclosed. Machine checks cannot establish truthful claims or visual quality, and Ready is not your approval or an Applied status. Check pending questions and Ready drafts yourself. Queue entries and saved drafts remain available when preparation fails.
