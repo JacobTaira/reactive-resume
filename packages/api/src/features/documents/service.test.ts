@@ -17,6 +17,7 @@ const { documentsService } = await import("./service");
 
 // `select().from().where()` resolving to `rows`.
 const rows = (result: unknown[]) => ({ from: () => ({ where: () => Promise.resolve(result) }) });
+const joinedRows = (result: unknown[]) => ({ from: () => ({ leftJoin: () => ({ where: () => Promise.resolve(result) }) }) });
 
 const updates = () => {
 	const set = vi.fn((_changes: Record<string, unknown>) => ({
@@ -39,6 +40,45 @@ beforeEach(() => {
 			update: dbMock.update,
 		}),
 	);
+});
+
+describe("list profiles", () => {
+	const summary = {
+		id: "r1", name: "Base Resume", tags: ["robotics"], isLocked: false, isPublic: false,
+		slug: "base", trashedAt: null, createdAt: new Date("2026-10-01T00:00:00Z"),
+		updatedAt: new Date("2026-10-19T00:00:00Z"), folderId: null, sourceResumeId: null,
+		companyId: null, applicationId: "a1", company: "Orbital", role: "Engineer",
+	};
+
+	it("omits invalid legacy audit metadata without blocking document discovery", async () => {
+		dbMock.select.mockReturnValueOnce(joinedRows([{ ...summary, profile: { score: "invalid legacy value" } }]));
+		dbMock.select.mockReturnValueOnce(joinedRows([]));
+		const result = await documentsService.list({ userId: "u1", trashed: false, includeProfile: false });
+
+		expect(result).toHaveLength(1);
+		expect(result[0]).toMatchObject({
+			id: "r1", name: "Base Resume", tags: ["robotics"], profile: null,
+			application: { id: "a1", company: "Orbital", role: "Engineer" },
+		});
+		// A SQL null projection keeps even oversized/unparseable profiles out of the database result.
+		expect(dbMock.select.mock.calls[0]?.[0].profile).toHaveProperty("queryChunks");
+	});
+
+	it.each([undefined, true])("keeps normal profile behavior when includeProfile is %s", async includeProfile => {
+		dbMock.select.mockReturnValueOnce(joinedRows([{ ...summary, profile: { purpose: "master", score: 85 } }]));
+		dbMock.select.mockReturnValueOnce(joinedRows([]));
+		const result = await documentsService.list({
+			userId: "u1", trashed: false, ...(includeProfile !== undefined ? { includeProfile } : {}),
+		});
+		expect(result[0]?.profile).toMatchObject({ purpose: "master", score: 85, requirementEvidence: [] });
+		expect(dbMock.select.mock.calls[0]?.[0].profile).not.toHaveProperty("queryChunks");
+	});
+
+	it("retains legacy validation failures when profile inclusion is requested", async () => {
+		dbMock.select.mockReturnValueOnce(joinedRows([{ ...summary, profile: { score: "invalid legacy value" } }]));
+		dbMock.select.mockReturnValueOnce(joinedRows([]));
+		await expect(documentsService.list({ userId: "u1", trashed: false })).rejects.toBeDefined();
+	});
 });
 
 describe("Trash", () => {
@@ -71,40 +111,82 @@ describe("copyForJob", () => {
 		data: { metadata: { page: { locale: "en-US" } } },
 	};
 
-	it("links the copy to the job, and gives the job the copy when it has no resume", async () => {
+	it("delegates a Saved job's copy and selected-resume link to one atomic create", async () => {
 		resumeServiceMock.getById.mockResolvedValueOnce(source);
-		dbMock.select.mockReturnValueOnce(rows([{ id: "a1", company: "Orbital", resumeId: null }]));
+		dbMock.select.mockReturnValueOnce(rows([{
+			id: "a1", company: "Orbital", role: "Designer", status: "saved", resumeId: null, sentResumeVersionId: null,
+		}]));
 		resumeServiceMock.create.mockResolvedValueOnce("copy");
-		const set = updates();
 
 		const id = await documentsService.copyForJob({ userId: "u1", resumeId: "r1", applicationId: "a1" });
 
 		expect(id).toBe("copy");
-		expect(resumeServiceMock.create).toHaveBeenCalledWith(
-			expect.objectContaining({ name: "Product Designer — Orbital", tags: ["design"] }),
-		);
-		expect(set).toHaveBeenCalledWith({ applicationId: "a1" });
-		expect(applicationServiceMock.update).toHaveBeenCalledWith({ userId: "u1", id: "a1", resumeId: "copy" });
+		expect(resumeServiceMock.create).toHaveBeenCalledWith({
+			userId: "u1",
+			name: "Product Designer — Orbital",
+			tags: ["design"],
+			copyFromResumeId: "r1",
+			jobApplicationId: "a1",
+			reuseApplicationDraft: false,
+			locale: "en-US",
+			data: source.data,
+		});
+		expect(dbMock.update).not.toHaveBeenCalled();
+		expect(applicationServiceMock.update).not.toHaveBeenCalled();
 	});
 
-	it.each(["saved", "applied"])(
-		"prepares a copy at %s while preserving its base and submitted documents",
-		async (status) => {
-			resumeServiceMock.getById.mockResolvedValueOnce(source);
-			dbMock.select.mockReturnValueOnce(rows([{ id: "a1", company: "Orbital", resumeId: "base", status }]));
-			resumeServiceMock.create.mockResolvedValueOnce("copy");
-			const set = updates();
+	it("reuses the atomic Saved-job draft when a queue run retries after losing the response", async () => {
+		resumeServiceMock.getById.mockResolvedValueOnce(source);
+		dbMock.select.mockReturnValueOnce(rows([{
+			id: "a1", company: "Orbital", role: "Designer", status: "saved", resumeId: "existing", sentResumeVersionId: null,
+		}]));
+		resumeServiceMock.create.mockResolvedValueOnce("existing");
+		await expect(documentsService.copyForJob({
+			userId: "u1", resumeId: "r1", applicationId: "a1", name: "Mine", reuseExisting: true,
+		})).resolves.toBe("existing");
+		expect(resumeServiceMock.create).toHaveBeenCalledWith(expect.objectContaining({
+			copyFromResumeId: "r1", jobApplicationId: "a1", reuseApplicationDraft: true, name: "Mine",
+		}));
+		expect(dbMock.update).not.toHaveBeenCalled();
+		expect(applicationServiceMock.update).not.toHaveBeenCalled();
+	});
 
-			await documentsService.copyForJob({ userId: "u1", resumeId: "r1", applicationId: "a1", name: "Mine" });
+	it.each([
+		{ applicationId: undefined, application: null },
+		{ applicationId: "a1", application: { id: "a1", status: "applied", sentResumeVersionId: null } },
+		{ applicationId: "a1", application: { id: "a1", status: "saved", sentResumeVersionId: "submitted-version" } },
+	])("rejects draft reuse outside an unsubmitted Saved job: %j", async ({ applicationId, application }) => {
+		resumeServiceMock.getById.mockResolvedValueOnce(source);
+		if (application) dbMock.select.mockReturnValueOnce(rows([application]));
+		await expect(documentsService.copyForJob({
+			userId: "u1", resumeId: "r1", applicationId, reuseExisting: true,
+		})).rejects.toMatchObject({ code: "CONFLICT" });
+		expect(resumeServiceMock.create).not.toHaveBeenCalled();
+		expect(dbMock.update).not.toHaveBeenCalled();
+		expect(applicationServiceMock.update).not.toHaveBeenCalled();
+	});
 
-			expect(resumeServiceMock.create).toHaveBeenCalledWith(expect.objectContaining({ name: "Mine" }));
-			expect(set).toHaveBeenCalledTimes(1);
-			if (status === "saved")
-				expect(applicationServiceMock.update).toHaveBeenCalledWith({ userId: "u1", id: "a1", resumeId: "copy" });
-			else expect(applicationServiceMock.update).not.toHaveBeenCalled();
-			expect(resumeServiceMock.create).toHaveBeenCalledWith(expect.objectContaining({ data: source.data }));
-		},
-	);
+	it("can prepare a fresh copy for an Applied job without replacing its submitted resume", async () => {
+		resumeServiceMock.getById.mockResolvedValueOnce(source);
+		dbMock.select.mockReturnValueOnce(rows([{
+			id: "a1", company: "Orbital", role: "Designer", status: "applied",
+			resumeId: "submitted", sentResumeVersionId: "version",
+		}]));
+		resumeServiceMock.create.mockResolvedValueOnce("copy");
+		const set = updates();
+
+		await documentsService.copyForJob({ userId: "u1", resumeId: "r1", applicationId: "a1", name: "Mine" });
+
+		expect(resumeServiceMock.create).toHaveBeenCalledWith(expect.objectContaining({ name: "Mine", data: source.data }));
+		expect(resumeServiceMock.create.mock.calls[0]?.[0]).not.toHaveProperty("jobApplicationId");
+		expect(set).toHaveBeenCalledTimes(2);
+		expect(set).toHaveBeenCalledWith({ applicationId: "a1" });
+		expect(set).toHaveBeenCalledWith(expect.objectContaining({
+			sourceResumeId: "r1",
+			profile: expect.objectContaining({ purpose: "tailored", company: "Orbital", targetRole: "Designer", score: null }),
+		}));
+		expect(applicationServiceMock.update).not.toHaveBeenCalled();
+	});
 });
 
 describe("linkApplication", () => {
@@ -125,3 +207,4 @@ describe("linkApplication", () => {
 		else expect(applicationServiceMock.update).not.toHaveBeenCalled();
 	});
 });
+

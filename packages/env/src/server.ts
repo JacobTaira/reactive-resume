@@ -89,6 +89,10 @@ export const env = createEnv({
 			)
 			.default([]),
 
+		// Optional LaTeX compiler
+		LATEX_COMPILER_URL: z.url({ protocol: /^https?$/ }).optional(),
+		LATEX_COMPILER_TOKEN: z.string().min(32).optional(),
+
 		// Database
 		DATABASE_URL: z.url({ protocol: /postgres(ql)?/ }),
 		DATABASE_MIGRATION_URL: z.url({ protocol: /postgres(ql)?/ }).optional(),

@@ -1,7 +1,7 @@
 import type { Application } from "@/features/applications/types";
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, stripSearchParams, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import z from "zod";
@@ -29,9 +29,12 @@ import { ApplicationInsights, InsightsSkeleton } from "@/features/applications/c
 import { ApplicationList } from "@/features/applications/components/list-view";
 import { getNextStep } from "@/features/applications/next-step";
 import { applicationsListQueryOptions } from "@/features/applications/queries";
+import { queueOutstandingCount } from "@/features/applications/queue-model";
+import { QueueView } from "@/features/applications/queue-view";
 import { ENTER_CLASS } from "@/libs/motion";
+import { orpc } from "@/libs/orpc/client";
 
-const VIEWS = ["list", "board", "insights", "calendar"] as const;
+const VIEWS = ["list", "board", "insights", "calendar", "queue"] as const;
 type View = (typeof VIEWS)[number];
 
 const searchSchema = z.object({
@@ -69,6 +72,7 @@ function matches(application: Application, query: string) {
 function RouteComponent() {
 	const { q, view, closed, create, applicationId } = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
+	const queryClient = useQueryClient();
 	const phone = useBreakpoint() === "mobile";
 	// Typing filters at once; the URL only seeds the search.
 	const [query, setQuery] = useState(q);
@@ -81,6 +85,11 @@ function RouteComponent() {
 	const [viewSwitched, setViewSwitched] = useState(false);
 
 	const { data: applications, isPending, isError, isFetching, refetch } = useQuery(applicationsListQueryOptions());
+	const { data: queueSummary } = useQuery({
+		...orpc.applications.queue.list.queryOptions({ input: { limit: 1, offset: 0, includeDescription: false } }),
+		refetchInterval: 30_000,
+	});
+	const queuedCount = queueSummary ? queueOutstandingCount(queueSummary.counts) : null;
 	const setSearch = (patch: Partial<Search>) =>
 		void navigate({ resetScroll: false, search: (prev: Search) => ({ ...prev, ...patch }) });
 
@@ -108,7 +117,7 @@ function RouteComponent() {
 	// The board needs room to drag: phones get the list instead.
 	const shown: View = phone && (view === "board" || view === "calendar") ? "list" : view;
 	const empty = !!applications && applications.length === 0;
-	const noMatches = !!applications && !empty && text && filtered.length === 0;
+	const noMatches = shown !== "queue" && !!applications && !empty && text && filtered.length === 0;
 
 	return (
 		<div className="mx-auto grid w-full max-w-[1180px] content-start gap-5 px-8 py-8 max-sm:px-4 max-sm:py-5">
@@ -139,7 +148,7 @@ function RouteComponent() {
 				</div>
 			</header>
 
-			{applications && <FollowUpNudge applications={applications} onOpen={setSelectedId} />}
+			{shown !== "queue" && applications && <FollowUpNudge applications={applications} onOpen={setSelectedId} />}
 
 			{isError && (
 				<div
@@ -155,9 +164,7 @@ function RouteComponent() {
 				</div>
 			)}
 
-			{isError && !applications ? null : empty ? (
-				<EmptyState onAdd={() => setAdding(true)} onImport={() => setImporting(true)} />
-			) : (
+			{isError && !applications && shown !== "queue" ? null : (
 				<>
 					<div className="flex flex-wrap items-center gap-2">
 						<Tabs
@@ -168,6 +175,10 @@ function RouteComponent() {
 							}}
 						>
 							<TabsList aria-label={t`View`}>
+								<TabsTrigger value="queue">
+									<Icon name="list-checks" size={18} />
+									{queuedCount === null ? <Trans>Queue</Trans> : <Trans>Queue ({queuedCount})</Trans>}
+								</TabsTrigger>
 								<TabsTrigger value="list">
 									<Icon name="rows" size={18} />
 									<Trans>List</Trans>
@@ -207,7 +218,7 @@ function RouteComponent() {
 							/>
 						</div>
 
-						{shown !== "insights" && (
+						{shown !== "insights" && shown !== "queue" && (
 							<Button
 								variant="secondary"
 								aria-pressed={closed}
@@ -220,7 +231,11 @@ function RouteComponent() {
 						)}
 					</div>
 
-					{isPending ? (
+					{shown === "queue" ? (
+						<QueueView query={query} onOpen={setSelectedId} onAdd={() => setAdding(true)} />
+					) : empty ? (
+						<EmptyState onAdd={() => setAdding(true)} onImport={() => setImporting(true)} />
+					) : isPending ? (
 						<ViewSkeleton view={shown} />
 					) : noMatches ? (
 						<div className="grid justify-items-center gap-2 py-16 text-center">
@@ -271,11 +286,22 @@ function RouteComponent() {
 				</>
 			)}
 
-			<AddApplicationDialog open={adding} onOpenChange={setAdding} onAdded={setSelectedId} />
+			<AddApplicationDialog
+				open={adding}
+				onOpenChange={setAdding}
+				onAdded={(id) => {
+					setSelectedId(id);
+					void queryClient.invalidateQueries({ queryKey: orpc.applications.queue.key() });
+				}}
+			/>
 			<ApplicationFormSheet
 				open={Boolean(editing)}
 				application={editing}
-				onOpenChange={(open) => !open && setEditing(null)}
+				onOpenChange={(open) => {
+					if (open) return;
+					setEditing(null);
+					void queryClient.invalidateQueries({ queryKey: orpc.applications.queue.key() });
+				}}
 			/>
 			<ImportApplicationsSheet open={importing} onOpenChange={setImporting} />
 			<ExportApplicationsSheet
@@ -399,3 +425,4 @@ function ViewSkeleton({ view }: { view: View }) {
 		);
 	return <Skeleton className="h-[calc(100svh-230px)] min-h-96 rounded-xl" />;
 }
+

@@ -15,6 +15,8 @@ export function useInvalidateApplications() {
 	return (id?: string) => {
 		void queryClient.invalidateQueries({ queryKey: applicationsListQueryKey() });
 		void queryClient.invalidateQueries({ queryKey: orpc.applications.stats.queryKey() });
+		void queryClient.invalidateQueries({ queryKey: orpc.applications.queue.list.key() });
+		void queryClient.invalidateQueries({ queryKey: orpc.applications.queue.read.key() });
 		void queryClient.invalidateQueries({ queryKey: orpc.applications.tags.queryKey() });
 		void queryClient.invalidateQueries({ queryKey: orpc.documents.list.key() });
 		if (id) void queryClient.invalidateQueries({ queryKey: orpc.applications.getById.queryKey({ input: { id } }) });
@@ -86,3 +88,4 @@ export function useApplicationActions() {
 			),
 	};
 }
+

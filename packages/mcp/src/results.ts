@@ -4,6 +4,7 @@ import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { ORPCError } from "@orpc/server";
 import z from "zod";
 import { MCP_TOOL_NAME } from "./mcp-tool-names";
+import { withToolTiming } from "./performance";
 
 function errorMessage(error: unknown): string {
 	if (error instanceof ORPCError && error.status < 500) return error.message;
@@ -34,7 +35,7 @@ function errorHint(error: unknown): string {
 	// Every tool shares this handler, so the wording stays entity-agnostic: `NOT_FOUND` is
 	// thrown by the application procedures too, and resume-flavoured advice misdirects there.
 	if (code === "NOT_FOUND" || status === 404)
-		return `\n\nHint: Not found. Check the ID — \`${listResumes}\`, \`${MCP_TOOL_NAME.listCoverLetters}\`, and \`${listApplications}\` return valid ones.`;
+		return `\n\nHint: Not found. Check the ID — \`${listResumes}\`, \`${MCP_TOOL_NAME.listCoverLetters}\`, and \`${listApplications}\` return valid ones. For library records, use \`${MCP_TOOL_NAME.listResumeFolders}\` or \`${MCP_TOOL_NAME.listCompanyNotes}\`.`;
 	if (code === "FORBIDDEN" || status === 403)
 		return "\n\nHint: Permission denied. This account cannot access that record.";
 	if (code === "CONFLICT" || status === 409)
@@ -47,14 +48,14 @@ function errorHint(error: unknown): string {
 
 /**
  * Wraps an async tool handler with consistent error formatting.
- * On success, returns the handler's result directly.
+ * Adds content-free timing metadata and a server diagnostic on success or failure.
  * On failure, returns `{ isError: true, content: [{ type: "text", text }] }` with actionable hints.
  */
 export function withErrorHandling<T, Args extends unknown[]>(
 	label: string,
 	handler: (params: T, ...args: Args) => Promise<CallToolResult>,
 ) {
-	return async (params: T, ...args: Args): Promise<CallToolResult> => {
+	return withToolTiming(label, async (params: T, ...args: Args): Promise<CallToolResult> => {
 		try {
 			return await handler(params, ...args);
 		} catch (error) {
@@ -71,7 +72,7 @@ export function withErrorHandling<T, Args extends unknown[]>(
 				],
 			};
 		}
-	};
+	});
 }
 
 export function text(value: string, structured: Record<string, unknown> = { message: value }): CallToolResult {
@@ -103,3 +104,4 @@ export function safeMcpError(error: unknown, operation: string): McpError {
 		},
 	);
 }
+

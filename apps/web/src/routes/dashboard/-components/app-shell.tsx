@@ -4,7 +4,7 @@ import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useMatchRoute } from "@tanstack/react-router";
+import { Link, useMatchRoute, useSearch } from "@tanstack/react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@reactive-resume/ui/components/avatar";
 import { BrandIcon } from "@reactive-resume/ui/components/brand-icon";
 import { Button } from "@reactive-resume/ui/components/button";
@@ -19,21 +19,23 @@ import { useDialogStore } from "@/dialogs/store";
 import { applicationsListQueryOptions } from "@/features/applications/queries";
 import { GuestBanner } from "@/features/auth/components/guest-banner";
 import { useCommandPaletteStore } from "@/features/command-palette/store";
+import { FolderMenu } from "@/features/documents/folder-menu";
+import { ResumeFolderDragProvider } from "@/features/documents/resume-folder-drag";
 import { isEditableElementFocused } from "@/features/resume/builder/draft";
 import { UserDropdownMenu } from "@/features/user/dropdown-menu";
 import { orpc } from "@/libs/orpc/client";
 
 type NavItem = {
-	to: "/dashboard" | "/dashboard/applications" | "/dashboard/career" | "/dashboard/trash" | "/dashboard/settings";
+	to: "/dashboard" | "/dashboard/applications" | "/dashboard/trash" | "/dashboard/settings";
 	icon: IconName;
 	label: string;
 	count?: number;
+	area?: "companies";
 };
 
 function useNavItems() {
 	const { data: counts } = useQuery(orpc.documents.counts.queryOptions());
 	const { data: applications } = useQuery(applicationsListQueryOptions());
-	const { data: notifications } = useQuery(orpc.career.notifications.queryOptions({ input: {} }));
 
 	const items: NavItem[] = [
 		{
@@ -43,15 +45,18 @@ function useNavItems() {
 			...(counts ? { count: counts.resume + counts.letter } : {}),
 		},
 		{
+			to: "/dashboard",
+			area: "companies",
+			icon: "building-office",
+			label: t`Companies`,
+		},
+		{
 			to: "/dashboard/applications",
 			icon: "briefcase",
 			label: t`Applications`,
 			...(applications ? { count: applications.filter((application) => application.status !== "closed").length } : {}),
 		},
 	];
-	const unread = notifications?.filter((notification) => !notification.readAt).length ?? 0;
-	// Career counts what's waiting for the user (unread notifications), so nothing shows at zero.
-	items.push({ to: "/dashboard/career", icon: "compass", label: t`Career`, ...(unread ? { count: unread } : {}) });
 	const settings: NavItem = { to: "/dashboard/settings", icon: "gear-six", label: t`Settings` };
 	const trash: NavItem | null = counts?.trash
 		? { to: "/dashboard/trash", icon: "trash", label: t`Trash`, count: counts.trash }
@@ -63,22 +68,22 @@ function useNavItems() {
 /** Whether the item is the current page: Documents is exact, the others match their section. */
 function useIsCurrent() {
 	const matchRoute = useMatchRoute();
-	return (to: NavItem["to"]) => Boolean(matchRoute({ to, fuzzy: to !== "/dashboard" }));
+	const { area: currentArea } = useSearch({ strict: false });
+	return (to: NavItem["to"], area?: "companies") =>
+		Boolean(matchRoute({ to, fuzzy: to !== "/dashboard" })) &&
+		(to !== "/dashboard" || (currentArea === "companies") === (area === "companies"));
 }
 
 /**
  * The app shell for Documents, Trash, Applications and Settings: a 240px sidebar at ≥1024, an icon rail at
- * 640–1023 and a bottom tab bar below 640. An application's workspace is full screen on phones, with its own back
- * link and action bar, so it has no tab bar. N opens New anywhere outside a field.
+ * 640–1023 and a bottom tab bar below 640. N opens New anywhere outside a field.
  */
 type AppShellProps = { children: ReactNode };
 
 export function AppShell({ children }: AppShellProps) {
 	const breakpoint = useBreakpoint();
 	const openDialog = useDialogStore((state) => state.openDialog);
-	const matchRoute = useMatchRoute();
-	const tabs =
-		breakpoint === "mobile" && !matchRoute({ to: "/dashboard/applications/$applicationId/{-$tab}", fuzzy: true });
+	const tabs = breakpoint === "mobile";
 
 	useHotkey("N", () => {
 		if (isEditableElementFocused() || useDialogStore.getState().open) return;
@@ -86,37 +91,38 @@ export function AppShell({ children }: AppShellProps) {
 	});
 
 	return (
-		<div
-			className={cn(
-				"grid min-h-svh bg-bg",
-				breakpoint === "mobile"
-					? tabs
+		<ResumeFolderDragProvider>
+			<div
+				className={cn(
+					"grid min-h-svh bg-bg",
+					breakpoint === "mobile"
 						? "grid-rows-[minmax(0,1fr)_auto]"
-						: ""
-					: breakpoint === "tablet"
-						? "grid-cols-[64px_minmax(0,1fr)]"
-						: "grid-cols-[240px_minmax(0,1fr)]",
-			)}
-		>
-			<a
-				href="#main-content"
-				className="sr-only rounded-md bg-raised px-4 py-2 text-sm focus:not-sr-only focus:absolute focus:inset-s-2 focus:top-2 focus:z-[100]"
+						: breakpoint === "tablet"
+							? "grid-cols-[64px_minmax(0,1fr)]"
+							: "grid-cols-[240px_minmax(0,1fr)]",
+				)}
 			>
-				<Trans>Skip to main content</Trans>
-			</a>
-			{breakpoint !== "mobile" && (breakpoint === "tablet" ? <Rail /> : <Sidebar />)}
-			<main id="main-content" className="min-w-0">
-				<GuestBanner />
-				{children}
-			</main>
-			{tabs && <MobileTabs />}
-		</div>
+				<a
+					href="#main-content"
+					className="sr-only rounded-md bg-raised px-4 py-2 text-sm focus:not-sr-only focus:absolute focus:inset-s-2 focus:top-2 focus:z-[100]"
+				>
+					<Trans>Skip to main content</Trans>
+				</a>
+				{breakpoint !== "mobile" && (breakpoint === "tablet" ? <Rail /> : <Sidebar />)}
+				<main id="main-content" className="min-w-0">
+					<GuestBanner />
+					{children}
+				</main>
+				{tabs && <MobileTabs />}
+			</div>
+		</ResumeFolderDragProvider>
 	);
 }
 
 function Sidebar() {
 	const { items, settings, trash } = useNavItems();
 	const isCurrent = useIsCurrent();
+	const { folderId } = useSearch({ strict: false });
 	const openPalette = useCommandPaletteStore((state) => state.setOpen);
 	const openDialog = useDialogStore((state) => state.openDialog);
 
@@ -144,9 +150,15 @@ function Sidebar() {
 				<Kbd>⌘K</Kbd>
 			</button>
 
-			<nav aria-label={t`App`} className="grid gap-0.5">
+			<nav aria-label={t`App`} className="grid min-h-0 gap-0.5 overflow-y-auto">
 				{items.map((item) => (
-					<NavLink key={item.to} item={item} current={isCurrent(item.to)} />
+					<div key={`${item.to}:${item.area ?? ""}`} className="grid gap-0.5">
+						<NavLink
+							item={item}
+							current={isCurrent(item.to, item.area) && !(item.to === "/dashboard" && !item.area && folderId !== undefined)}
+						/>
+						{item.to === "/dashboard" && !item.area && <FolderMenu />}
+					</div>
 				))}
 				<div className="mt-2 border-t border-line pt-2">
 					<NavLink item={settings} current={isCurrent(settings.to)} />
@@ -195,6 +207,7 @@ function NavLink({ item, current }: { item: NavItem; current: boolean }) {
 	return (
 		<Link
 			to={item.to}
+			search={item.area ? { area: item.area } : {}}
 			aria-current={current ? "page" : undefined}
 			className={cn(
 				"flex h-[34px] items-center gap-2.5 rounded-lg px-2.5 text-sm transition-[background-color,color,scale] duration-quick ease-enter active:scale-[0.97]",
@@ -233,14 +246,15 @@ function Rail() {
 			</RailTip>
 			<nav aria-label={t`App`} className="grid gap-1">
 				{[...items, settings].map((item) => (
-					<RailTip key={item.to} label={item.label} icon={item.icon} filled={isCurrent(item.to)}>
+					<RailTip key={`${item.to}:${item.area ?? ""}`} label={item.label} icon={item.icon} filled={isCurrent(item.to, item.area)}>
 						<Link
 							to={item.to}
+							search={item.area ? { area: item.area } : {}}
 							aria-label={item.label}
-							aria-current={isCurrent(item.to) ? "page" : undefined}
+							aria-current={isCurrent(item.to, item.area) ? "page" : undefined}
 							className={cn(
 								"grid size-10 place-items-center rounded-lg transition-[background-color,color,scale] duration-quick ease-enter active:scale-[0.97]",
-								isCurrent(item.to) ? "bg-sunken text-ink" : "text-ink-2 hover:bg-hover",
+								isCurrent(item.to, item.area) ? "bg-sunken text-ink" : "text-ink-2 hover:bg-hover",
 							)}
 						/>
 					</RailTip>
@@ -296,7 +310,7 @@ function RailTip({
 	);
 }
 
-/** Phones: Documents · Applications · New · Career · Settings, with New as an accent pill in the middle. */
+/** Phones: Documents · Applications · New · Companies · Settings, with New in the middle. */
 function MobileTabs() {
 	const isCurrent = useIsCurrent();
 	const openDialog = useDialogStore((state) => state.openDialog);
@@ -316,6 +330,7 @@ function MobileTabs() {
 		>
 			<Link
 				to="/dashboard"
+				search={{}}
 				aria-current={isCurrent("/dashboard") ? "page" : undefined}
 				viewTransition={false}
 				className="relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 transition-[scale] duration-quick ease-enter active:scale-[0.97]"
@@ -343,12 +358,13 @@ function MobileTabs() {
 				</span>
 			</button>
 			<Link
-				to="/dashboard/career"
-				aria-current={isCurrent("/dashboard/career") ? "page" : undefined}
+				to="/dashboard"
+				search={{ area: "companies" }}
+				aria-current={isCurrent("/dashboard", "companies") ? "page" : undefined}
 				viewTransition={false}
 				className="relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 transition-[scale] duration-quick ease-enter active:scale-[0.97]"
 			>
-				{tab("compass", t`Career`, isCurrent("/dashboard/career"))}
+				{tab("building-office", t`Companies`, isCurrent("/dashboard", "companies"))}
 			</Link>
 			<Link
 				to="/dashboard/settings"
@@ -361,3 +377,4 @@ function MobileTabs() {
 		</nav>
 	);
 }
+

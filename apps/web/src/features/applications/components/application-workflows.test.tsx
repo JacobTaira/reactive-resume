@@ -8,6 +8,7 @@ import { I18nProvider } from "@lingui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const api = vi.hoisted(() => ({
+	hasProvider: true,
 	bulkDelete: vi.fn(),
 	bulkUpdate: vi.fn(),
 	parsePosting: vi.fn(),
@@ -43,7 +44,7 @@ vi.mock("../use-application-actions", () => ({
 vi.mock("@/hooks/use-confirm", () => ({ useConfirm: () => api.confirm }));
 vi.mock("@reactive-resume/ui/hooks/use-breakpoint", () => ({ useBreakpoint: () => "desktop" }));
 vi.mock("@/features/settings/integrations/hooks/use-has-usable-ai-provider", () => ({
-	useHasUsableAiProvider: () => ({ hasUsableProvider: true }),
+	useHasUsableAiProvider: () => ({ hasUsableProvider: api.hasProvider }),
 }));
 vi.mock("@/dialogs/store", () => ({ useDialogStore: () => vi.fn() }));
 vi.mock("@reactive-resume/ui/components/toast", () => ({ toast: { add: vi.fn() } }));
@@ -99,13 +100,63 @@ const mount = (children: ReactNode) => {
 };
 beforeEach(() => {
 	vi.clearAllMocks();
+	api.hasProvider = true;
+	api.parsePosting.mockReset();
+	api.create.mockReset().mockResolvedValue("saved-job");
 	i18n.loadAndActivate({ locale: "en-US", messages: {} });
 	api.confirm.mockResolvedValue(true);
 	api.bulkDelete.mockResolvedValue({ deleted: 1 });
 });
+
 afterEach(() => {
 	cleanup();
 	clients.splice(0).forEach((client) => client.clear());
+});
+
+it("saves pasted job text without reading a webpage or configuring an AI provider", async () => {
+	api.hasProvider = false;
+	const onAdded = vi.fn();
+	mount(<AddApplicationDialog open onOpenChange={vi.fn()} onAdded={onAdded} />);
+	const posting = "Robotics Engineer at Example Company. Build navigation and controls systems.";
+	fireEvent.change(await screen.findByRole("textbox", { name: "Job link or posting text" }), { target: { value: posting } });
+	fireEvent.change(screen.getByRole("textbox", { name: "Role" }), { target: { value: "Robotics Engineer" } });
+	fireEvent.change(screen.getByRole("textbox", { name: "Company" }), { target: { value: "Example Company" } });
+	fireEvent.click(screen.getByRole("button", { name: "Save job" }));
+	await waitFor(() => expect(onAdded).toHaveBeenCalledWith("saved-job"));
+	expect(api.create.mock.calls[0]?.[0]).toMatchObject({ company: "Example Company", role: "Robotics Engineer", status: "saved", jobDescription: posting });
+	expect(api.parsePosting).not.toHaveBeenCalled();
+});
+
+it("can save the original posting URL after its webpage cannot be read", async () => {
+	api.hasProvider = false;
+	api.parsePosting.mockRejectedValue(new Error("Page unavailable"));
+	const onAdded = vi.fn();
+	mount(<AddApplicationDialog open onOpenChange={vi.fn()} onAdded={onAdded} />);
+	fireEvent.change(await screen.findByRole("textbox", { name: "Job link or posting text" }), { target: { value: "https://example.test/job" } });
+	fireEvent.click(screen.getByRole("button", { name: "Read posting" }));
+	await screen.findByRole("textbox", { name: "Pasted description" });
+	fireEvent.change(screen.getByRole("textbox", { name: "Role" }), { target: { value: "Engineer" } });
+	fireEvent.change(screen.getByRole("textbox", { name: "Company" }), { target: { value: "Example" } });
+	fireEvent.click(screen.getByRole("button", { name: "Save job" }));
+	await waitFor(() => expect(onAdded).toHaveBeenCalledWith("saved-job"));
+	expect(api.create.mock.calls[0]?.[0]).toMatchObject({ company: "Example", role: "Engineer", status: "saved", sourceUrl: "https://example.test/job" });
+});
+
+it("retains the entered job and leaves the form open when saving fails", async () => {
+	api.hasProvider = false;
+	api.create.mockRejectedValue(new Error("Database unavailable"));
+	const onOpenChange = vi.fn();
+	const onAdded = vi.fn();
+	mount(<AddApplicationDialog open onOpenChange={onOpenChange} onAdded={onAdded} />);
+	fireEvent.change(await screen.findByRole("textbox", { name: "Job link or posting text" }), { target: { value: "Original job description" } });
+	fireEvent.change(screen.getByRole("textbox", { name: "Role" }), { target: { value: "Engineer" } });
+	fireEvent.change(screen.getByRole("textbox", { name: "Company" }), { target: { value: "Example" } });
+	fireEvent.click(screen.getByRole("button", { name: "Save job" }));
+	await waitFor(() => expect(api.create).toHaveBeenCalled());
+	await waitFor(() => expect((screen.getByRole("button", { name: "Save job" }) as HTMLButtonElement).disabled).toBe(false));
+	expect((screen.getByRole("textbox", { name: "Job link or posting text" }) as HTMLTextAreaElement).value).toBe("Original job description");
+	expect(onOpenChange).not.toHaveBeenCalled();
+	expect(onAdded).not.toHaveBeenCalled();
 });
 
 it("removes hidden closed applications from bulk selection before deleting visible rows", async () => {
@@ -167,3 +218,4 @@ it.each(["ai", "page"])(
 		expect((screen.getByRole("button", { name: "Save job" }) as HTMLButtonElement).disabled).toBe(false);
 	},
 );
+

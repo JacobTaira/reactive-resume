@@ -10,6 +10,7 @@ import { protectedProcedure } from "../../context";
 import { pdfExportRateLimit } from "../../middleware/rate-limit";
 import { coverLetterService } from "../cover-letters/service";
 import { resumeService } from "../resume/service";
+import { renderResumePdf } from "../resume/render-pdf";
 
 const exportInput = z.object({
 	id: z.string().min(1),
@@ -26,12 +27,14 @@ async function fileResponse(
 	includeCoverLetterHeader = false,
 ) {
 	const filename = generateFilename(name, format);
+	if (data.latex && format !== "pdf" && format !== "json") {
+		throw new ORPCError("BAD_REQUEST", { message: "LaTeX resumes support PDF and source exports. Download the source ZIP from the LaTeX editor." });
+	}
 	let body: File;
 	try {
 		if (format === "json") body = new File([JSON.stringify(json, null, 2)], filename, { type: "application/json" });
 		else if (format === "pdf") {
-			const { createResumePdfFile } = await import("@reactive-resume/pdf/server");
-			body = await createResumePdfFile({
+			body = await renderResumePdf({
 				data,
 				filename,
 				uploadOrigin: env.APP_URL,

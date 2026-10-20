@@ -196,6 +196,9 @@ function AddApplicationForm({ onClose, onAdded }: AddApplicationFormProps) {
 					<Trans>Paste a job link or posting, then check the role and company.</Trans>
 				</DialogDescription>
 			</DialogHeader>
+			<p className="text-xs leading-5 text-ink-2">
+				<Trans>Enter the company and role to save this job now. Reading the posting is optional; saving does not need webpage access or an AI provider.</Trans>
+			</p>
 
 			{webAccess?.search && (
 				<section className="grid gap-2" aria-labelledby={`${id}-search-label`}>
@@ -540,7 +543,7 @@ function ReadStatus({ text, link, readable, pending, error, parsed, ai }: ReadSt
 	if (!text) {
 		return (
 			<p className={cn(base, "text-ink-3")}>
-				<Trans>We read the page and save the posting for Check, the assistant and your letter.</Trans>
+				<Trans>Paste the description or link, then enter the company and role. Click Save job to store it in Applications.</Trans>
 			</p>
 		);
 	}
@@ -594,12 +597,13 @@ function ReadStatus({ text, link, readable, pending, error, parsed, ai }: ReadSt
 	return (
 		<p className={cn(base, "text-ink-3")}>
 			{link && readable ? (
-				<Trans>The page had no job details to read. Fill in the role and company.</Trans>
+				<Trans>You can try Read posting, or enter the role and company and save without reading the page.</Trans>
 			) : ai ? (
 				<Trans>Fill in the role and company. The posting is saved with the application.</Trans>
 			) : (
-				<Trans>Fill in the role and company. Connect an AI provider in settings to read them from the posting.</Trans>
+				<Trans>Enter the role and company to save the pasted text. An AI provider is optional for filling in these fields.</Trans>
 			)}
 		</p>
 	);
 }
+

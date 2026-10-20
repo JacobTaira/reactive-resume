@@ -22,6 +22,18 @@ beforeEach(() => {
 });
 
 describe("resolvePublicResumePdfBlob", () => {
+	it("fetches a LaTeX PDF from the server without compiling the redacted source", async () => {
+		const data = structuredClone(sampleResumeData);
+		data.latex = {
+			engine: "pdflatex", entrypoint: "main.tex",
+			files: [{ path: "main.tex", encoding: "utf-8", content: "" }],
+		};
+		const blob = await resolvePublicResumePdfBlob({ data, publicResume });
+		expect(mocks.createResumePdfBlob).not.toHaveBeenCalled();
+		expect(mocks.fetch).toHaveBeenCalledWith("/api/resumes/amruth/sample/pdf", { credentials: "include" });
+		expect(await blob.text()).toBe("server");
+	});
+
 	it("fetches the server PDF only after browser rendering rejects", async () => {
 		mocks.createResumePdfBlob.mockRejectedValue(new Error("browser renderer failed"));
 

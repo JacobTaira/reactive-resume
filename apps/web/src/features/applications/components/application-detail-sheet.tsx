@@ -4,7 +4,6 @@ import { t } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react";
 import { Plural, Trans } from "@lingui/react/macro";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import { Button } from "@reactive-resume/ui/components/button";
 import {
@@ -277,7 +276,6 @@ function Detail({ application, onEditDetails, onDeleted }: DetailProps) {
 								<Icon name="arrow-square-out" size={16} />
 							</Button>
 						)}
-						<OpenWorkspaceButton application={application} />
 					</>
 				) : (
 					<Button variant="secondary" onClick={() => moveTo(application, "applied")}>
@@ -649,24 +647,5 @@ function PostingDialog({ application, open, onOpenChange }: PostingDialogProps) 
 				)}
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-/** Opens the application's workspace on the tab for its stage. */
-function OpenWorkspaceButton({ application }: { application: Application }) {
-	const navigate = useNavigate();
-	return (
-		<Button
-			className="ms-auto bg-accent-soft text-accent-text hover:bg-accent-soft hover:brightness-95"
-			onClick={() =>
-				void navigate({
-					to: "/dashboard/applications/$applicationId/{-$tab}",
-					params: { applicationId: application.id },
-				})
-			}
-		>
-			<Icon name="arrow-right" size={18} />
-			<Trans>Open workspace</Trans>
-		</Button>
 	);
 }

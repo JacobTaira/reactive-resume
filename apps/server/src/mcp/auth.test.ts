@@ -22,3 +22,14 @@ it("rejects requests when shared credential resolution finds no user", async () 
 	resolve.mockResolvedValue(null);
 	await expect(authenticateRequest(new Request("https://resume.example/mcp"))).rejects.toBeInstanceOf(AuthError);
 });
+
+it.each([{ permissions: ["capture"] }, { permissions: [] }])(
+	"rejects credentials with no account permissions: %j",
+	async ({ permissions }) => {
+		resolve.mockResolvedValue({ user: { id: "user-1" }, method: "apiKey", permissions });
+		await expect(
+			authenticateRequest(new Request("https://resume.example/mcp", { headers: { "x-api-key": "capture-key" } })),
+		).rejects.toBeInstanceOf(AuthError);
+	},
+);
+

@@ -3,6 +3,8 @@ import z from "zod";
 import * as schema from "@reactive-resume/db/schema";
 import {
 	aiMetadataSchema,
+	applicationCaptureSchema,
+	applicationPreparationSchema,
 	applicationClosedReasonSchema,
 	applicationStatusSchema,
 	applicationTimelineEntrySchema,
@@ -62,6 +64,8 @@ const applicationSchema = createSelectSchema(schema.application, {
 	sourceUrl: httpUrlSchema.nullable(),
 	jobDescription: z.string().max(MAX_APPLICATION_JOB_DESCRIPTION_CHARS).nullable(),
 	postingSource: postingSourceSchema.nullable(),
+	capture: applicationCaptureSchema.nullable().optional(),
+	preparation: applicationPreparationSchema.nullable().optional(),
 	matchScore: z.number().int().min(0).max(100).nullable(),
 	aiMetadata: aiMetadataSchema.nullable(),
 	notes: z.string().nullable(),
@@ -85,7 +89,7 @@ const applicationSchema = createSelectSchema(schema.application, {
 	appliedAt: z.date(),
 	createdAt: z.date(),
 	updatedAt: z.date(),
-});
+}).omit({ captureIdentity: true });
 
 // Fields a client is allowed to set/change. `status`, `activity` and AI-owned fields are
 // excluded here — status changes go through the auto-logging update path, activity through
@@ -270,3 +274,4 @@ export const applicationDto = {
 };
 
 export type ApplicationDocumentKind = z.infer<typeof applicationDocumentKindSchema>;
+

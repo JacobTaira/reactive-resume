@@ -12,8 +12,9 @@ const dbMock = vi.hoisted(() => ({
 const compareMock = vi.hoisted(() => vi.fn());
 const publishResumeUpdatedMock = vi.hoisted(() => vi.fn());
 const grantResumeAccessMock = vi.hoisted(() => vi.fn());
+const adoptEmbeddedLettersMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../cover-letters/embedded", () => ({ adoptEmbeddedLetters: vi.fn(async () => undefined) }));
+vi.mock("../cover-letters/embedded", () => ({ adoptEmbeddedLetters: adoptEmbeddedLettersMock }));
 vi.mock("@reactive-resume/db/client", () => ({ db: dbMock }));
 vi.mock("@reactive-resume/db/schema", () => ({
 	resume: {
@@ -30,6 +31,13 @@ vi.mock("@reactive-resume/db/schema", () => ({
 		trashedAt: "trashed_at",
 		updatedAt: "updated_at",
 		createdAt: "created_at",
+		folderId: "folder_id",
+		sourceResumeId: "source_resume_id",
+		applicationId: "resume_application_id",
+	},
+	application: {
+		id: "application_id",
+		userId: "application_user_id",
 	},
 	resumeStatistics: {
 		resumeId: "resume_id",
@@ -178,11 +186,214 @@ beforeEach(() => {
 	compareMock.mockReset();
 	publishResumeUpdatedMock.mockReset();
 	grantResumeAccessMock.mockReset();
+	adoptEmbeddedLettersMock.mockReset().mockResolvedValue(undefined);
 	for (const mock of Object.values(versionHistoryMock)) mock.mockReset();
 	versionHistoryMock.writeVersion.mockResolvedValue({ id: "v" });
 	versionHistoryMock.saveSessionVersion.mockResolvedValue(undefined);
 	recordSlugChangeMock.mockReset();
 	publishResumeUpdatedMock.mockResolvedValue(undefined);
+});
+
+describe("create for a Saved application", () => {
+	const savedApplication = {
+		id: "job",
+		company: "Orbital",
+		role: "Robotics engineer",
+		status: "saved",
+		resumeId: null,
+		sentResumeVersionId: null,
+	};
+	const input = {
+		id: "new-draft",
+		userId: "u1",
+		name: "Orbital draft",
+		slug: "orbital-draft",
+		tags: ["robotics"],
+		locale: "en-US" as const,
+		data: defaultResumeData,
+		copyFromResumeId: "master",
+		jobApplicationId: "job",
+		reuseApplicationDraft: true,
+	};
+
+	const lockedRows = (result: unknown[]) => {
+		const lock = vi.fn(async () => result);
+		const where = vi.fn((_condition: unknown) => ({ for: lock }));
+		const from = vi.fn((_table: unknown) => ({ where }));
+		return { chain: { from }, from, where, lock };
+	};
+	const createHarness = (applicationRows: unknown[] = [savedApplication], draftRows?: unknown[]) => {
+		const owner = lockedRows([{ id: "u1" }]);
+		const source = lockedRows([{ folderId: "master-folder" }]);
+		const application = lockedRows(applicationRows);
+		const draft = lockedRows(draftRows ?? []);
+		const values = vi.fn(async (_value: unknown) => undefined);
+		const updateWhere = vi.fn(async (_condition: unknown) => undefined);
+		const set = vi.fn((_value: unknown) => ({ where: updateWhere }));
+		const tx = {
+			select: vi.fn()
+				.mockReturnValueOnce(owner.chain)
+				.mockReturnValueOnce(source.chain)
+				.mockReturnValueOnce(application.chain)
+				.mockReturnValueOnce(draft.chain),
+			insert: vi.fn((_table: unknown) => ({ values })),
+			update: vi.fn((_table: unknown) => ({ set })),
+		};
+		const committed = vi.fn();
+		const rolledBack = vi.fn();
+		dbMock.transaction.mockImplementationOnce(async (callback: (transaction: unknown) => Promise<unknown>) => {
+			try {
+				const result = await callback(tx);
+				committed();
+				return result;
+			} catch (error) {
+				rolledBack();
+				throw error;
+			}
+		});
+		return { tx, owner, source, application, draft, values, set, updateWhere, committed, rolledBack };
+	};
+
+	it("creates an owned tailored copy and selects it in the same owner-locked transaction", async () => {
+		const harness = createHarness();
+		await expect(resumeService.create(input)).resolves.toBe("new-draft");
+
+		expect(harness.owner.lock).toHaveBeenCalledWith("no key update");
+		expect(harness.owner.where).toHaveBeenCalledWith(["id", "u1"]);
+		expect(harness.source.lock).toHaveBeenCalledWith("key share");
+		expect(harness.source.where).toHaveBeenCalledWith([
+			["id", "master"], ["user_id", "u1"], ["trashed_at"],
+		]);
+		expect(harness.application.lock).toHaveBeenCalledWith("update");
+		expect(harness.application.where).toHaveBeenCalledWith([
+			["application_id", "job"], ["application_user_id", "u1"],
+		]);
+		expect(harness.values).toHaveBeenCalledWith(expect.objectContaining({
+			id: "new-draft",
+			userId: "u1",
+			folderId: "master-folder",
+			sourceResumeId: "master",
+			applicationId: "job",
+			profile: expect.objectContaining({
+				purpose: "tailored", company: "Orbital", targetRole: "Robotics engineer", score: null,
+			}),
+		}));
+		expect(harness.tx.update).toHaveBeenCalledWith(expect.objectContaining({ id: "application_id" }));
+		expect(harness.set).toHaveBeenCalledWith({ resumeId: "new-draft" });
+		expect(harness.updateWhere).toHaveBeenCalledWith([
+			["application_id", "job"], ["application_user_id", "u1"],
+		]);
+		expect(dbMock.update).not.toHaveBeenCalled();
+		expect(harness.committed).toHaveBeenCalledOnce();
+		expect(harness.rolledBack).not.toHaveBeenCalled();
+		expect(versionHistoryMock.writeVersion).toHaveBeenCalledWith(dbMock, expect.objectContaining({
+			resumeId: "new-draft", userId: "u1", kind: "created",
+		}));
+		expect(versionHistoryMock.writeVersion.mock.invocationCallOrder[0]).toBeGreaterThan(
+			harness.committed.mock.invocationCallOrder[0] ?? 0,
+		);
+		expect(publishResumeUpdatedMock).toHaveBeenCalledWith(expect.objectContaining({
+			resumeId: "new-draft", userId: "u1", mutation: "create",
+		}));
+	});
+
+	it("rejects an application absent from the owner's locked lookup without writing a draft", async () => {
+		const harness = createHarness([]);
+		await expect(resumeService.create(input)).rejects.toMatchObject({ code: "NOT_FOUND" });
+		expect(harness.application.where).toHaveBeenCalledWith([
+			["application_id", "job"], ["application_user_id", "u1"],
+		]);
+		expect(harness.tx.insert).not.toHaveBeenCalled();
+		expect(harness.tx.update).not.toHaveBeenCalled();
+		expect(adoptEmbeddedLettersMock).not.toHaveBeenCalled();
+		expect(versionHistoryMock.writeVersion).not.toHaveBeenCalled();
+		expect(publishResumeUpdatedMock).not.toHaveBeenCalled();
+		expect(harness.rolledBack).toHaveBeenCalledOnce();
+	});
+
+	it("rechecks that the source still belongs to the owner and is live before creating a job draft", async () => {
+		const harness = createHarness();
+		harness.source.lock.mockResolvedValueOnce([]);
+		await expect(resumeService.create(input)).rejects.toMatchObject({ code: "NOT_FOUND" });
+		expect(harness.application.lock).not.toHaveBeenCalled();
+		expect(harness.tx.insert).not.toHaveBeenCalled();
+		expect(harness.tx.update).not.toHaveBeenCalled();
+		expect(versionHistoryMock.writeVersion).not.toHaveBeenCalled();
+		expect(publishResumeUpdatedMock).not.toHaveBeenCalled();
+	});
+
+	it("lets a failed application link abort the insert transaction before history or notifications", async () => {
+		const harness = createHarness();
+		harness.updateWhere.mockRejectedValueOnce(new Error("Simulated transaction write failure"));
+		const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+		try {
+			await expect(resumeService.create(input)).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+		} finally {
+			log.mockRestore();
+		}
+		expect(harness.tx.insert).toHaveBeenCalledOnce();
+		expect(harness.rolledBack).toHaveBeenCalledOnce();
+		expect(harness.committed).not.toHaveBeenCalled();
+		expect(versionHistoryMock.writeVersion).not.toHaveBeenCalled();
+		expect(publishResumeUpdatedMock).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		{ status: "applied", sentResumeVersionId: null },
+		{ status: "saved", sentResumeVersionId: "submitted-version" },
+	])("rechecks submission under the application lock and aborts without partial writes: %j", async (submitted) => {
+		const harness = createHarness([{ ...savedApplication, ...submitted }]);
+		await expect(resumeService.create(input)).rejects.toMatchObject({ code: "CONFLICT" });
+		expect(harness.application.lock).toHaveBeenCalledWith("update");
+		expect(harness.tx.insert).not.toHaveBeenCalled();
+		expect(harness.tx.update).not.toHaveBeenCalled();
+		expect(adoptEmbeddedLettersMock).not.toHaveBeenCalled();
+		expect(versionHistoryMock.writeVersion).not.toHaveBeenCalled();
+		expect(publishResumeUpdatedMock).not.toHaveBeenCalled();
+		expect(harness.committed).not.toHaveBeenCalled();
+		expect(harness.rolledBack).toHaveBeenCalledOnce();
+	});
+
+	it("returns the same live linked tailored draft on retries without insert, history, or notification", async () => {
+		const harness = createHarness([{ ...savedApplication, resumeId: "existing-draft" }], [{
+			id: "existing-draft", isLocked: false, profile: { purpose: "tailored" },
+		}]);
+		await expect(resumeService.create(input)).resolves.toBe("existing-draft");
+		expect(harness.draft.lock).toHaveBeenCalledWith("update");
+		expect(harness.draft.where).toHaveBeenCalledWith([
+			["id", "existing-draft"], ["user_id", "u1"], ["resume_application_id", "job"],
+			["source_resume_id", "master"], ["trashed_at"],
+		]);
+		expect(harness.tx.insert).not.toHaveBeenCalled();
+		expect(harness.tx.update).not.toHaveBeenCalled();
+		expect(adoptEmbeddedLettersMock).not.toHaveBeenCalled();
+		expect(versionHistoryMock.writeVersion).not.toHaveBeenCalled();
+		expect(publishResumeUpdatedMock).not.toHaveBeenCalled();
+		expect(harness.committed).toHaveBeenCalledOnce();
+	});
+
+	it("preserves a locked tailored draft instead of silently replacing it on retry", async () => {
+		const harness = createHarness([{ ...savedApplication, resumeId: "locked-draft" }], [{
+			id: "locked-draft", isLocked: true, profile: { purpose: "tailored" },
+		}]);
+		await expect(resumeService.create(input)).rejects.toMatchObject({ code: "RESUME_LOCKED", status: 403 });
+		expect(harness.tx.insert).not.toHaveBeenCalled();
+		expect(harness.tx.update).not.toHaveBeenCalled();
+		expect(versionHistoryMock.writeVersion).not.toHaveBeenCalled();
+		expect(publishResumeUpdatedMock).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		{ label: "missing or mismatched lineage", rows: [] },
+		{ label: "general resume", rows: [{ id: "base", profile: { purpose: "general" } }] },
+	])("creates a new copy instead of reusing a $label", async ({ rows }) => {
+		const harness = createHarness([{ ...savedApplication, resumeId: "base" }], rows);
+		await expect(resumeService.create(input)).resolves.toBe("new-draft");
+		expect(harness.tx.insert).toHaveBeenCalledOnce();
+		expect(harness.set).toHaveBeenCalledWith({ resumeId: "new-draft" });
+		expect(versionHistoryMock.writeVersion).toHaveBeenCalledOnce();
+		expect(publishResumeUpdatedMock).toHaveBeenCalledOnce();
+	});
 });
 
 describe("versions.restore", () => {
@@ -484,3 +695,4 @@ describe("statistics.recordDownload", () => {
 		expect(where.mock.calls[0]?.[0]).toContainEqual(["trashed_at"]);
 	});
 });
+

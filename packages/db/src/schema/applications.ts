@@ -1,5 +1,7 @@
 import type {
 	AiMetadata,
+	ApplicationCapture,
+	ApplicationPreparation,
 	ApplicationClosedReason,
 	ApplicationStatus,
 	ApplicationTimelineEntry,
@@ -54,6 +56,10 @@ export const application = pg.pgTable(
 		sourceUrl: pg.text("source_url"),
 		jobDescription: pg.text("job_description"),
 		postingSource: pg.jsonb("posting_source").$type<PostingSource>(),
+		// Stable browser capture identity, scoped to this owner; absent on legacy/manual entries.
+		captureIdentity: pg.text("capture_identity"),
+		capture: pg.jsonb("capture").$type<ApplicationCapture>(),
+		preparation: pg.jsonb("preparation").$type<ApplicationPreparation>(),
 		// What the posting asks for, as read from it when the application was added.
 		requirements: pg.jsonb("requirements").notNull().$type<string[]>().default([]),
 		matchScore: pg.integer("match_score"),
@@ -79,5 +85,11 @@ export const application = pg.pgTable(
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date()),
 	},
-	(t) => [pg.index().on(t.userId), pg.index().on(t.userId, t.updatedAt.desc())],
+	(t) => [
+		pg.index().on(t.userId),
+		pg.index().on(t.userId, t.updatedAt.desc()),
+		pg.uniqueIndex("application_capture_identity_unique").on(t.userId, t.captureIdentity),
+		pg.index("application_queue_created_idx").on(t.userId, t.createdAt, t.id),
+	],
 );
+

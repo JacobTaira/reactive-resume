@@ -11,8 +11,14 @@ import { resumeDto } from "@reactive-resume/api/dto/resume";
 import { createResumePdfDownloadUrl } from "@reactive-resume/api/features/resume/export";
 import { env } from "@reactive-resume/env/server";
 import { readMcpFile } from "./files";
+import { registerLibraryTools } from "./library-tools";
+import { registerLatexTools } from "./latex-tools";
+import { compactCompileLog } from "./latex-context";
 import { MCP_TOOL_NAME } from "./mcp-tool-names";
+import { registerQueueTools } from "./queue-tools";
+import { registerQueueResumeTools } from "./queue-resume-tools";
 import { json, text, withErrorHandling } from "./results";
+import { readResumeContext } from "./resume-read";
 import { TOOL_META } from "./tool-meta";
 
 // ── Shared Helpers ───────────────���──────────────────────────────
@@ -57,6 +63,32 @@ export function registerTools(
 	requestHeaders: Headers,
 	authentication?: RequestAuthentication,
 ) {
+	server.registerTool(
+		T.compileResumeLatex,
+		TOOL_META[T.compileResumeLatex],
+		withErrorHandling(
+			"compiling LaTeX resume",
+			async (params: z.infer<(typeof TOOL_META)[typeof T.compileResumeLatex]["inputSchema"]>) => {
+				const { includeLog, expectedUpdatedAt, ...options } = params;
+				const result = await client.resume.latex.compile({
+					...options,
+					...(expectedUpdatedAt ? { expectedUpdatedAt: new Date(expectedUpdatedAt) } : {}),
+				});
+				const checks = result.success ? result.checks ?? null : null;
+				return json({
+					success: result.success,
+					...compactCompileLog(result.log, result.success, includeLog),
+					resumeUpdatedAt: result.resumeUpdatedAt ?? null,
+					checks,
+					diagnosticsNote: checks
+						? null
+						: result.success
+							? "The compiler returned no diagnostic checks. Page count, overflow and text extraction remain unverified."
+							: "Compilation failed; PDF diagnostics are unavailable.",
+				});
+			},
+		),
+	);
 	// ── List Resumes ──────────────────���───────────────────────────
 	server.registerTool(
 		T.listResumes,
@@ -90,11 +122,14 @@ export function registerTools(
 	server.registerTool(
 		T.getResume,
 		TOOL_META[T.getResume],
-		withErrorHandling("getting resume", async ({ id }: { id: string }) => {
-			const resume = await client.resume.getById({ id });
-
-			return text(JSON.stringify(resume.data, null, 2), resume);
-		}),
+		withErrorHandling(
+			"getting resume",
+			async (params: z.infer<(typeof TOOL_META)[typeof T.getResume]["inputSchema"]>) => {
+				const resume = await readResumeContext(client, params);
+				// The combined form exposes timestamps and lineage even in clients that only display text content.
+				return params.includeMetadata ? json(resume) : text(JSON.stringify(resume.data, null, 2), resume);
+			},
+		),
 	);
 
 	// ── Download Resume PDF ───────────────────────────────────────
@@ -610,4 +645,10 @@ export function registerTools(
 				json(await client.applications.ai.draftMessage({ id, kind })),
 		),
 	);
+
+	registerLibraryTools(server, client);
+	registerLatexTools(server, client);
+	registerQueueTools(server, client);
+	registerQueueResumeTools(server, client);
 }
+

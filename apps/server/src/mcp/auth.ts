@@ -11,6 +11,14 @@ export async function authenticateRequest(request: Request) {
 	const headers = new Headers(request.headers);
 	headers.delete("cookie");
 	const authentication = await resolveAuthenticationFromRequestHeaders(headers);
-	if (authentication) return authentication;
+	// Capture-only keys are for the extension endpoint, never account-wide MCP access.
+	if (
+		authentication?.permissions.some(
+			(permission) => permission === "read" || permission === "write" || permission === "delete",
+		)
+	) {
+		return authentication;
+	}
 	throw new AuthError();
 }
+

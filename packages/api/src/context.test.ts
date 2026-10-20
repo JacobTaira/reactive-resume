@@ -22,7 +22,7 @@ vi.mock("@reactive-resume/db/client", () => ({ db: dbMock }));
 vi.mock("@reactive-resume/db/schema", () => ({ user: { __table: "user" } }));
 vi.mock("drizzle-orm", () => ({ eq: () => "EQ" }));
 
-const { resolveUserFromRequestHeaders, resolveAuthenticationFromRequestHeaders, protectedProcedure } =
+const { resolveUserFromRequestHeaders, resolveAuthenticationFromRequestHeaders, protectedProcedure, captureProcedure } =
 	await import("./context");
 
 const setupDbResolves = (userResult: unknown) => {
@@ -138,6 +138,9 @@ describe("credential authorization", () => {
 		{ permissions: { api: ["write"] }, method: "DELETE" as const, allowed: false },
 		{ permissions: null, method: "POST" as const, allowed: true },
 		{ permissions: {}, method: "GET" as const, allowed: false },
+		{ permissions: { api: ["capture"] }, method: "GET" as const, allowed: false },
+		{ permissions: { api: ["capture"] }, method: "POST" as const, allowed: false },
+		{ permissions: { api: ["capture"] }, method: "DELETE" as const, allowed: false },
 	])("enforces API-key permissions at procedure execution: %j", async ({ permissions, method, allowed }) => {
 		reset();
 		authMock.api.verifyApiKey.mockResolvedValue({ valid: true, key: { referenceId: "owner", permissions } });
@@ -169,3 +172,60 @@ describe("credential authorization", () => {
 		expect(authMock.api.getSession).not.toHaveBeenCalled();
 	});
 });
+
+describe("capture credentials", () => {
+	it.each([
+		{ permissions: { api: ["capture"] }, allowed: true },
+		{ permissions: { api: ["read", "write", "delete"] }, allowed: true },
+		{ permissions: null, allowed: true },
+		{ permissions: { api: ["read"] }, allowed: false },
+		{ permissions: {}, allowed: false },
+	])("authorizes capture-only and existing write keys: %j", async ({ permissions, allowed }) => {
+		reset();
+		authMock.api.verifyApiKey.mockResolvedValue({ valid: true, key: { referenceId: "owner", permissions } });
+		setupDbResolves({ id: "owner" });
+		const capture = createProcedureClient(captureProcedure.route({ method: "POST" }).handler(() => "captured"), {
+			context: { locale: "en-US", reqHeaders: new Headers({ "x-api-key": "key" }) },
+		});
+		if (allowed) await expect(capture(undefined)).resolves.toBe("captured");
+		else await expect(capture(undefined)).rejects.toMatchObject({ code: "FORBIDDEN" });
+	});
+
+	it.each(["session", "bearer"] as const)("rejects %s fallback after an invalid API key", async (method) => {
+		reset();
+		authMock.api.verifyApiKey.mockResolvedValue({ valid: false });
+		if (method === "session") authMock.api.getSession.mockResolvedValue({ user: { id: "owner" } });
+		else verifyOAuthTokenMock.mockResolvedValue({ sub: "owner", scope: "api:read api:write api:delete" });
+		setupDbResolves({ id: "owner" });
+		const headers = new Headers({ "x-api-key": "invalid" });
+		if (method === "session") headers.set("cookie", "session=valid");
+		else headers.set("authorization", "Bearer valid-token");
+		const capture = createProcedureClient(captureProcedure.route({ method: "POST" }).handler(() => "captured"), {
+			context: { locale: "en-US", reqHeaders: headers },
+		});
+		await expect(capture(undefined)).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	});
+
+	it("requires the API-key header even with a server-provided authentication context", async () => {
+		const capture = createProcedureClient(captureProcedure.route({ method: "GET" }).handler(() => "connected"), {
+			context: {
+				locale: "en-US",
+				reqHeaders: new Headers(),
+				authentication: {
+					user: {
+						id: "owner",
+						name: "Owner",
+						email: "owner@example.test",
+						emailVerified: true,
+						createdAt: new Date(),
+						updatedAt: new Date(),
+					},
+					method: "apiKey",
+					permissions: ["capture"],
+				},
+			},
+		});
+		await expect(capture(undefined)).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	});
+});
+

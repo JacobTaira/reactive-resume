@@ -1,10 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import z from "zod";
-import { workspaceTabSchema } from "@reactive-resume/schema/career";
-import { Workspace } from "@/features/career/workspace/shell";
 
 export const Route = createFileRoute("/dashboard/applications/$applicationId/{-$tab}")({
-	// Sheets and dialogs are URL state, so back, forward, reload and notification links all open them.
+	// Accept legacy workspace search fields so existing links remain compatible during the redirect.
 	validateSearch: z.object({
 		// true: the newest conversation about this job; "new": a fresh one; otherwise that conversation's id.
 		coach: z
@@ -17,12 +15,11 @@ export const Route = createFileRoute("/dashboard/applications/$applicationId/{-$
 		speak: z.boolean().optional().catch(undefined),
 		story: z.string().min(1).optional().catch(undefined),
 	}),
-	component: RouteComponent,
+	beforeLoad: ({ params }) => {
+		throw redirect({
+			to: "/dashboard/applications",
+			search: { applicationId: params.applicationId, q: "", view: "list", closed: false, create: false },
+			replace: true,
+		});
+	},
 });
-
-function RouteComponent() {
-	const { applicationId, tab } = Route.useParams();
-	const search = Route.useSearch();
-	const parsed = workspaceTabSchema.safeParse(tab);
-	return <Workspace applicationId={applicationId} tab={parsed.success ? parsed.data : undefined} search={search} />;
-}

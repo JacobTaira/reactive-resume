@@ -41,7 +41,7 @@ export function getResumeExportData(data: ResumeData, target: ResumeExportTarget
 		for (const id of visibleCoverLetterIds) pages.push({ fullWidth: true, main: [id], sidebar: [] });
 	}
 
-	return {
+	const exported: ResumeData = {
 		...data,
 		customSections:
 			target === "cover-letter"
@@ -55,4 +55,7 @@ export function getResumeExportData(data: ResumeData, target: ResumeExportTarget
 			},
 		},
 	};
+	// A linked structured cover letter uses its own content, not the resume's TeX project.
+	if (target === "cover-letter") delete exported.latex;
+	return exported;
 }

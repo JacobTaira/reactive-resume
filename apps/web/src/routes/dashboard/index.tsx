@@ -7,6 +7,8 @@ const defaults = { type: "all", q: "", tags: [], public: false, sort: "edited" }
 
 export const Route = createFileRoute("/dashboard/")({
 	validateSearch: z.object({
+		area: z.enum(["documents", "companies"]).optional().catch(undefined),
+		folderId: z.string().optional().catch(undefined),
 		type: z.enum(["all", "resume", "letter"]).default("all").catch("all"),
 		q: z.string().default("").catch(""),
 		tags: z.array(z.string()).default([]).catch([]),
@@ -43,3 +45,4 @@ function RouteComponent() {
 		/>
 	);
 }
+

@@ -1,5 +1,6 @@
 import z from "zod";
 import { paginationShape } from "../pagination";
+import { resumeProfileSchema } from "./library";
 
 const documentTypeSchema = z.enum(["resume", "letter"]).describe("resume, or letter (a saved cover letter).");
 const documentRefSchema = z.object({
@@ -18,6 +19,10 @@ const documentSchema = z.object({
 	trashedAt: z.date().nullable().describe("When the document moved to Trash; null while it's live."),
 	createdAt: z.date(),
 	updatedAt: z.date(),
+	folderId: z.string().nullable(),
+	sourceResumeId: z.string().nullable(),
+	companyId: z.string().nullable(),
+	profile: resumeProfileSchema.nullable().describe("Private agent indexing metadata; null for letters."),
 	application: z
 		.object({ id: z.string(), company: z.string(), role: z.string() })
 		.nullable()
@@ -32,6 +37,7 @@ export const documentsDto = {
 			.object({
 				...paginationShape,
 				trashed: z.boolean().default(false).describe("List the documents in Trash instead."),
+				includeProfile: z.boolean().optional().describe("Omit private indexing/audit profiles when false; existing clients include them by default."),
 			})
 			.default({ trashed: false }),
 		output: z.array(documentSchema),
@@ -65,8 +71,10 @@ export const documentsDto = {
 		input: z.object({
 			resumeId: z.string().min(1).describe("The resume to copy."),
 			applicationId: z.string().min(1).optional().describe("The job the copy is for; omit for no job yet."),
+			reuseExisting: z.boolean().optional().describe("Resume an existing live tailored draft for this Saved job and source instead of creating another copy. Use true when processing the tailoring queue."),
 			name: z.string().trim().min(1).max(100).optional().describe("Defaults to “{source} — {company}”."),
 		}),
 		output: z.string().describe("The ID of the copy."),
 	},
 };
+

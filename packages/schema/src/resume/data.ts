@@ -1,6 +1,7 @@
 import z from "zod";
 import { templateSchema } from "../templates";
 import { dateFormatSchema, resumeDatesSchema, syncResumeDates, upgradeResumeDates } from "./dates";
+import { latexProjectSchema } from "./latex";
 import { semanticStylesheetSchema } from "./stylesheet";
 
 const iconSchema = z
@@ -764,6 +765,7 @@ export const metadataSchema = z.object({
 });
 
 export const resumeDataSchema = z.looseObject({
+	latex: latexProjectSchema.optional().describe("LaTeX source project. When present, this source controls the PDF; structured section fields are not synchronized with it."),
 	picture: pictureSchema.describe("Configuration for photograph displayed on the resume"),
 	basics: basicsSchema.describe(
 		"Basic information about the author, such as name, email, phone, location, and website",

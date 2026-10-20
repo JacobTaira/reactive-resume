@@ -5,10 +5,14 @@ import { parseReactiveResumeJSON } from "@reactive-resume/import/reactive-resume
 import { parseReactiveResumeV4JSON } from "@reactive-resume/import/reactive-resume-v4-json";
 import { convertLegacyStylesheet, needsLegacyStyleConversion } from "@reactive-resume/pdf/semantic-legacy";
 import { forEachDatedEntry } from "@reactive-resume/schema/resume/dates";
+import { defaultResumeData } from "@reactive-resume/schema/resume/default";
+import { latexProjectSchema, LATEX_LIMITS } from "@reactive-resume/schema/resume/latex";
 import { client } from "@/libs/orpc/client";
 
 /** What a file holds, read from its bytes and shape rather than its extension or type. */
 export type ImportKind =
+	| "latex"
+	| "latex-zip"
 	| "pdf"
 	| "docx"
 	| "linkedin"
@@ -58,6 +62,7 @@ export function detectJsonImportKind(parsed: unknown): ImportKind | null {
 export async function detectImportKind(file: File): Promise<ImportKind | null> {
 	const name = file.name.toLowerCase();
 	const mime = file.type;
+	if (name.endsWith(".tex") || (name.endsWith(".txt") && (await file.slice(0, 1024).text()).includes("\\documentclass"))) return "latex";
 
 	const header = new Uint8Array(await file.slice(0, 4).arrayBuffer());
 	const isPdf = header[0] === 0x25 && header[1] === 0x50 && header[2] === 0x44 && header[3] === 0x46; // "%PDF"
@@ -71,11 +76,16 @@ export async function detectImportKind(file: File): Promise<ImportKind | null> {
 	// Word documents are also ZIPs, so a bare "PK" header is ambiguous. LinkedIn's export is
 	// only ever named with a .zip extension, so check that first and let it win the tie.
 	if (name.endsWith(".zip") || mime === "application/zip") {
+		if (file.size > LATEX_LIMITS.archiveBytes) throw new ImportError(t`ZIP imports must be 8 MiB or smaller.`);
 		const { unzipSync } = await import("fflate");
 		let accountArchive = false;
+		let hasLatex = false;
 		try {
 			const files = unzipSync(new Uint8Array(await file.arrayBuffer()), {
-				filter: (entry) => entry.name === "account.json",
+				filter: (entry) => {
+					if (entry.name.toLowerCase().endsWith(".tex")) hasLatex = true;
+					return entry.name === "account.json";
+				},
 			});
 			accountArchive = "account.json" in files;
 		} catch {
@@ -86,6 +96,7 @@ export async function detectImportKind(file: File): Promise<ImportKind | null> {
 				t`Extract this account archive, then import a JSON file from its resumes or letters folder.`,
 			);
 		}
+		if (hasLatex) return "latex-zip";
 		return "linkedin";
 	}
 
@@ -138,6 +149,18 @@ export async function readResumeFile(
 	kind: Exclude<ImportKind, "cover-letter-json">,
 	options: { aiAvailable: boolean; onRead?: (note: string) => void },
 ): Promise<ResumeData> {
+	if (kind === "latex" || kind === "latex-zip") {
+		if (file.size > (kind === "latex" ? LATEX_LIMITS.fileBytes : LATEX_LIMITS.archiveBytes)) {
+			throw new ImportError(t`LaTeX files must be at most 2 MiB; source ZIPs must be at most 8 MiB.`);
+		}
+		const data = structuredClone(defaultResumeData);
+		data.basics.name = file.name.replace(/\.(tex|txt|zip)$/i, "").slice(0, 100) || "LaTeX resume";
+		data.metadata.page.format = "letter";
+		data.latex = kind === "latex-zip" ? await client.resume.latex.unpack({ archive: await fileToBase64(file) }) :
+			latexProjectSchema.parse({ engine: "pdflatex", entrypoint: "main.tex", files: [{ path: "main.tex", encoding: "utf-8", content: await file.text() }] });
+		options.onRead?.(t`LaTeX source preserved`);
+		return data;
+	}
 	if (kind === "reactive-resume-json" || kind === "reactive-resume-v4-json" || kind === "json-resume-json") {
 		const text = await file.text();
 		options.onRead?.(t`JSON read`);

@@ -336,6 +336,8 @@ importers:
         specifier: 'catalog:'
         version: 4.150.0(@cloudflare/workers-types@5.20261013.1)(@types/node@26.6.5)
 
+  apps/extension: {}
+
   apps/server:
     dependencies:
       '@ai-sdk/anthropic':
@@ -16611,3 +16613,4 @@ snapshots:
       use-sync-external-store: 1.7.0(react@19.3.0)
 
   zwitch@2.0.4: {}
+

@@ -15,6 +15,7 @@ import {
 	careerStorySchema,
 } from "../../dto/career";
 import { resumeDto } from "../../dto/resume";
+import { libraryDto, resumeProfileSchema } from "../../dto/library";
 import { authService } from "./service";
 
 export const authRouter = {
@@ -43,13 +44,13 @@ export const authRouter = {
 			operationId: "createScopedApiKey",
 			summary: "Create an API key",
 			description:
-				"Create a read-only or full-access API key. Requires a browser session; keys and OAuth tokens cannot create credentials.",
+				"Create a read-only, capture-only, or full-access API key. Capture-only keys can save job postings and test the capture connection, but cannot read or edit account documents. Requires a browser session; keys and OAuth tokens cannot create credentials.",
 		})
 		.input(
 			z.object({
 				name: z.string().trim().min(1).max(64),
 				expiresIn: z.number().int().positive().nullable(),
-				access: z.enum(["read", "full"]),
+				access: z.enum(["read", "full", "capture"]),
 			}),
 		)
 		.output(z.object({ key: z.string() }))
@@ -61,7 +62,9 @@ export const authRouter = {
 					userId: context.user.id,
 					name: input.name,
 					expiresIn: input.expiresIn,
-					permissions: { api: input.access === "read" ? ["read"] : ["read", "write", "delete"] },
+					permissions: {
+						api: input.access === "full" ? ["read", "write", "delete"] : [input.access],
+					},
 				},
 			});
 			return { key: result.key };
@@ -75,7 +78,7 @@ export const authRouter = {
 			operationId: "exportAccountData",
 			summary: "Export user account data",
 			description:
-				"Returns a JSON-serializable export of the authenticated user's profile, documents, applications, career knowledge, preparation, schedules and coaching conversations. Images remain URL references; coaching attachments include storage references. Secrets such as password hashes, tokens, and API keys are never included. Requires authentication.",
+				"Returns a JSON-serializable export of the authenticated user's profile, documents, resume folders, company research, applications, career knowledge, preparation, schedules and coaching conversations. Images remain URL references; coaching attachments include storage references. Secrets such as password hashes, tokens, and API keys are never included. Requires authentication.",
 			successDescription: "The user's exported account data.",
 		})
 		.input(z.object({}).optional())
@@ -93,9 +96,18 @@ export const authRouter = {
 					createdAt: true,
 					updatedAt: true,
 				}),
-				resumes: z.array(resumeDto.getById.output.omit({ hasPassword: true, applicationId: true })),
+				resumes: z.array(resumeDto.getById.output.omit({ hasPassword: true, applicationId: true }).extend({
+					folderId: z.string().nullable(),
+					sourceResumeId: z.string().nullable(),
+					companyId: z.string().nullable(),
+					profile: resumeProfileSchema,
+				})),
 				coverLetters: z.array(coverLetterSchema),
 				applications: z.array(applicationDto.getById.output),
+				library: z.object({
+					folders: libraryDto.folders.list.output,
+					companies: z.array(libraryDto.companies.getById.output),
+				}),
 				career: z.object({
 					profile: careerProfileDataSchema,
 					facts: z.array(careerFactSchema.omit({ usedBy: true, company: true })),
@@ -140,3 +152,4 @@ export const authRouter = {
 			await authService.deleteAccount({ userId: context.user.id });
 		}),
 };
+

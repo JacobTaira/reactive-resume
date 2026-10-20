@@ -22,6 +22,9 @@ import { SegmentedControl, SegmentedControlItem } from "@reactive-resume/ui/comp
 import { Skeleton } from "@reactive-resume/ui/components/skeleton";
 import { Tabs, TabsCount, TabsList, TabsTrigger } from "@reactive-resume/ui/components/tabs";
 import { cn } from "@reactive-resume/utils/style";
+import { CompaniesLibrary } from "./companies-library";
+import { FolderNavigation } from "./folder-navigation";
+import { ResumeDetailsDialog } from "./resume-details-dialog";
 import { LinkApplicationDialog, TagsDialog, useBatchActions } from "./document-actions";
 import { DocumentCard, DocumentRow } from "./document-card";
 import { collectTags, filterDocuments } from "./filter";
@@ -32,6 +35,8 @@ import { isEditableElementFocused } from "@/features/resume/builder/draft";
 import { orpc } from "@/libs/orpc/client";
 
 export type DocumentsSearch = {
+	area?: "documents" | "companies" | undefined;
+	folderId?: string | undefined;
 	type: DocumentTypeFilter;
 	q: string;
 	tags: string[];
@@ -51,11 +56,34 @@ type DocumentsPageProps = {
  * chips once tags exist. A file dropped anywhere on the page imports straight away.
  */
 export function DocumentsPage({ search, onSearchChange }: DocumentsPageProps) {
+	const area = search.area ?? "documents";
+	return <div className="mx-auto grid w-full max-w-[1180px] content-start gap-5 px-8 py-8 max-sm:px-4 max-sm:py-5">
+		<h1 className="font-display text-[30px] leading-9 font-medium">
+			{area === "companies" ? <Trans>Companies</Trans> : <Trans>Documents</Trans>}
+		</h1>
+		<Tabs value={area} onValueChange={(next) => onSearchChange({ area: next as "documents" | "companies" })}>
+			<TabsList aria-label={t`Library area`}>
+				<TabsTrigger value="documents">
+					<Icon name="file-text" size={16} />
+					<Trans>Documents</Trans>
+				</TabsTrigger>
+				<TabsTrigger value="companies">
+					<Icon name="building-office" size={16} />
+					<Trans>Companies</Trans>
+				</TabsTrigger>
+			</TabsList>
+		</Tabs>
+		{area === "companies" ? <CompaniesLibrary /> : <DocumentLibrary search={search} onSearchChange={onSearchChange} />}
+	</div>;
+}
+
+function DocumentLibrary({ search, onSearchChange }: DocumentsPageProps) {
 	const openDialog = useDialogStore((state) => state.openDialog);
 	const searchRef = useRef<HTMLInputElement>(null);
 	const [tagsFor, setTagsFor] = useState<DocumentSummary[] | null>(null);
 	const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
 	const [linkFor, setLinkFor] = useState<DocumentSummary | null>(null);
+	const [detailsFor, setDetailsFor] = useState<DocumentSummary | null>(null);
 	// Grid and list animate in only after a switch, never on the page's first render.
 	const [viewSwitched, setViewSwitched] = useState(false);
 	const {
@@ -89,15 +117,18 @@ export function DocumentsPage({ search, onSearchChange }: DocumentsPageProps) {
 	});
 
 	const all = documents ?? [];
-	const shown = filterDocuments(all, search);
-	const tags = collectTags(all);
+	const scoped = search.folderId === undefined ? all : all.filter((document) =>
+		document.type === "resume" && (document.folderId ?? "") === search.folderId,
+	);
+	const shown = filterDocuments(scoped, search);
+	const tags = collectTags(scoped);
 	const counts = {
-		all: all.length,
-		resume: all.filter((document) => document.type === "resume").length,
-		letter: all.filter((document) => document.type === "letter").length,
+		all: scoped.length,
+		resume: scoped.filter((document) => document.type === "resume").length,
+		letter: scoped.filter((document) => document.type === "letter").length,
 	};
-	const hasPublic = all.some((document) => document.isPublic);
-	const filtered = search.type !== "all" || search.q.trim() !== "" || search.tags.length > 0 || search.public === true;
+	const hasPublic = scoped.some((document) => document.isPublic);
+	const filtered = search.folderId !== undefined || search.type !== "all" || search.q.trim() !== "" || search.tags.length > 0 || search.public === true;
 	// Actions apply to the selected documents the filters show.
 	const selection = shown.filter((document) => selected.has(documentKey(document)));
 	const selecting = selection.length > 0;
@@ -113,26 +144,32 @@ export function DocumentsPage({ search, onSearchChange }: DocumentsPageProps) {
 	const itemProps = (document: DocumentSummary) => ({
 		onTags: (document: DocumentSummary) => setTagsFor([document]),
 		onLink: setLinkFor,
+		onDetails: setDetailsFor,
 		selected: selected.has(documentKey(document)),
 		onSelectedChange: (on: boolean) => setSelectedFor(document, on),
 		selecting,
 	});
 
 	useHotkey("Escape", () => {
-		if (!selecting || tagsFor || linkFor || isEditableElementFocused()) return;
+		if (!selecting || tagsFor || linkFor || detailsFor || isEditableElementFocused()) return;
 		selectAll(false);
 	});
 
 	return (
-		<div className="mx-auto grid w-full max-w-[1180px] content-start gap-5 px-8 py-8 max-sm:px-4 max-sm:py-5">
-			<h1 className="font-display text-[30px] leading-9 font-medium">
-				<Trans>Documents</Trans>
-			</h1>
+		<div className="grid gap-5">
+			<FolderNavigation
+				onNewResume={() => openDialog("document.new", { folderId: search.folderId })}
+				folderId={search.folderId}
+				onChange={(folderId) => {
+					selectAll(false);
+					onSearchChange({ folderId, type: "all" });
+				}}
+			/>
 
 			{isError && <LibraryError retrying={isFetching} onRetry={() => void refetch()} />}
 
 			{isError && !documents ? null : !isPending && all.length === 0 ? (
-				<FirstRun onChooseFile={() => openDialog("document.new", undefined)} />
+				<FirstRun folderId={search.folderId} onChooseFile={() => openDialog("document.new", { folderId: search.folderId })} />
 			) : (
 				<>
 					<div className="flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -220,13 +257,13 @@ export function DocumentsPage({ search, onSearchChange }: DocumentsPageProps) {
 								)}
 							</p>
 							<p className="text-sm text-ink-2">
-								<Trans>Search covers titles, tags and linked applications.</Trans>
+								<Trans>Search covers titles, job metadata, keywords, tags and linked applications.</Trans>
 							</p>
 							{filtered && (
 								<Button
 									variant="secondary"
 									className="mt-2"
-									onClick={() => onSearchChange({ q: "", tags: [], type: "all", public: false })}
+									onClick={() => onSearchChange({ q: "", tags: [], type: "all", public: false, folderId: undefined })}
 								>
 									<Trans>Clear search and filters</Trans>
 								</Button>
@@ -304,9 +341,10 @@ export function DocumentsPage({ search, onSearchChange }: DocumentsPageProps) {
 				onClear={() => selectAll(false)}
 				onTags={() => setTagsFor(selection)}
 			/>
-			<DropToImport />
+			<DropToImport folderId={search.folderId} />
 			<TagsDialog documents={tagsFor} onClose={() => setTagsFor(null)} />
 			<LinkApplicationDialog document={linkFor} onClose={() => setLinkFor(null)} />
+			<ResumeDetailsDialog document={detailsFor} documents={all} onClose={() => setDetailsFor(null)} />
 		</div>
 	);
 }
@@ -335,8 +373,9 @@ function storeView(view: "grid" | "list") {
 }
 
 /** The first visit: import is the filled button here, and only here. */
-function FirstRun({ onChooseFile }: { onChooseFile: () => void }) {
-	const { startBlank, trySample, creating } = useStartDocument();
+type FirstRunProps = { onChooseFile: () => void; folderId: string | undefined };
+function FirstRun({ onChooseFile, folderId }: FirstRunProps) {
+	const { startBlank, trySample, creating } = useStartDocument(undefined, folderId);
 
 	return (
 		<section className="grid max-w-xl gap-4 pt-4 transition-[opacity,translate] duration-emphasized ease-enter starting:translate-y-2 starting:opacity-0">
@@ -554,7 +593,8 @@ function LibrarySkeleton({ view }: { view: "grid" | "list" }) {
 }
 
 /** A file dragged anywhere over the page shows the drop target, and dropping it starts the import. */
-function DropToImport() {
+type DropToImportProps = { folderId: string | undefined };
+function DropToImport({ folderId }: DropToImportProps) {
 	const openDialog = useDialogStore((state) => state.openDialog);
 	const [dragging, setDragging] = useState(false);
 
@@ -581,7 +621,7 @@ function DropToImport() {
 			event.preventDefault();
 			// A drop inside an open dialog is that dialog's to handle.
 			if (useDialogStore.getState().open) return;
-			openDialog("document.new", { file });
+			openDialog("document.new", { file, folderId });
 		};
 
 		window.addEventListener("dragenter", onEnter);
@@ -594,7 +634,7 @@ function DropToImport() {
 			window.removeEventListener("dragover", onOver);
 			window.removeEventListener("drop", onDrop);
 		};
-	}, [openDialog]);
+	}, [openDialog, folderId]);
 
 	return (
 		<div
@@ -616,3 +656,4 @@ function DropToImport() {
 		</div>
 	);
 }
+

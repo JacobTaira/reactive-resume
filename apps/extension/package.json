@@ -1,0 +1,11 @@
+{
+	"name": "@reactive-resume/extension",
+	"version": "0.1.3",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "node --experimental-vm-modules --test tests/*.test.*js",
+		"test:ci": "node --experimental-vm-modules --test tests/*.test.*js",
+		"package": "python3 scripts/package.py"
+	}
+}

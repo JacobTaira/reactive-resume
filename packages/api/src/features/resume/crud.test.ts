@@ -5,6 +5,7 @@ import { defaultResumeData } from "@reactive-resume/schema/resume/default";
 const mocks = vi.hoisted(() => ({
 	create: vi.fn(),
 	update: vi.fn(),
+	getById: vi.fn(),
 	snapshot: vi.fn(),
 }));
 
@@ -23,6 +24,7 @@ vi.mock("./service", () => ({
 	resumeService: {
 		create: mocks.create,
 		update: mocks.update,
+		getById: mocks.getById,
 		versions: { snapshot: mocks.snapshot },
 	},
 }));
@@ -35,6 +37,7 @@ describe("resume write route validation", () => {
 		mocks.create.mockResolvedValue("resume-id");
 		mocks.update.mockResolvedValue({});
 		mocks.snapshot.mockResolvedValue(undefined);
+		mocks.getById.mockResolvedValue({ id: "original", name: "Master", tags: ["robotics"], data: defaultResumeData });
 	});
 
 	it.each(["import", "update"] as const)("rejects invalid %s input before calling persistence", async (operation) => {
@@ -54,6 +57,18 @@ describe("resume write route validation", () => {
 		expect(mocks.snapshot).not.toHaveBeenCalled();
 	});
 
+	it("duplicates the owned source with atomic folder and lineage context", async () => {
+		const data = structuredClone(defaultResumeData);
+		data.latex = { engine: "pdflatex", entrypoint: "main.tex", files: [{ path: "main.tex", encoding: "utf-8", content: "\\documentclass{article}\\begin{document}Evidence\\end{document}" }] };
+		mocks.getById.mockResolvedValue({ id: "original", name: "Master", tags: ["robotics"], data });
+		const client = createRouterClient(crudRouter, {
+			context: { locale: "en-US", reqHeaders: new Headers(), user: { id: "owner" } } as never,
+		});
+		await expect(client.duplicate({ id: "original", name: "Robotics draft" })).resolves.toBe("resume-id");
+		expect(mocks.getById).toHaveBeenCalledWith({ id: "original", userId: "owner" });
+		expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ copyFromResumeId: "original", userId: "owner", data: expect.objectContaining({ latex: data.latex }) }));
+	});
+
 	it.each([false, true])("puts the account holder's name on a new resume (sample data: %s)", async (withSampleData) => {
 		const client = createRouterClient(crudRouter, {
 			context: { locale: "en-US", reqHeaders: new Headers(), user: { id: "user-id", name: "Sam Taylor" } } as never,
@@ -69,3 +84,4 @@ describe("resume write route validation", () => {
 		);
 	});
 });
+

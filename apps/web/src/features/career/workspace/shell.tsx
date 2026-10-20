@@ -435,12 +435,6 @@ function WorkspaceHeader({ application, onAskCoach }: WorkspaceHeaderProps) {
 							))}
 						</div>
 					)}
-					{application.status === "offer" && (
-						<Link to="/dashboard/career/offers" className={cn(buttonVariants({ variant: "secondary" }))}>
-							<Icon name="scales" size={18} />
-							<Trans>Compare offers</Trans>
-						</Link>
-					)}
 					<Button
 						className="bg-accent-soft text-accent-text hover:bg-accent-soft hover:brightness-95"
 						onClick={onAskCoach}
@@ -657,3 +651,4 @@ function ContextColumn({ application, interview, now, onEdit }: ContextColumnPro
 		</>
 	);
 }
+

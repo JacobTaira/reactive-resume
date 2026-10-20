@@ -38,6 +38,19 @@ export function NavigationCommandGroup() {
 
 				<CommandItem
 					disabled={!session}
+					keywords={[t`Companies`, t`Company research`]}
+					value="navigation.companies"
+					onSelect={async () => {
+						await navigate({ to: "/dashboard", search: { area: "companies" } });
+						reset();
+					}}
+				>
+					<Icon name="building-office" size={16} />
+					<Trans>Companies</Trans>
+				</CommandItem>
+
+				<CommandItem
+					disabled={!session}
 					keywords={[t`New document`, t`Create`, t`Import`]}
 					value="navigation.documents.new"
 					onSelect={() => {
@@ -141,3 +154,4 @@ export function NavigationCommandGroup() {
 		</>
 	);
 }
+

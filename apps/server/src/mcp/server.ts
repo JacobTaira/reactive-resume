@@ -12,6 +12,7 @@ import {
 	registerResources,
 	registerTools,
 	registerToolDiscovery,
+	TAILORING_PREFERENCES,
 } from "@reactive-resume/mcp";
 import { appVersion } from "../app-version";
 import { getRequestLocale } from "../rpc/locale";
@@ -56,10 +57,10 @@ export function createMcpServer(
 	const server = new McpServer(buildMcpServerInfo(appVersion), {
 		instructions: [
 			"Reactive Resume holds the user's resumes, cover letters and job applications.",
-			`Find resume IDs with \`${MCP_TOOL_NAME.listResumes}\` and read one with \`${MCP_TOOL_NAME.getResume}\`; the resume JSON Schema is the \`resume://_meta/schema\` resource.`,
-			`Edit resume content with JSON Patch through \`${MCP_TOOL_NAME.patchResume}\`, and change a resume's name, slug, tags or public visibility with \`${MCP_TOOL_NAME.updateResume}\`.`,
-			`Track job applications with the application tools, starting from \`${MCP_TOOL_NAME.listApplications}\`.`,
-			`Get a short-lived PDF link with \`${MCP_TOOL_NAME.downloadResumePdf}\`; export cover letters with \`${MCP_TOOL_NAME.exportCoverLetter}\`.`,
+			TAILORING_PREFERENCES,
+			`For queued LaTeX jobs: \`${MCP_TOOL_NAME.listTailoringQueue}\`, then \`${MCP_TOOL_NAME.prepareQueuedResume}\`, reason about numberedSource and section IDs, then \`${MCP_TOOL_NAME.finishQueuedResume}\` with sectionEdits/lineEdits. Delete sections by ID; send only final replacement text, never the old text being removed. Preamble, PDF metadata and header are locked; complete section removal includes its local spacing. These operations handle copying, linkage, claims, saved timestamps and server PDF checks.`,
+			"Preparation includes compact related-resume references and saved company notes. Read another source only when its factual evidence is useful. Do not create local files, run local TeX, calculate checksums, fetch PDFs or write detailed metadata reports during this routine.",
+			`For other document work, find unknown IDs with \`${MCP_TOOL_NAME.listResumes}\`, read LaTeX with \`${MCP_TOOL_NAME.readResumeLatex}\` and ordinary resumes with \`${MCP_TOOL_NAME.getResume}\`. The resume JSON Schema is the \`resume://_meta/schema\` resource.`,
 			"Tools named api_* expose the rest of the Reactive Resume API. Tools that involve passwords, API keys or AI provider keys return a link to finish in the app.",
 		].join(" "),
 	});
@@ -81,3 +82,4 @@ export function createMcpServer(
 
 	return server;
 }
+

@@ -7,6 +7,7 @@ import z from "zod";
 import { resumePatchOperationsSchema } from "@reactive-resume/ai/tools/resume-tool-contracts";
 import { applicationDto } from "@reactive-resume/api/dto/application";
 import { coverLetterDto } from "@reactive-resume/api/dto/cover-letter";
+import { libraryDto } from "@reactive-resume/api/dto/library";
 import { resumeDto } from "@reactive-resume/api/dto/resume";
 import {
 	applicationClosedReasonSchema,
@@ -16,12 +17,19 @@ import {
 	interviewKindSchema,
 } from "@reactive-resume/schema/applications/data";
 import { coverLetterDocumentSchema } from "@reactive-resume/schema/cover-letter/data";
+import { latexCompileChecksSchema, latexCompileOptionsSchema } from "@reactive-resume/schema/resume/latex";
 import { templateSchema } from "@reactive-resume/schema/templates";
 import { toWireObjectSchema, toWireSchema } from "./contracts";
+import { LIBRARY_TOOL_META } from "./library-tool-meta";
+import { LATEX_TOOL_META } from "./latex-tool-meta";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
+import { QUEUE_TOOL_META } from "./queue-tool-meta";
+import { QUEUE_RESUME_META } from "./queue-resume-meta";
 
 // Contracts remain derived from the allowlisted API procedures in parity.ts.
 export const PARITY_TOOL_DESCRIPTIONS: Record<string, string> = {
+	"resume.latex.status": "Check whether this installation has a configured LaTeX compiler. No secrets are returned.",
+	"resume.latex.unpack": "Read a base64 Overleaf source ZIP into a validated LaTeX project. Does not save a resume or invoke an AI provider. Import the returned project under ResumeData.latex using import_resume, or add it to an owned resume with apply_resume_patch.",
 	"agent.threads.start":
 		"Start a document, application, or general career conversation using a tested saved AI provider. For scope=document, choose exactly one resumeId or coverLetterId. For scope=application, provide applicationId. For scope=career, omit document and application IDs.",
 	"career.profile":
@@ -241,6 +249,25 @@ const messageOutput = z.object({ message: z.string() });
 const idOutput = z.object({ id: z.string() });
 
 const BASE_TOOL_META = {
+	[T.compileResumeLatex]: {
+		title: "Compile LaTeX Resume",
+		description: "Standalone saved-source LaTeX compilation with page count, overflow and extracted text diagnostics. For queued tailoring use finish_queued_resume instead: it saves section/line edits and performs this check automatically, so another compile call is unnecessary. For standalone work pass expectedUpdatedAt and the user's expectedPageCount; the response identifies the exact saved source compiled. Per-page lines show spillover when available. Successful logs are summarized; includeLog=true returns full bounded logs. Missing diagnostics are unverified, not passed; machine checks do not establish visual quality or ATS success. No PDF bytes or AI provider call.",
+		inputSchema: wireInput(latexCompileOptionsSchema.extend({
+			id: resumeIdSchema,
+			expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
+			includeLog: z.boolean().optional(),
+		}).strict()),
+		outputSchema: z.object({
+			success: z.boolean(),
+			log: z.string(),
+			checks: latexCompileChecksSchema.nullable(),
+			diagnosticsNote: z.string().nullable(),
+			resumeUpdatedAt: z.iso.datetime({ offset: true }).nullable(),
+			logTruncated: z.boolean(),
+			logCharacters: z.number().int().nonnegative(),
+		}),
+		annotations: READ_IDEMPOTENT,
+	},
 	[T.listResumes]: {
 		title: "List Resumes",
 		description: [
@@ -250,8 +277,9 @@ const BASE_TOOL_META = {
 			"Returns an array of resume objects (without full resume data) containing:",
 			"id, name, slug, tags, isPublic, isLocked, createdAt, updatedAt.",
 			"",
-			`Call this before \`${T.getResume}\`, \`${T.patchResume}\`, prompts, or \`resources/read\` with \`resume://{id}\`.`,
+			"Use this when resume IDs are unknown; IDs already returned by related-resume, queue, application or copy tools do not require another listing.",
 			"Results can be filtered by tags and sorted by last updated date, creation date, or name.",
+			`For queued preparation use \`${T.prepareQueuedResume}\` to resolve Base Resume and receive useful related references automatically. Optional broader library searches use \`${T.findRelatedResumes}\`.`,
 		].join("\n"),
 		outputSchema: toWireObjectSchema(resumeDto.list.output),
 		inputSchema: wireInput(
@@ -290,12 +318,17 @@ const BASE_TOOL_META = {
 			"Returns the complete resume data as JSON, including: basics (name, headline, email, phone,",
 			"location, website), summary, picture settings, all sections (experience, education, skills,",
 			"projects, etc.), custom sections, and metadata (template, layout, typography, colors).",
+			"LaTeX resumes include a latex project with engine, entrypoint, and files (path, encoding, content). The LaTeX source controls their PDF; structured section fields do not.",
+			"For queued LaTeX preparation use prepare_queued_resume to receive the current draft and Base evidence together. For an additional LaTeX reference use read_resume_latex; this full read remains available for complete projects and ordinary resumes.",
+			"A master resume remains readable through this tool in any owned folder. Separate optional library metadata is available with includeMetadata=true. Reuse returned content and updatedAt; do not immediately reread unchanged documents. With includeMetadata omitted/false, the text body remains the resume data JSON.",
 			"",
-			`Use \`${T.listResumes}\` first to find valid IDs.`,
+			"An ID from another owned resume discovery/copy tool is sufficient; list_resumes is not a prerequisite.",
 			"The `resume://_meta/schema` resource describes the full data structure for JSON Patch paths.",
 		].join("\n"),
-		outputSchema: toWireObjectSchema(resumeDto.getById.output),
-		inputSchema: wireInput(z.strictObject({ id: resumeIdSchema })),
+		outputSchema: toWireObjectSchema(
+			resumeDto.getById.output.extend({ libraryMetadata: libraryDto.resumes.getMetadata.output.optional() }),
+		),
+		inputSchema: wireInput(z.strictObject({ id: resumeIdSchema, includeMetadata: z.boolean().optional() })),
 		annotations: READ_IDEMPOTENT,
 	},
 	[T.downloadResumePdf]: {
@@ -305,7 +338,7 @@ const BASE_TOOL_META = {
 			"The URL expires in 10 minutes. Anyone holding this URL can download the PDF until expiry; keep it private.",
 			"Cover letters are documents of their own: use the cover-letter tools for them.",
 			"Returns JSON containing: resumeId, name, downloadUrl, expiresAt, expiresInSeconds, contentType.",
-			`Use \`${T.listResumes}\` first to find valid IDs.`,
+			"Use a known owned resume ID; no additional listing or compilation is needed just to create this URL.",
 		].join("\n"),
 		outputSchema: z.object({
 			resumeId: z.string(),
@@ -370,7 +403,7 @@ const BASE_TOOL_META = {
 		description: [
 			"Create a copy of an existing resume with all its data.",
 			"",
-			"Returns the ID of the newly duplicated resume.",
+			"Returns the ID of the newly duplicated resume. For a job-specific draft, use the user-designated Base Resume and explicitly supply a company-and-role name; related versions are comparison references.",
 			"Name and tags default to the original; a unique slug is generated when omitted.",
 			"Useful for creating job-specific variants of a base resume.",
 		].join("\n"),
@@ -389,8 +422,9 @@ const BASE_TOOL_META = {
 		title: "Apply Resume Patch",
 		description: [
 			"Apply JSON Patch (RFC 6902) operations to partially update a resume's data.",
+			"For queued LaTeX body edits use finish_queued_resume, which saves section/line edits without repeating deleted source and checks the PDF together. For other LaTeX edits use edit_resume_latex; avoid resending whole files or changing their preamble/layout.",
 			"",
-			`This is the primary way to edit resume content. Use \`${T.getResume}\` first to inspect the`,
+			`This edits ordinary resume content. Use \`${T.getResume}\` first to inspect the`,
 			"current structure, and `resume://_meta/schema` to understand valid paths and types.",
 			"",
 			"Supported operations: add, remove, replace, move, copy, test.",
@@ -404,6 +438,7 @@ const BASE_TOOL_META = {
 			"  /sections/experience/items/0/company   — Update first experience's company",
 			"  /sections/skills/items/-               — Append a new skill",
 			"  /metadata/template                     — Change the template (e.g. 'azurill', 'bronzor', 'onyx')",
+			"  /latex/files/0/content                  — Edit a LaTeX source file; read the file list first. Preserve the formatting macros and compile_resume_latex after edits.",
 			"  /metadata/design/colors/primary        — Change the primary color (rgba string)",
 			"  /sections/interests/hidden              — Hide/show a section",
 			"  /sections/experience/items/0/dates      — Set dates: { start, end, present } with years or",
@@ -695,7 +730,7 @@ const BASE_TOOL_META = {
 	},
 	[T.createApplication]: {
 		title: "Create Application",
-		description: "Create a tracked job application. Company and role are required.",
+		description: "Save a tracked job directly to this account. This does not fetch sourceUrl or require an AI provider. For a new pasted posting, save status=saved before browsing or tailoring, then verify with read_application using the returned ID. Company and role are required; when unknown, use explicit labels Company not provided / Role not provided with tag needs-details and preserve the original text or URL. Never report tracking as confirmed without verifying the saved record. Check for an existing exact posting before creating a duplicate, especially after a timeout.",
 		outputSchema: idOutput,
 		inputSchema: wireInput(createApplicationSchema),
 		annotations: WRITE_NON_IDEMPOTENT,
@@ -924,6 +959,10 @@ function withAnnotationTitles<T extends Record<string, { title: string; annotati
 
 export const TOOL_META = withAnnotationTitles({
 	...BASE_TOOL_META,
+	...LIBRARY_TOOL_META,
+	...QUEUE_TOOL_META,
+	...QUEUE_RESUME_META,
+	...LATEX_TOOL_META,
 	[T.listResumes]: {
 		...BASE_TOOL_META[T.listResumes],
 		inputSchema: wireInput(BASE_TOOL_META[T.listResumes].inputSchema.extend(pagination)),
@@ -941,7 +980,7 @@ export const TOOL_META = withAnnotationTitles({
 		description:
 			BASE_TOOL_META[T.getResume].description +
 			" Structured output also includes record metadata and updatedAt for expectedUpdatedAt.",
-		outputSchema: toWireObjectSchema(resumeDto.getById.output),
+		outputSchema: BASE_TOOL_META[T.getResume].outputSchema,
 	},
 	[T.createResume]: {
 		...BASE_TOOL_META[T.createResume],
@@ -1037,3 +1076,4 @@ export const TOOL_META = withAnnotationTitles({
 		outputSchema: toWireObjectSchema(applicationDto.bulkDelete.output),
 	},
 } as const);
+

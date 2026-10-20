@@ -4,7 +4,9 @@ import type router from "@reactive-resume/api/routers";
 import z from "zod";
 import { createResumeDataJsonSchema } from "@reactive-resume/schema/resume/json-schema";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
+import { buildQueueProcessingInstructions } from "./queue-workflow";
 import { safeMcpError } from "./results";
+import { buildJobTailoringInstructions } from "./tailoring-workflow";
 
 // ── Shared prompt helpers ────────────────────────────────────────
 
@@ -13,6 +15,22 @@ const resumeIdArg = z
 	.describe(
 		`The ID of the resume. Use \`${T.listResumes}\` to find IDs, or \`${T.createResume}\` to create a new one first.`,
 	);
+
+const jobTailoringArgs = {
+	jobDescription: z.string().trim().min(1).max(20_000).describe("Pasted job posting, including its requirements."),
+	masterResumeId: z.string().min(1).optional().describe("Optional user-designated base resume ID; otherwise locate Base Resume by name."),
+	company: z.string().max(200).optional().describe("Company name, when known."),
+	targetRole: z.string().max(200).optional().describe("Role title, when known."),
+	jobUrl: z.url({ protocol: /^https?$/ }).optional().describe("Original posting URL, when supplied; saving it does not fetch the page."),
+	applicationId: z.string().min(1).optional().describe("Existing saved application ID, for example after saving the job on the website first."),
+};
+
+const resumePromptArgument = { name: "id", description: resumeIdArg.description ?? "Resume ID.", required: true } as const;
+
+const queueProcessingArgs = {
+	masterResumeId: z.string().min(1).optional().describe("Optional verified user-designated base ID; otherwise locate Base Resume by name."),
+	limit: z.string().regex(/^(?:[1-9]|[1-4][0-9]|50)$/).optional().describe("Maximum jobs in this batch, 1–50; default 10."),
+};
 
 /** Shared prompt titles/descriptions, also consumed by the static MCP server card. */
 export const PROMPT_META = {
@@ -29,6 +47,33 @@ export const PROMPT_META = {
 		description:
 			"Get a structured, professional critique with a scorecard and prioritized recommendations. Read-only: no changes are made.",
 	},
+	tailor_resume_for_job: {
+		title: "Tailor Resume for a Job",
+		description:
+			"Save the pasted job, then prepare and finish its Base Resume copy with the compound queue tools. Related resumes and company notes remain available as references. Follow the project's brief reply format; no provider setup or submission.",
+	},
+	process_tailoring_queue: {
+		title: "Process Tailoring Queue",
+		description:
+			"Process saved jobs with prepare_queued_resume and finish_queued_resume. Use truthful Base facts and useful related/company references; the server handles copying, linkage and PDF checks. Ask once about material unknowns. No mandatory audit report, provider call or employer submission.",
+	},
+} as const;
+
+/** Prompt discovery mirrors the registered argument names and required status. */
+export const PROMPT_ARGUMENTS = {
+	build_resume: [resumePromptArgument],
+	improve_resume: [resumePromptArgument],
+	review_resume: [resumePromptArgument],
+	tailor_resume_for_job: Object.entries(jobTailoringArgs).map(([name, schema]) => ({
+		name,
+		description: schema.description,
+		required: !schema.isOptional(),
+	})),
+	process_tailoring_queue: Object.entries(queueProcessingArgs).map(([name, schema]) => ({
+		name,
+		description: schema.description,
+		required: !schema.isOptional(),
+	})),
 } as const;
 
 /** Embeds the resume data and JSON schema as context messages. */
@@ -220,4 +265,30 @@ export function registerPrompts(server: McpServer, client: RouterClient<typeof r
 			],
 		}),
 	);
+
+	server.registerPrompt(
+		"tailor_resume_for_job",
+		{
+			...PROMPT_META.tailor_resume_for_job,
+			argsSchema: jobTailoringArgs,
+		},
+		(context) => ({
+			messages: [
+				{ role: "user" as const, content: { type: "text" as const, text: buildJobTailoringInstructions(context) } },
+			],
+		}),
+	);
+	server.registerPrompt(
+		"process_tailoring_queue",
+		{
+			...PROMPT_META.process_tailoring_queue,
+			argsSchema: queueProcessingArgs,
+		},
+		(context) => ({
+			messages: [
+				{ role: "user" as const, content: { type: "text" as const, text: buildQueueProcessingInstructions(context) } },
+			],
+		}),
+	);
 }
+

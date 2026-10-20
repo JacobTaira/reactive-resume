@@ -51,7 +51,7 @@ export const documentsRouter = {
 		.output(documentsDto.list.output)
 		.handler(async ({ context, input }) =>
 			paginate(
-				await documentsService.list({ userId: context.user.id, trashed: input.trashed }),
+				await documentsService.list({ ...input, userId: context.user.id }),
 				input,
 				context.resHeaders,
 			),

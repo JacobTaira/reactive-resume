@@ -1,6 +1,7 @@
 import { publicProcedure } from "../../context";
 import { crudRouter } from "./crud";
 import { updatesRouter } from "./event-router";
+import { latexRouter } from "./latex";
 import { getRootResume } from "./root";
 import { sharingRouter } from "./sharing";
 import { resumeStatisticsRouter } from "./statistics";
@@ -8,6 +9,7 @@ import { tagsRouter } from "./tags";
 import { versionsRouter } from "./versions";
 
 export const resumeRouter = {
+	latex: latexRouter,
 	getRoot: publicProcedure.route({ tags: ["Internal"] }).handler(({ context }) =>
 		getRootResume({
 			requestHeaders: context.reqHeaders,

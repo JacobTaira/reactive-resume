@@ -5,6 +5,7 @@ import { generateFilename } from "@reactive-resume/utils/file";
 import { assertCanView } from "./access-policy";
 import { publicRenderRateLimiter } from "./public-render-rate-limit";
 import { parseStoredResumeData } from "./resume-data-validation";
+import { renderResumePdf } from "./render-pdf";
 
 type PublicRenderResume = {
 	id: string;
@@ -58,8 +59,7 @@ const defaultDependencies: PublicResumePdfDependencies = {
 			.resolveAuthenticationFromRequestHeaders(requestHeaders)
 			.then((authentication) => (authentication?.permissions.includes("read") ? authentication.user.id : undefined)),
 	rateLimiter: publicRenderRateLimiter,
-	renderPdf: async (input) =>
-		(await import("@reactive-resume/pdf/server")).createResumePdfFile({ ...input, uploadOrigin: env.APP_URL }),
+	renderPdf: (input) => renderResumePdf({ ...input, uploadOrigin: env.APP_URL }),
 };
 
 export async function createPublicResumePdf(

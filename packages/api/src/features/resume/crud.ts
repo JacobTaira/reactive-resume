@@ -239,6 +239,7 @@ export const crudRouter = {
 				tags: input.tags ?? original.tags,
 				locale: context.locale,
 				data,
+				copyFromResumeId: original.id,
 			});
 		}),
 
@@ -259,3 +260,4 @@ export const crudRouter = {
 		.errors({ RESUME_LOCKED: { status: 403, message: "Unlock the resume first." } })
 		.handler(({ context, input }) => documentsService.trash({ type: "resume", id: input.id, userId: context.user.id })),
 };
+

@@ -26,6 +26,8 @@ import { ENTER_CLASS, POP_CLASS } from "@/libs/motion";
 import { client, orpc } from "@/libs/orpc/client";
 
 export type NewDocumentDialogData = {
+	/** Place newly created or imported resumes in this folder. */
+	folderId?: string | undefined;
 	/** Open on a step other than the three choices. */
 	step?: "copy";
 	/** Copy for a job: the resume to start from. */
@@ -39,13 +41,13 @@ export type NewDocumentDialogData = {
 type Step =
 	| { name: "choose" }
 	| { name: "importing"; file: File; stage: number; notes: string[] }
-	| { name: "imported"; file: File; resumeId: string; sections: number; entries: number; flagged: number }
+	| { name: "imported"; file: File; resumeId: string; sections: number; entries: number; flagged: number; latex?: boolean }
 	| { name: "failed"; file: File; message: string }
 	| { name: "copy" };
 
 type OpenResumeOptions = { withAssistant?: boolean; importedFrom?: string };
 
-const ACCEPT = ".pdf,.docx,.json,.zip,application/pdf,application/json,application/zip";
+const ACCEPT = ".tex,.txt,.pdf,.docx,.json,.zip,application/pdf,application/json,application/zip,application/x-tex,text/x-tex";
 
 const formatSize = (bytes: number) =>
 	bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -53,7 +55,7 @@ const formatSize = (bytes: number) =>
 function requireImportKind(kind: ImportKind | null): ImportKind {
 	if (!kind) {
 		throw new ImportError(
-			t`This file type can't be imported. Use a PDF, Word, Reactive Resume or JSON Resume file, or a LinkedIn export (.zip).`,
+			t`Use LaTeX source (.tex), an Overleaf source ZIP, PDF, Word, Reactive Resume JSON, JSON Resume, or a LinkedIn export.`,
 		);
 	}
 	return kind;
@@ -64,6 +66,7 @@ function useResumeImport(
 	setStep: Dispatch<SetStateAction<Step>>,
 	openLetter: (coverLetterId: string) => void,
 	applicationId?: string,
+	folderId?: string,
 ) {
 	const queryClient = useQueryClient();
 	const markNew = useNewDocumentsStore((state) => state.markNew);
@@ -118,15 +121,16 @@ function useResumeImport(
 			if (!current()) return;
 			const summary = summarizeImport(resume);
 			advance(1, t`file read`);
-			advance(2, t`${summary.sections} sections`);
+			advance(2, resume.latex ? t`LaTeX project preserved` : t`${summary.sections} sections`);
 
 			const resumeId = await client.resume.import({ data: resume });
+			await placeResumeInFolder(resumeId, folderId);
 			if (!current()) return;
 			if (applicationId) await client.documents.linkApplication({ type: "resume", id: resumeId, applicationId });
 			if (!current()) return;
 			markNew(resumeId);
 			void refreshDocuments();
-			setStep({ name: "imported", file, resumeId, ...summary });
+			setStep({ name: "imported", file, resumeId, ...summary, latex: Boolean(resume.latex) });
 		} catch (error) {
 			if (!current()) return;
 			const message =
@@ -171,6 +175,7 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 			to: "/builder/$resumeId",
 			params: { resumeId },
 			search: {
+				returnFolderId: data?.folderId,
 				...(withAssistant ? { assistant: "new" } : {}),
 				...(importedFrom ? { imported: importedFrom } : {}),
 			},
@@ -181,7 +186,7 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 		void navigate({ to: "/builder/letter/$coverLetterId", params: { coverLetterId } });
 	};
 
-	const { importFile, cancel, refreshDocuments } = useResumeImport(setStep, openLetter, data?.applicationId);
+	const { importFile, cancel, refreshDocuments } = useResumeImport(setStep, openLetter, data?.applicationId, data?.folderId);
 
 	// A file dropped on the page starts importing as soon as the dialog opens.
 	const dropped = useRef(data?.file);
@@ -192,7 +197,7 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 		void importFile(file);
 	});
 
-	const { startBlank, trySample, newLetter, creating } = useStartDocument(data?.applicationId);
+	const { startBlank, trySample, newLetter, creating } = useStartDocument(data?.applicationId, data?.folderId);
 
 	const chooseFile = () => inputRef.current?.click();
 
@@ -217,6 +222,7 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 					<CopyForJob
 						initialSourceId={data?.sourceResumeId}
 						initialJobId={data?.applicationId}
+						folderId={data?.folderId}
 						onBack={() => setStep({ name: "choose" })}
 						onCreated={(resumeId, forJob) => {
 							markNew(resumeId);
@@ -267,8 +273,8 @@ export function NewDocumentDialog({ data }: { data?: NewDocumentDialogData | und
 							</span>
 							<span className="text-[13px] leading-[19px] text-ink-2">
 								<Trans>
-									Drop a file here or browse. PDF, Word, Reactive Resume or JSON Resume. We fill in every section and
-									flag anything we're unsure of.
+										Drop a file here or browse. LaTeX, Overleaf ZIP, PDF, Word, Reactive Resume or JSON Resume.
+										LaTeX projects keep their original source and formatting.
 								</Trans>
 							</span>
 						</span>
@@ -358,7 +364,7 @@ function ImportStep({ step, creating, onCancel, onStartBlank, onChooseFile, onCl
 					stage={step.name === "imported" ? 3 : step.stage}
 					notes={
 						step.name === "imported"
-							? [t`file read`, t`${step.sections} sections`, t`${step.entries} entries`]
+							? step.latex ? [t`source read`, t`project preserved`, t`ready to compile`] : [t`file read`, t`${step.sections} sections`, t`${step.entries} entries`]
 							: step.notes
 					}
 				/>
@@ -396,9 +402,7 @@ function ImportStep({ step, creating, onCancel, onStartBlank, onChooseFile, onCl
 							className="text-accent-text transition-[opacity,scale] duration-standard ease-enter starting:scale-80 starting:opacity-0"
 						/>
 						<span>
-							<Trans>
-								{step.sections} sections and {step.entries} entries found.
-							</Trans>{" "}
+							{step.latex ? <Trans>LaTeX source preserved. Open the editor to compile and review the PDF.</Trans> : <Trans>{step.sections} sections and {step.entries} entries found.</Trans>}{" "}
 							{step.flagged > 0 && <Trans>{step.flagged} fields are flagged for a quick look in the editor.</Trans>}
 						</span>
 					</p>
@@ -417,7 +421,7 @@ function ImportStep({ step, creating, onCancel, onStartBlank, onChooseFile, onCl
 }
 
 /** Start blank, try a sample, or a new letter: each creates the document at once and opens it. */
-export function useStartDocument(applicationId?: string) {
+export function useStartDocument(applicationId?: string, folderId?: string) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const closeDialog = useDialogStore((state) => state.closeDialog);
@@ -426,6 +430,7 @@ export function useStartDocument(applicationId?: string) {
 	const { mutateAsync: createLetter } = useMutation(orpc.coverLetters.create.mutationOptions());
 
 	const created = async (id: string, type: "resume" | "letter") => {
+		if (type === "resume") await placeResumeInFolder(id, folderId);
 		if (applicationId) await client.documents.linkApplication({ type, id, applicationId });
 		markNew(id);
 		void queryClient.invalidateQueries({ queryKey: orpc.documents.key() });
@@ -558,6 +563,7 @@ function ImportProgress({ stage, notes }: { stage: number; notes: string[] }) {
 }
 
 type CopyForJobProps = {
+	folderId?: string | undefined;
 	initialSourceId?: string | undefined;
 	initialJobId?: string | undefined;
 	onBack: () => void;
@@ -566,7 +572,7 @@ type CopyForJobProps = {
 };
 
 /** Pick a resume and a job; the copy is named from both and linked to the application. */
-function CopyForJob({ initialSourceId, initialJobId, onBack, onCreated }: CopyForJobProps) {
+function CopyForJob({ initialSourceId, initialJobId, folderId, onBack, onCreated }: CopyForJobProps) {
 	const { i18n } = useLingui();
 	const nameId = useId();
 	const { data: documents } = useQuery(orpc.documents.list.queryOptions({ input: { trashed: false } }));
@@ -594,6 +600,7 @@ function CopyForJob({ initialSourceId, initialJobId, onBack, onCreated }: CopyFo
 		const message = job ? t`Created and linked to ${job.company}` : t`Created “${finalName}”`;
 		try {
 			const resumeId = await copyForJob(input);
+			await placeResumeInFolder(resumeId, folderId);
 			toast.add({ description: message });
 			onCreated(resumeId, Boolean(job));
 		} catch (error) {
@@ -710,4 +717,15 @@ function CopyForJob({ initialSourceId, initialJobId, onBack, onCreated }: CopyFo
 			</div>
 		</>
 	);
+}
+
+
+/** A folder assignment failure must not hide a successfully created/imported resume. */
+async function placeResumeInFolder(resumeId: string, folderId?: string) {
+	if (folderId === undefined) return;
+	try {
+		await client.library.resumes.setMetadata({ resumeId, folderId: folderId || null });
+	} catch {
+		toast.add({ type: "error", description: t`Resume created, but it couldn't be moved to the folder. Use Folder and resume details to move it.` });
+	}
 }

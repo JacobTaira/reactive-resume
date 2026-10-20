@@ -179,3 +179,55 @@ it("embeds actual resume JSON in prompts and propagates inaccessible-document er
 		"credential secret",
 	);
 });
+
+it("returns job-saving guidance without an eager master read that could block tracking", async () => {
+	const prompt = await client.getPrompt({
+		name: "tailor_resume_for_job",
+		arguments: { masterResumeId: "master-1", jobDescription: "A robotics engineer posting", company: "Example", applicationId: "saved-job", jobUrl: "https://example.test/job" },
+	});
+	expect(calls.resume.getById).not.toHaveBeenCalled();
+	expect(prompt.messages).toHaveLength(1);
+	const instruction = prompt.messages.find((message) => message.content.type === "text")?.content;
+	if (instruction?.type !== "text") throw new Error("Prompt lacks workflow");
+	expect(instruction.text).toContain("A robotics engineer posting");
+	expect(instruction.text).toContain('"masterResumeId": "master-1"');
+	expect(instruction.text).toContain('"applicationId": "saved-job"');
+	expect(instruction.text).toContain("Tracking not confirmed");
+	expect(instruction.text).toContain("prepare_queued_resume");
+	expect(instruction.text).toContain("finish_queued_resume");
+	expect(instruction.text).toContain("save_company_note");
+});
+
+it("delegates Base resolution without an eager read when the prompt has no master ID", async () => {
+	const prompt = await client.getPrompt({
+		name: "tailor_resume_for_job",
+		arguments: { jobDescription: "A robotics engineer posting" },
+	});
+	expect(calls.resume.getById).not.toHaveBeenCalled();
+	expect(prompt.messages).toHaveLength(1);
+	const { prompts } = await client.listPrompts();
+	const args = prompts.find((item) => item.name === "tailor_resume_for_job")?.arguments;
+	expect(args?.find((arg) => arg.name === "jobDescription")?.required).toBe(true);
+	expect(args?.find((arg) => arg.name === "masterResumeId")?.required).toBe(false);
+	expect(buildMcpServerCard("1.0.0").prompts.find((item) => item.name === "tailor_resume_for_job")?.arguments).toEqual(args);
+});
+
+it("registers queue processing as an explicit prompt without eagerly reading or generating documents", async () => {
+	const prompt = await client.getPrompt({
+		name: "process_tailoring_queue",
+		arguments: { limit: "4", masterResumeId: "master-1" },
+	});
+	expect(calls.resume.getById).not.toHaveBeenCalled();
+	expect(prompt.messages).toHaveLength(1);
+	const content = prompt.messages[0]?.content;
+	if (content?.type !== "text") throw new Error("Prompt lacks queue instructions");
+	expect(content.text).toContain("Ask once about shared unknown facts");
+	expect(content.text).toContain("prepare_queued_resume");
+	expect(content.text).toContain("finish_queued_resume");
+	const { prompts } = await client.listPrompts();
+	const args = prompts.find((item) => item.name === "process_tailoring_queue")?.arguments;
+	expect(args?.every((arg) => !arg.required)).toBe(true);
+	expect(buildMcpServerCard("1.0.0").prompts.find((item) => item.name === "process_tailoring_queue")?.arguments).toEqual(args);
+	await expect(client.getPrompt({ name: "process_tailoring_queue", arguments: { limit: "51" } })).rejects.toThrow();
+});
+

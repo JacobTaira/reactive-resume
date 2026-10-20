@@ -2,7 +2,7 @@ import type { DocumentSummary } from "./filter";
 import { t } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react";
 import { Trans } from "@lingui/react/macro";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { Checkbox } from "@reactive-resume/ui/components/checkbox";
 import { ContextMenu, ContextMenuTrigger } from "@reactive-resume/ui/components/context-menu";
@@ -14,6 +14,7 @@ import { DocumentMenuContent, useDocumentActions } from "./document-actions";
 import { daysLeftInTrash } from "./filter";
 import { useNewDocumentsStore } from "./new-documents";
 import { ResumeThumbnail } from "./resume-thumbnail";
+import { useResumeFolderDrag } from "./resume-folder-drag";
 import { isImeComposing } from "@/libs/keyboard";
 import { formatRelativeTime } from "@/libs/locale";
 import { ENTER_CLASS, stagger } from "@/libs/motion";
@@ -22,6 +23,7 @@ export type DocumentItemProps = {
 	document: DocumentSummary;
 	onTags: (document: DocumentSummary) => void;
 	onLink: (document: DocumentSummary) => void;
+	onDetails?: ((document: DocumentSummary) => void) | undefined;
 	/** Position in the library's first appearance, which staggers in; undefined afterwards and in Trash. */
 	introIndex?: number | undefined;
 	/** Whether the document is in the selection; Trash has no selection. */
@@ -54,16 +56,22 @@ function OpenLink({
 	onSelect?: (() => void) | undefined;
 }) {
 	const markOpened = useNewDocumentsStore((state) => state.markOpened);
+	const { folderId } = useSearch({ strict: false });
 	if (document.trashedAt) return <span className={className}>{children}</span>;
 	const onClick = (event: React.MouseEvent) => {
 		if (!onSelect) return markOpened(document.id);
 		event.preventDefault();
 		onSelect();
 	};
-	const common = { "aria-label": label, className, onClick };
+	const common = { "aria-label": label, className, onClick, draggable: false };
 
 	return document.type === "resume" ? (
-		<Link to="/builder/$resumeId" params={{ resumeId: document.id }} {...common}>
+		<Link
+			to="/builder/$resumeId"
+			params={{ resumeId: document.id }}
+			search={{ returnFolderId: folderId }}
+			{...common}
+		>
 			{children}
 		</Link>
 	) : (
@@ -136,6 +144,7 @@ export function DocumentCard({
 	document,
 	onTags,
 	onLink,
+	onDetails,
 	introIndex,
 	selected = false,
 	onSelectedChange,
@@ -143,6 +152,7 @@ export function DocumentCard({
 }: DocumentItemProps) {
 	const openDocument = useOpenDocument();
 	const [renaming, setRenaming] = useState(false);
+	const dragProps = useResumeFolderDrag(document, renaming);
 	const isNew = useNewDocumentsStore((state) => state.ids.includes(document.id)) && !document.trashedAt;
 	const meta = useDocumentMeta(document);
 	const menuProps = {
@@ -151,6 +161,7 @@ export function DocumentCard({
 		onRename: () => setRenaming(true),
 		onTags: () => onTags(document),
 		onLink: () => onLink(document),
+		onDetails: onDetails ? () => onDetails(document) : undefined,
 		onSelect: onSelectedChange && !selected ? () => onSelectedChange(true) : undefined,
 	};
 
@@ -159,6 +170,7 @@ export function DocumentCard({
 			<ContextMenuTrigger
 				render={
 					<article
+						{...dragProps}
 						style={introIndex === undefined ? undefined : stagger(introIndex)}
 						className={cn(
 							"group/card grid gap-2",
@@ -217,6 +229,7 @@ export function DocumentCard({
 							<h3 className="truncate text-sm leading-5 font-semibold">{document.name}</h3>
 						)}
 						<span className="truncate text-xs text-ink-3">{meta}</span>
+						<ResumeProfileSummary document={document} />
 						{document.application && (
 							<span className="flex min-w-0 items-center gap-1 text-xs text-ink-2">
 								<Icon name="briefcase" size={14} />
@@ -249,6 +262,7 @@ export function DocumentRow({
 	document,
 	onTags,
 	onLink,
+	onDetails,
 	introIndex,
 	selected = false,
 	onSelectedChange,
@@ -256,6 +270,7 @@ export function DocumentRow({
 	const { i18n } = useLingui();
 	const openDocument = useOpenDocument();
 	const [renaming, setRenaming] = useState(false);
+	const dragProps = useResumeFolderDrag(document, renaming);
 	const isNew = useNewDocumentsStore((state) => state.ids.includes(document.id)) && !document.trashedAt;
 	const menuProps = {
 		document,
@@ -263,6 +278,7 @@ export function DocumentRow({
 		onRename: () => setRenaming(true),
 		onTags: () => onTags(document),
 		onLink: () => onLink(document),
+		onDetails: onDetails ? () => onDetails(document) : undefined,
 	};
 
 	return (
@@ -270,6 +286,7 @@ export function DocumentRow({
 			<ContextMenuTrigger
 				render={
 					<tr
+						{...dragProps}
 						style={introIndex === undefined ? undefined : stagger(introIndex)}
 						className={cn(
 							"border-b border-line transition-colors duration-quick hover:bg-hover",
@@ -315,9 +332,9 @@ export function DocumentRow({
 					</span>
 				</td>
 				<td className="px-2 text-sm text-ink-2 max-sm:hidden">
-					{document.type === "resume" ? <Trans>Resume</Trans> : <Trans>Letter</Trans>}
+					{document.type === "resume" ? document.profile?.purpose === "master" ? <Trans>Master</Trans> : <Trans>Resume</Trans> : <Trans>Letter</Trans>}
 				</td>
-				<td className="truncate px-2 text-sm text-ink-2 max-sm:hidden">{document.application?.company ?? "—"}</td>
+				<td className="truncate px-2 text-sm text-ink-2 max-sm:hidden">{document.profile?.company || document.application?.company || "—"}</td>
 				<td className="px-2 text-sm whitespace-nowrap text-ink-3">
 					{document.trashedAt ? (
 						<Trans>{daysLeftInTrash(document.trashedAt)} days left</Trans>
@@ -349,12 +366,52 @@ export function DocumentRow({
 /** Open from a menu: resumes in the editor, letters in the letter editor. */
 function useOpenDocument() {
 	const navigate = useNavigate();
+	const { folderId } = useSearch({ strict: false });
 	return (document: DocumentSummary) => {
 		useNewDocumentsStore.getState().markOpened(document.id);
 		if (document.type === "letter") {
 			void navigate({ to: "/builder/letter/$coverLetterId", params: { coverLetterId: document.id } });
 			return;
 		}
-		void navigate({ to: "/builder/$resumeId", params: { resumeId: document.id } });
+		void navigate({
+			to: "/builder/$resumeId",
+			params: { resumeId: document.id },
+			search: { returnFolderId: folderId },
+		});
 	};
+}
+
+
+/** A compact agent index below each resume, with full details kept in the menu. */
+function ResumeProfileSummary({ document }: { document: DocumentSummary }) {
+	if (document.type !== "resume" || !document.profile) return null;
+	const profile = document.profile;
+	const stale = profile.score !== null && (
+		!profile.evaluatedResumeUpdatedAt ||
+		Date.parse(profile.evaluatedResumeUpdatedAt) < document.updatedAt.getTime()
+	);
+	return (
+		<>
+			{(profile.purpose === "master" || profile.score !== null) && (
+				<span className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-2">
+					{profile.purpose === "master" && (
+						<span className="rounded bg-accent-soft px-1.5 py-0.5 font-medium text-accent-text">
+							<Trans>Master resume</Trans>
+						</span>
+					)}
+					{profile.score !== null && (
+						<span title={profile.scoreNotes || undefined} className="rounded bg-sunken px-1.5 py-0.5">
+							<Trans>Fit {profile.score}/100</Trans>
+							{stale && <span> · <Trans>Needs review</Trans></span>}
+						</span>
+					)}
+				</span>
+			)}
+			{(profile.company || profile.targetRole) && (
+				<span className="truncate text-xs text-ink-2" title={[profile.company, profile.targetRole].filter(Boolean).join(" · ")}>
+					{[profile.company, profile.targetRole].filter(Boolean).join(" · ")}
+				</span>
+			)}
+		</>
+	);
 }

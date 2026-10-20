@@ -1,0 +1,121 @@
+---
+title: Organize resumes and company research
+description: Reuse saved resumes, job context, and company notes through the website or MCP.
+---
+
+## Set up your master and folders
+
+Open Documents and use **New folder** to create a folder. It appears immediately under **Documents** in the left navigation. Creating another folder while one is selected creates a subfolder; nested names appear as **Parent / Child**. On smaller screens, the same folder links appear below the folder toolbar. The folder selector remains available, and **All documents** searches across the library.
+
+Drag a resume card or list row onto a folder link to move it. A compact document icon and resume name follow the pointer. The target highlights before you drop; the library refreshes after the server confirms the move. Drop onto **Unfiled resumes** to move a resume out of its folder. Files dropped from your computer still start an import. Letters and trashed documents cannot be moved into resume folders. Locked resumes can be organized because moving does not edit their content.
+
+For keyboard or touch use, open a resume's menu and choose **Folder and resume details…**, select its folder, and save. The same dialog lets you mark its purpose as **Master resume**, **General resume**, or **Tailored for a job**. Mark the resume containing your complete, verified background as the master. Folders organize resumes; they do not change which owned resumes your connected assistant can read.
+
+Opening a resume from a folder keeps that folder in the editor link. The editor's back arrow returns to the same folder, including **Unfiled resumes**. Opening a resume from **All documents**, or opening an editor link without folder context, returns to **All documents**. The folder context survives an editor refresh or a change of editor mode.
+
+The details also store the target company and role, skills and keywords, original job description and URL, the resume used as a starting point, reuse notes, a requirement evidence map, change explanations, a score explanation, and the outcome you report. This context stays outside the printable resume and public responses. Moving a resume never rewrites its LaTeX source. Duplicating a resume keeps the copy in the same folder and records its source; a copy starts without an inherited master designation, evaluation, review or outcome.
+
+Deleting a folder moves its resumes and immediate subfolders to the parent. It does not delete resumes. The company research area is separate from resume folders.
+
+## Keep reusable company research
+
+Choose **Companies** in navigation or on the Documents page. Each company has one research document containing a summary, core values, culture and working style, hiring priorities, general notes, and source links with access dates.
+
+You and a connected assistant edit the same saved document. **Claude can create a company's document itself** with `save_company_note`; you do not need to create an empty entry first. On later jobs it can find that document with `list_company_notes`, read it with `read_company_note`, and add useful research with `save_company_note`.
+
+Keep verified facts separate from interpretations and record which source supports a useful finding. The source date is when you or the assistant actually checked it. An assistant without browsing access can save supplied information, but should not claim it researched a page.
+
+Company documents use revision checks. If another conversation updates a document while you are editing, the older save is rejected so it cannot silently replace newer research. Read the latest document and merge the useful notes before saving again. Deleting company research leaves its resumes intact.
+
+## Give Claude a job description
+
+To avoid copying and pasting postings, use the [Chrome capture queue](./capture-queue.mdx). Capture saves jobs first; ask Claude to process the queue later. The queue workflow compares similar jobs before generating copies, asks once about shared evidence gaps, and retains unfinished work after copying a base resume. New confirmed facts can be added to the master and reused in affected drafts; this requires assistant edits, not automatic synchronization.
+
+Connect your client to this installation's `/mcp` endpoint and sign in to the account containing your master. A connector pointing to another hosted installation uses that installation's accounts and documents.
+
+The `tailor_resume_for_job` MCP prompt follows the user's project instructions for factual background, writing and reply length. For queued LaTeX resumes:
+
+1. Save the supplied job in Applications **before** research or editing, or reuse the exact saved application. An unreadable webpage must not prevent saving the supplied description.
+2. Call `prepare_queued_resume`. It finds **Base Resume** across all folders, creates or resumes its **Company — Role** copy, links the application, and returns active numbered source together with compact related-resume references and saved company context. Read additional references only when they add useful evidence.
+3. Plan truthful edits within the existing design and page target. Call `finish_queued_resume` with section IDs or inclusive line ranges and only the final replacement text; deleting a section does not require repeating its old content. The server saves, compiles, checks the page count and extractable text, returns overflow warnings, and records readiness. A score and brief gap notes are optional; separate evidence maps, change reports, rubric tables and review timestamps are unnecessary for this path.
+4. If compilation or page fit fails, make at most one consolidated correction using the returned saved source and diagnostics. Preserve unfinished drafts and report remaining failures. Normal tailoring does not require local TeX, shell commands, checksums or a separate PDF download.
+5. Save useful new company research when needed, preserving prior notes and actual sources. Keep chat replies brief and follow the user's requested format. Never infer that the user applied merely because a resume is ready.
+
+The detailed review tools described below remain available when requested. They are optional records rather than extra work required for every queued LaTeX resume. Ordinary structured JSON resumes use their edit/export tools and manual queue completion with a current score/review.
+
+The index lists concise metadata, lexical similarity, recorded outcomes and a reuse priority. These numbers help find candidates; they are not the resume's evaluation score. The index omits full source, full job descriptions, requirement citations and change notes. Read promising matches before reusing their claims. The full application remains available through `read_application`.
+
+`read_resume_metadata` reads the full saved job context and evaluation. Claude can read folder names and their parent IDs with `list_resume_folders`, then browse a folder with `find_related_resumes({ folderId: "the-folder-id", limit: 100 })` without search terms. This returns up to 100 direct resumes in that folder; child folders have their own IDs. Pass `folderId: null` for unfiled resumes, or omit it to search across folders. Read selected IDs with `read_resume` or `read_resume_latex` when their full contents are useful. Moving **Base Resume** into a folder does not prevent queue preparation from finding it.
+
+Use `create_resume_folder`, `update_resume_folder`, and `move_resume` to organize documents through MCP. Company tools are `list_company_notes`, `read_company_note`, and `save_company_note`. These tools use the same authenticated API as the website and do not need a Reactive Resume AI provider. Normal queue preparation does not add a folder scan to each resume.
+
+## Confirm the job was saved
+
+Claude's tool use is not guaranteed. The workflow tells it to save first and verify the saved record; the tools return its application ID. Failed saves or read-back checks must produce **Tracking not confirmed** and stop tailoring. A timeout can happen after a save committed, so Claude should find/read the record before retrying creation.
+
+Saving uses the pasted description and supplied URL directly. It does not need to fetch the website or use an AI provider. If the posting omits a company or role, Claude can save explicit **Company not provided** / **Role not provided** labels, mark `needs-details` and fill the details later. These labels are not verified company research.
+
+For the most dependable workflow, open **Applications → Save job**, enter the company and role, paste the description or URL, and save before starting Claude. Reading the posting is optional. Confirm the row appears, then give Claude its application ID with the job description. The MCP prompt accepts `applicationId` and `jobUrl` as optional context. Even a later research or tailoring failure leaves the already saved record available. A database/connection error still requires a successful save before treating the job as tracked.
+
+The Chrome extension provides another save-first path: it keeps an unsynced capture locally when the installation is unavailable, then confirms its saved Applications record after syncing. Check whether the outbox says pending or saved; a local waiting item has not yet reached the server. See [Capture jobs and process your queue](./capture-queue.mdx).
+
+This fork's main navigation contains Documents, Companies, Applications and Settings. Career has been removed from navigation and its old URLs redirect to Applications.
+
+## Review the evidence and changes
+
+The requirement map keeps the job's requirements beside the evidence used to support them:
+
+| Status | Meaning |
+| --- | --- |
+| Supported | Cited resume content supports the requirement. |
+| Partial | There is related evidence, but it does not establish the entire requirement. |
+| Gap | No supporting evidence is available in the material reviewed. |
+
+Each citation stores the owned resume ID, a section or source location, and a quote supplied by the assistant. The app checks that cited resumes belong to your account; it does not verify that a quotation matches the source. Check the cited text when reviewing. Claude should check earlier tailored wording against your verified background before treating it as evidence. A requirement remaining a gap is useful information; it is not a reason to invent experience.
+
+Change explanations record the assistant's section, before/after excerpts and rationale. They are notes about the edits, not a complete computed diff. The read-only `compare_resumes` tool computes differences between the saved target and source. By default it compares the source's **current** saved content. To compare with a known historical version, supply its `sourceVersionId`; the response identifies the actual baseline. It must not be described as the source at copy time unless that historical snapshot was selected.
+
+Comparisons include changed text files, line numbers and binary-file change markers. Large comparisons may use a coarse comparison or truncate output; the flags identify those limits. Source changes do not show the resulting visual layout, so inspect the PDF too.
+
+Review timestamps record which draft and direct source contents the assistant reviewed. They do not mean you approved the resume. Editing either can make the saved review stale. Reread and reassess before refreshing timestamps; a stale snapshot save is rejected. Citations to other resumes should also be checked when reusing evidence, because the direct-source freshness flag does not track every cited document.
+
+## Record outcomes for later reuse
+
+Record what actually happened after using a resume: **Not applied**, **Applied**, **Interview**, **Offer**, **Rejected**, or **Withdrawn**, with useful notes. Claude can save an outcome through `update_resume_metadata` when you tell it the result. Creating or scoring a draft does not establish that you applied, and a new copy must not inherit an older resume's interview or offer.
+
+Related-resume suggestions expose the current outcome and highest stage reached, drawing from the saved resume outcome or linked application and identifying that source. Moving from an interview to a rejection retains the interview as the highest stage reached. Setting **Not applied** resets that history; the MCP metadata also allows an explicit correction when an earlier record was wrong.
+
+The reuse priority appears alongside relevance and freshness. A previous interview or offer is context, not evidence that particular wording caused it. Compare the new job's requirements and current background before deciding what to reuse. A rejection does not make an otherwise relevant, truthful achievement unusable. Recording an outcome here does not submit an application or change its tracked pipeline stage.
+
+## Understand the score
+
+When requested, the assistant can save an editorial score out of 100. A detailed review can use this optional rubric:
+
+| Criterion | Maximum |
+| --- | ---: |
+| Supported match to required qualifications | 40 |
+| Relevance and evidence of achievements | 25 |
+| Clarity and concision | 15 |
+| Accurate job terminology | 10 |
+| Formatting and readability | 10 |
+
+Ask for evidence and gaps alongside each criterion. Never add unsupported experience to raise the score. If the assistant could not inspect the rendered PDF, it should mark its formatting assessment as provisional. This is a review aid, not a measured ATS score or hiring probability.
+
+Evaluations record the version's edit timestamp. Later resume edits make the old evaluation stale; the compact index signals that it needs another review. Moving folders alone does not make an old score current. Changing the target job context without a new evaluation also invalidates its freshness. The requirement map should explain which parts of the posting are supported and which remain gaps, even when the overall score is high.
+
+## Connect to a local installation
+
+Claude Code can connect directly from the computer running the app:
+
+```sh
+claude mcp add --transport http reactive-resume-local --scope user http://localhost:3000/mcp
+claude
+```
+
+Use `/mcp` to finish authentication. Claude Desktop can use a local MCP connection through its local server/extension setup; the client must support this HTTP server directly or through a local transport adapter. Its remote **Connectors** screen is a different connection path.
+
+Custom remote connectors in Claude's website and Desktop connect from Anthropic's servers, so they cannot access your Surface's `localhost`. Browser chat needs an authenticated HTTPS endpoint reachable by that connector. Local setup details and source editing are in [LaTeX resumes](./using-latex.mdx). Anthropic documents the distinction in its [remote connector network requirements](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) and [desktop versus web connector guide](https://support.claude.com/en/articles/11725091-when-to-use-desktop-and-web-connectors).
+
+## Back up your notes
+
+Account **Export data** includes `library.json` with folders and company research. Individual resume exports retain their library metadata in the account archive. These files record the organization; importing an individual resume does not automatically restore cross-document folder and company references.

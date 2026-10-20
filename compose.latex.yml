@@ -1,0 +1,46 @@
+# docker compose -f compose.yml -f compose.latex.yml up -d --build
+services:
+  reactive_resume:
+    # Joined only by the app and compiler; the compiler cannot reach the internet.
+    networks:
+      - latex_network
+    environment:
+      LATEX_COMPILER_URL: http://latex:8010
+      LATEX_COMPILER_TOKEN: ${LATEX_COMPILER_TOKEN:?Set LATEX_COMPILER_TOKEN in .env}
+    depends_on:
+      latex:
+        condition: service_healthy
+
+  latex:
+    build:
+      context: ./containers/latex
+      args:
+        LATEX_BASE_IMAGE: ${LATEX_BASE_IMAGE:-debian:bookworm-slim}
+    networks:
+      - latex_network
+    environment:
+      LATEX_COMPILER_TOKEN: ${LATEX_COMPILER_TOKEN:?Set LATEX_COMPILER_TOKEN in .env}
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      fsize:
+        soft: 16777216
+        hard: 16777216
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  latex_network:
+    internal: true

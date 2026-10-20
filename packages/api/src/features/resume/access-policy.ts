@@ -60,6 +60,11 @@ export function redactResumeForViewer<T extends { name: string; data: ResumeData
 	if (viewerIsOwner) return resume;
 
 	const data = structuredClone(resume.data);
+	// A public visitor receives the rendered PDF, never TeX comments, unused source, or bundled files.
+	if (data.latex) data.latex = {
+		engine: "pdflatex", entrypoint: "main.tex",
+		files: [{ path: "main.tex", encoding: "utf-8", content: "" }],
+	};
 	data.metadata.notes = "";
 	data.metadata.check = undefined;
 	if (data.picture.hidden) data.picture.url = "";

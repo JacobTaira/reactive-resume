@@ -1,8 +1,6 @@
 import { prepareMcpDiscovery } from "./discovery";
 import { MCP_TOOL_NAME as T } from "./mcp-tool-names";
-import { PROMPT_META } from "./prompts";
-
-const RESUME_ID_ARGUMENT = [{ name: "id", description: "Resume ID.", required: true }] as const;
+import { PROMPT_ARGUMENTS, PROMPT_META } from "./prompts";
 
 /** Shared server identity for both the live MCP server and the static server card. */
 export function buildMcpServerInfo(version: string) {
@@ -33,7 +31,7 @@ export function buildMcpServerCard(appVersion: string) {
 	const prompts = Object.entries(PROMPT_META).map(([name, meta]) => ({
 		name,
 		...meta,
-		arguments: [...RESUME_ID_ARGUMENT],
+		arguments: [...PROMPT_ARGUMENTS[name as keyof typeof PROMPT_ARGUMENTS]],
 	}));
 
 	const resources = [
@@ -97,3 +95,4 @@ export function buildMcpServerCard(appVersion: string) {
 		},
 	};
 }
+
