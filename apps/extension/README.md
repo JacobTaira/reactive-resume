@@ -18,6 +18,8 @@ Open its page, click the toolbar button and choose **Save this job to the queue*
 
 ## Fill an application without Jobright credits
 
+In the popup, **Resume source** contains jobs added by **Load prepared jobs**, alongside the manual-PDF option. If none are prepared yet, use **Copy Claude prompt** in Reactive Resume’s **Applications → Queue** first, or select a PDF manually. Hover over a popup action, settings link, Resume source or the PDF section for about a second to see help; keyboard focus shows the same help. Press Escape to dismiss it.
+
 1. Open the toolbar popup and choose **Autofill settings**. Enter the profile facts you approve for applications. Your Google Doc remains the authority for background facts; autofill does not read or interpret it automatically.
 2. To select saved jobs and their linked PDFs, enter your installation URL and a separate **normal MCP API key**. The capture-only key cannot read resumes or applications. Use the same installation origin as `APP_URL` so its signed PDF links resolve correctly. Alternatively, leave the MCP key empty and choose a PDF manually in the popup.
 3. Add recurring answers as explicit question/answer pairs. They match the complete question, ignoring punctuation/case. An optional `applicationId` restricts an answer to one saved job. Repeated history questions require the `fieldId` displayed in the preview; combine it with `applicationId` to approve the correct entry. Set `approved: false` to retain an answer without using it. Unknown screening answers, consent choices and demographic fields remain untouched unless you explicitly approved an exact answer.

@@ -27,6 +27,7 @@ function fixture() {
 	const records = new Map();
 	const calls = [];
 	const job = { id: "app-1", company: "Example", role: "Engineer", resumeId: "resume-1" };
+	let preparedJobs = { items: [job], nextOffset: 100 };
 	const diagnostics = { schemaVersion: 1, fields: [{ tagName: "INPUT", type: "file", label: "Resume" }] };
 	const state = { configured: false, selection: null, previewToken: null, draftContext: { sessionId: "session-1", tabId: 7, tabUrl: "https://careers.example.test/apply/123" } };
 	let writeError = false;
@@ -52,7 +53,7 @@ function fixture() {
 		calls.push(message);
 		let data;
 		if (message.type === "autofill-state") data = structuredClone(state);
-		else if (message.type === "autofill-list") data = { items: [job], nextOffset: 100 };
+		else if (message.type === "autofill-list") data = structuredClone(preparedJobs);
 		else if (message.type === "autofill-diagnostics") data = structuredClone(diagnostics);
 		else if (message.type === "autofill-preview") {
 			await beforePreview();
@@ -105,7 +106,7 @@ function fixture() {
 			selectPdf: async (file = pdf) => { elements.pdf.files = [file]; await elements.pdf.emit("change"); },
 			selectCoverLetter: async (file = coverLetterPdf) => { elements["cover-letter"].files = [file]; await elements["cover-letter"].emit("change"); } };
 	}
-	return { open, state, calls, job, records, diagnostics, failWrites: () => { writeError = true; }, delayPreview: (callback) => { beforePreview = callback; },
+	return { open, state, calls, job, records, diagnostics, setPreparedJobs: (items, nextOffset = null) => { preparedJobs = { items, nextOffset }; }, failWrites: () => { writeError = true; }, delayPreview: (callback) => { beforePreview = callback; },
 		delayFill: (callback) => { beforeFill = callback; }, rejectNextFill: (message) => { fillError = message; } };
 }
 
@@ -146,6 +147,22 @@ test("loaded jobs, pagination and a selection made before preview are retained",
 	assert.match(reopened.job.textContent, /Example — Engineer/);
 	assert.equal(reopened.manual.open, false);
 	assert.equal(subject.calls.filter((item) => item.type === "autofill-list").length, 1);
+	assert.match(first.message.textContent, /Choose the company and role in Resume source above/u);
+});
+
+test("an empty prepared-job list explains preparation and manual mode instead of requesting a nonexistent selection", async () => {
+	const subject = fixture();
+	subject.setPreparedJobs([]);
+	const popup = await subject.open();
+	await popup.load.emit("click");
+	assert.equal(popup.application.children.length, 1);
+	assert.equal(popup.application.value, "");
+	assert.equal(popup.more.hidden, true);
+	assert.match(popup.message.textContent, /No prepared jobs found/u);
+	assert.match(popup.message.textContent, /Copy Claude prompt.*Applications → Queue/u);
+	assert.match(popup.message.textContent, /choose a PDF manually/u);
+	assert.doesNotMatch(popup.message.textContent, /Select the intended application|Choose the company and role/u);
+	assert.equal((await subject.open()).message.textContent, popup.message.textContent);
 });
 
 test("review and unchecked fields survive popup recreation and filling uses the retained exact PDF", async () => {

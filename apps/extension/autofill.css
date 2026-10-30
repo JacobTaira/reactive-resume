@@ -29,5 +29,6 @@ summary { cursor: pointer; color: #214aaa; margin: 12px 0; }
 .field-id { user-select: all; }
 #selection { font-weight: 600; overflow-wrap: anywhere; }
 #message { overflow-wrap: anywhere; white-space: pre-wrap; }
+.popup-tooltip { position: fixed; z-index: 2147483647; width: max-content; max-width: min(300px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; margin: 0; padding: 10px 12px; border: 1px solid #40516e; border-radius: 8px; color: white; background: #172238; box-shadow: 0 4px 16px #17223833; font-size: 12px; font-weight: 400; line-height: 1.45; overflow-wrap: anywhere; }
 [hidden] { display: none !important; }
 @media (max-width: 600px) { .profile { grid-template-columns: 1fr; } }

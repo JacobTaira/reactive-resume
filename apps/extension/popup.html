@@ -8,16 +8,17 @@
 </head>
 <body class="popup">
 	<header><h1>Reactive Resume</h1><p>Fill applications with your approved information.</p></header>
-	<nav><a href="autofill.html" target="_blank">Autofill settings</a><a href="options.html" target="_blank">Capture settings</a></nav>
+	<nav><a href="autofill.html" target="_blank" data-tooltip="Edit the contact details, common answers and connection used to fill applications.">Autofill settings</a><a href="options.html" target="_blank" data-tooltip="Set up job capture and review jobs waiting to sync to Reactive Resume.">Capture settings</a></nav>
 	<fieldset id="workspace" disabled>
-	<button type="button" id="capture" class="secondary">Save this job to the queue</button>
+	<button type="button" id="capture" class="secondary" data-tooltip="Save this job to Applications → Queue so Claude can prepare a tailored resume.">Save this job to the queue</button>
 	<section>
 		<h2>Choose the application</h2>
-		<label for="application">Saved job with a prepared resume</label>
-		<select id="application"><option value="">Choose a PDF manually</option></select>
-		<div class="actions"><button type="button" id="load" class="secondary">Load prepared jobs</button><button type="button" id="more" class="secondary" hidden>Load more</button></div>
+		<label for="application">Resume source</label>
+		<select id="application" aria-describedby="resume-source-help" data-tooltip="Choose a loaded company and role to use that job’s linked resume, or choose a PDF manually."><option value="">Choose a PDF manually</option></select>
+		<p id="resume-source-help" class="muted">Load prepared jobs adds jobs marked Ready for review here; choose one for its linked resume, or choose a PDF manually below.</p>
+		<div class="actions"><button type="button" id="load" class="secondary" data-tooltip="Add jobs marked Ready for review to the Resume source dropdown above.">Load prepared jobs</button><button type="button" id="more" class="secondary" data-tooltip="Add the next batch of prepared jobs to the same Resume source dropdown." hidden>Load more</button></div>
 		<p id="job" class="muted"></p>
-		<details id="manual"><summary>Resume and optional cover letter PDFs</summary>
+		<details id="manual"><summary data-tooltip="Choose a manual resume PDF, replace a loaded job’s resume or add a separate cover-letter PDF.">Resume and optional cover letter PDFs</summary>
 			<label for="company">Company</label><input id="company" maxlength="300" autocomplete="off">
 			<label for="role">Role</label><input id="role" maxlength="300" autocomplete="off">
 			<label for="pdf">Exact resume PDF for this job</label><input id="pdf" type="file" accept="application/pdf,.pdf">
@@ -25,17 +26,18 @@
 			<label for="cover-letter">Cover letter PDF for this job (optional)</label><input id="cover-letter" type="file" accept="application/pdf,.pdf">
 			<p id="cover-letter-status" class="muted">No cover letter selected.</p>
 		</details>
-		<button type="button" id="preview">Preview fields</button>
+		<button type="button" id="preview" data-tooltip="Load the chosen resume and review proposed answers before filling this application.">Preview fields</button>
 	</section>
 	<section id="review" hidden>
 		<h2>Review before filling</h2><p id="selection"></p><p id="page" class="muted"></p>
 		<div id="fields"></div>
-		<button type="button" id="fill">Fill selected empty fields</button>
+		<button type="button" id="fill" data-tooltip="Fill checked empty fields and attach the reviewed PDFs without submitting the application.">Fill selected empty fields</button>
 	</section>
-	<div class="actions"><button type="button" id="clear" class="secondary">Clear this draft</button></div>
+	<div class="actions"><button type="button" id="clear" class="secondary" data-tooltip="Clear this tab’s popup choices and PDFs while keeping answers already filled on the employer’s page.">Clear this draft</button></div>
 	<p id="draft-status" class="muted" role="status">Restoring this application’s draft…</p>
 	</fieldset>
-	<div class="actions"><button type="button" id="diagnostics" class="secondary">Download form diagnostics</button></div>
+	<div class="actions"><button type="button" id="diagnostics" class="secondary" data-tooltip="Export form-control details for troubleshooting, excluding entered field values.">Download form diagnostics</button></div>
+	<p class="muted">Exports form-control details for troubleshooting; entered field values are excluded.</p>
 	<p id="message" role="status" aria-live="polite"></p>
 	<p class="muted">You review and submit on the employer’s page. On each new form step, preview again.</p>
 	<script type="module" src="src/autofill-popup.js"></script>

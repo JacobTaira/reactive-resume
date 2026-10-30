@@ -1,5 +1,6 @@
 /* global chrome */
 import { openAutofillDraftStore } from "./autofill-drafts.js";
+import { mountTooltips } from "./tooltips.js";
 
 export async function mountAutofillPopup({ document, chromeApi, openDraftStore = openAutofillDraftStore }) {
 	const byId = (id) => document.getElementById(id);
@@ -101,7 +102,9 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 		for (const job of result.items) jobs.set(job.id, job);
 		nextOffset = result.nextOffset;
 		showJobs(selection);
-		report(`${jobs.size} prepared jobs loaded. Select the intended application and preview its form.`);
+		report(jobs.size
+			? `${jobs.size} prepared ${jobs.size === 1 ? "job" : "jobs"} loaded. Choose the company and role in Resume source above, then preview its form.`
+			: "No prepared jobs found. Use Copy Claude prompt in Reactive Resume’s Applications → Queue to prepare your saved jobs, then load again. You can also choose a PDF manually.");
 		await saveDraft();
 	}
 	async function manualPdf(file) {
@@ -231,4 +234,7 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	} catch (error) { report(error.message, true); byId("draft-status").textContent = "The application draft could not be opened. Reopen this popup to try again."; }
 }
 
-if (globalThis.document && globalThis.chrome) void mountAutofillPopup({ document, chromeApi: chrome });
+if (globalThis.document && globalThis.chrome) {
+	mountTooltips({ document });
+	void mountAutofillPopup({ document, chromeApi: chrome });
+}
