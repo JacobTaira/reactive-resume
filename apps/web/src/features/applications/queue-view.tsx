@@ -13,6 +13,7 @@ import { cn } from "@reactive-resume/utils/style";
 import { QueueDetailsSheet } from "./queue-details-sheet";
 import { QueueReviewSheet } from "./queue-review-sheet";
 import { queueCanRequeue, queueFilterStates } from "./queue-model";
+import { CLAUDE_QUEUE_PROMPT } from "./queue-prompt";
 import { getOrpcErrorMessage } from "@/libs/error-message";
 import { orpc } from "@/libs/orpc/client";
 
@@ -83,12 +84,7 @@ export function QueueView({ query, onOpen, onAdd }: QueueViewProps) {
 
 	const copyPrompt = async () => {
 		try {
-			await navigator.clipboard.writeText(
-				[
-					t`Process my Reactive Resume queue following my Claude project instructions. The supplied Google Doc is the authoritative record of my background, work, achievements and preferences. Master_Resume, or my explicitly designated master, supplies structure and selected formatted facts; supported facts need not already appear in it. Other records hold saved jobs, company research, tailored wording references and tracking, not new factual authority. List saved jobs once with list_tailoring_queue(includeDescription=true) and retain the selected IDs. For each job use prepare_queued_resume(applicationId, baseResumeId when designated) to resolve the master, resume or create Company — Role, link it and return current source plus related/company references. Reuse verified evidence and unchanged reads; never invent facts. Ask once about material unknowns, not confirmed experience gaps; preserve affected jobs and continue independent work. Select relevant supported content for a readable one-page draft, preserving my design. Use finish_queued_resume with finalize=false, applicationId, leaseToken, expectedUpdatedAt=draft.updatedAt, sectionEdits by returned sectionId and/or inclusive lineEdits from numberedSource, and expectedPageCount=1. Omit newText to delete; send only replacement text, never deleted source or NUMBER| prefixes. Preamble/PDF metadata/header stay locked. The server saves, compiles, returns page count, extracted text and overflow diagnostics, and keeps processing active. Review factual support against the Google Doc, job relevance, clarity, extracted-text reading order and the current rendered PDF using download_resume_pdf; use a fresh reviewer context when available. Correct substantive issues and recheck as needed; there is no fixed correction count or time limit on quality work. Passing compilation alone is insufficient. Reuse server checks instead of duplicate local TeX or checksum work. Preserve drafts and report remaining failures or unavailable visual checks as unverified. Only after quality review call finish_queued_resume with finalize=true and the current expectedUpdatedAt. Keep routine records in the app; reply only with brief unsupported requirements, material questions or failures. Use your own reasoning, never provider-backed AI actions. Never submit applications or mark Applied.`,
-					t`Final requirement: the compiled resume must fit on exactly one page. Preserve readable fonts and margins, trim less relevant content as needed, and report completion only after factual and visual review plus finish_queued_resume with finalize=true and expectedPageCount=1 confirm the current draft fits one page.`,
-				].join("\n\n"),
-			);
+			await navigator.clipboard.writeText(CLAUDE_QUEUE_PROMPT);
 			toast.add({
 				type: "success",
 				description: t`Prompt copied. Paste it into Claude connected to this installation.`,
