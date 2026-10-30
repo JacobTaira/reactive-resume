@@ -13,6 +13,7 @@ export type PrepareQueuedResumeInput = {
 };
 
 const normalized = (value: string) => value.trim().normalize("NFKC").toLocaleLowerCase("en-US").replace(/\s+/g, " ");
+const masterNames = new Set(["base resume", "master_resume", "master resume"]);
 const genericTerms = new Set(["the", "and", "for", "with", "engineer", "engineering", "intern", "internship", "senior", "junior"]);
 const terms = (value: string) => new Set(
 	(normalized(value).match(/[\p{L}\p{N}+#.]{2,}/gu) ?? []).filter((term) => !genericTerms.has(term)),
@@ -73,12 +74,12 @@ export async function prepareQueuedResume(client: Client, input: PrepareQueuedRe
 	let baseId = input.baseResumeId;
 	if (!baseId) {
 		const bases = documents.filter((document) => document.type === "resume" && !document.trashedAt &&
-			normalized(document.name) === "base resume");
+			masterNames.has(normalized(document.name)));
 		if (bases.length !== 1) {
 			throw new ORPCError("BAD_REQUEST", {
 				message: bases.length === 0
-					? "Base Resume was not found. Specify the owned baseResumeId before preparing this job."
-					: "More than one Base Resume exists. Specify the intended owned baseResumeId before preparing this job.",
+					? "Master resume was not found (Master_Resume, Master Resume or Base Resume). Specify the owned baseResumeId before preparing this job."
+					: "More than one master resume candidate exists. Specify the intended owned baseResumeId before preparing this job.",
 			});
 		}
 		baseId = bases[0]!.id;
@@ -134,3 +135,4 @@ export async function prepareQueuedResume(client: Client, input: PrepareQueuedRe
 		throw error;
 	}
 }
+

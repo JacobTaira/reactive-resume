@@ -122,6 +122,35 @@ export async function finishQueuedResume(client: Client, input: z.output<typeof 
 	}
 	const receipt = { applicationId: input.applicationId, draftResumeId: draftId, updatedAt: updatedAt.toISOString() };
 	try {
+		if (!input.finalize) {
+			const compiled = await client.resume.latex.compile({
+				id: draftId, expectedUpdatedAt: updatedAt, expectedPageCount: input.expectedPageCount,
+			});
+			const checks = compiled.success ? compiled.checks : null;
+			const mechanicalChecksPassed = Boolean(compiled.success && checks &&
+				checks.pageCount === input.expectedPageCount && checks.textExtraction.status === "success" &&
+				checks.textExtraction.text.trim());
+			const [latestDraft, latestJob] = await Promise.all([
+				client.resume.getById({ id: draftId }),
+				client.applications.queue.read({ id: input.applicationId, includeDescription: false }),
+			]);
+			if (latestDraft.updatedAt.getTime() !== updatedAt.getTime() ||
+				latestDraft.applicationId !== input.applicationId || latestJob.preparation.state !== "processing" ||
+				latestJob.preparation.draftResumeId !== draftId) {
+				throw new ORPCError("CONFLICT", { message: "Draft or queue changed during review compilation. Read current progress before continuing." });
+			}
+			return {
+				success: mechanicalChecksPassed, ...receipt, saved: true, finalized: false,
+				state: "processing" as const, reviewRequired: true, needsCorrection: !mechanicalChecksPassed,
+				pdf: { verified: mechanicalChecksPassed, ...(checks ? { checks } : {}) },
+				draft: queuedResumeSource(latestDraft),
+				...(!mechanicalChecksPassed ? {
+					code: "QUEUE_PDF_CHECK_FAILED",
+					error: "Draft saved for review. Correct compilation, page count or text-extraction failures before finalizing.",
+					...(!compiled.success ? { log: compiled.log.slice(-4_000) } : {}),
+				} : {}),
+			};
+		}
 		const item = await client.applications.queue.finish({
 			id: input.applicationId, expectedRevision: claim.item.preparation.revision, leaseToken: claim.leaseToken,
 			outcome: "ready", draftResumeId: draftId, expectedResumeUpdatedAt: updatedAt.toISOString(),
@@ -132,7 +161,7 @@ export async function finishQueuedResume(client: Client, input: z.output<typeof 
 		if (!item.pdfVerification) {
 			return { success: false, ...receipt, saved: true, needsCorrection: false, error: "Completion returned no PDF verification receipt. Check saved queue progress before retrying." };
 		}
-		return { success: true, ...receipt, state: item.preparation.state, pdf: { verified: true, ...item.pdfVerification } };
+		return { success: true, ...receipt, finalized: true, state: item.preparation.state, pdf: { verified: true, ...item.pdfVerification } };
 	} catch (error) {
 		// A saved edit is never lost from the receipt, so the assistant won't blindly resend old replacements.
 		if (!(error instanceof ORPCError) || error.status >= 500) {
@@ -167,3 +196,4 @@ export function registerQueueResumeTools(server: McpServer, client: Client) {
 			return { ...json(result), ...(!result.success ? { isError: true } : {}) };
 		}));
 }
+

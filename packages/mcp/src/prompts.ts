@@ -18,7 +18,7 @@ const resumeIdArg = z
 
 const jobTailoringArgs = {
 	jobDescription: z.string().trim().min(1).max(20_000).describe("Pasted job posting, including its requirements."),
-	masterResumeId: z.string().min(1).optional().describe("Optional user-designated base resume ID; otherwise locate Base Resume by name."),
+	masterResumeId: z.string().min(1).optional().describe("Optional user-designated base resume ID; otherwise resolve Master_Resume or the unambiguous Base Resume fallback."),
 	company: z.string().max(200).optional().describe("Company name, when known."),
 	targetRole: z.string().max(200).optional().describe("Role title, when known."),
 	jobUrl: z.url({ protocol: /^https?$/ }).optional().describe("Original posting URL, when supplied; saving it does not fetch the page."),
@@ -28,7 +28,7 @@ const jobTailoringArgs = {
 const resumePromptArgument = { name: "id", description: resumeIdArg.description ?? "Resume ID.", required: true } as const;
 
 const queueProcessingArgs = {
-	masterResumeId: z.string().min(1).optional().describe("Optional verified user-designated base ID; otherwise locate Base Resume by name."),
+	masterResumeId: z.string().min(1).optional().describe("Optional verified user-designated base ID; otherwise resolve Master_Resume or the unambiguous Base Resume fallback."),
 	limit: z.string().regex(/^(?:[1-9]|[1-4][0-9]|50)$/).optional().describe("Maximum jobs in this batch, 1–50; default 10."),
 };
 
@@ -50,12 +50,12 @@ export const PROMPT_META = {
 	tailor_resume_for_job: {
 		title: "Tailor Resume for a Job",
 		description:
-			"Save the pasted job, then prepare and finish its Base Resume copy with the compound queue tools. Related resumes and company notes remain available as references. Follow the project's brief reply format; no provider setup or submission.",
+			"Save the pasted job, prepare a copy of the designated master, and review facts, extracted text and rendered PDF before finalizing. The supplied Google Doc remains authoritative; related resumes and company notes provide references. Follow the project's brief reply format; no provider setup or submission.",
 	},
 	process_tailoring_queue: {
 		title: "Process Tailoring Queue",
 		description:
-			"Process saved jobs with prepare_queued_resume and finish_queued_resume. Use truthful Base facts and useful related/company references; the server handles copying, linkage and PDF checks. Ask once about material unknowns. No mandatory audit report, provider call or employer submission.",
+			"Process saved jobs with prepare_queued_resume and finish_queued_resume. Use authoritative Google Doc facts and the designated master's layout; save with finalize=false, review content and rendered PDF, then finalize=true. The server handles copying, linkage and PDF checks. Ask once about material unknowns. No mandatory audit report, provider call or employer submission.",
 	},
 } as const;
 
@@ -291,4 +291,5 @@ export function registerPrompts(server: McpServer, client: RouterClient<typeof r
 		}),
 	);
 }
+
 

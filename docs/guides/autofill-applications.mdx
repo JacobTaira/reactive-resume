@@ -1,0 +1,32 @@
+---
+title: Fill applications with your prepared resumes
+description: Use approved profile facts and answers to fill supported fields without Jobright credits.
+---
+
+The Chrome extension includes an independent autofill engine. It uses your approved profile, exact approved answers, and the PDF you select. It does not call Jobright or an AI provider, impose a daily application-credit allowance, submit forms, or mark applications Applied.
+
+## Set up once
+
+Update the checkout, reload the extension at `chrome://extensions`, and open its toolbar popup. Choose **Autofill settings** and enter the contact details you approve for applications. Your Google Doc remains the authority for background facts; this local profile is a selected copy for form filling, not a replacement career record.
+
+To load prepared resumes from your installation, supply its URL and a **normal MCP API key**. Keep the existing capture-only key for job capture; it cannot read resumes. Grant the extension access to this installation. The autofill URL must use the same origin as the server's `APP_URL`, including your public HTTPS address if that is how Claude reaches the app.
+
+You can also choose a PDF manually without configuring an MCP key.
+
+Approve recurring questions in settings as exact question/answer pairs. Restrict company-specific answers with `applicationId`. Do not save one company's answer as a global response to every employer. Unapproved screening and demographic answers remain manual.
+
+## Fill each application
+
+1. Open the employer's actual application form.
+2. Open the extension, choose **Load prepared jobs**, and select the intended company and role. The application supplies its linked resume. A manually chosen PDF replaces that attachment for this preview.
+3. Choose **Preview fields**. Check the displayed job, PDF filename, destination page, and proposed values; uncheck fields you want to leave manual.
+4. Choose **Fill selected empty fields**. Existing answers are preserved. Review the page and confirm the PDF has finished uploading.
+5. Complete remaining questions and submit on the employer's page. On a new form step, preview again. Record Applied only after the employer confirms submission.
+
+Use [Review prepared resumes](./reviewing-prepared-resumes.mdx) to compare the actual PDF with the saved posting before applying.
+
+## Supported fields
+
+The engine handles ordinary labelled contact fields, native selects, approved radio/checkbox answers, selected-PDF inputs, open Shadow DOM, and supported ARIA dropdowns. Some embedded forms require opening the application directly so Chrome can grant access. Complex custom widgets and repeated employment or education sections can need manual entry. Unsupported or ambiguous controls remain visible for review; support for every Workday or other ATS form is not assumed.
+
+Profile data and keys stay in trusted extension contexts. Employer pages receive the selected form values and PDF bytes, never your installation key or signed download link. A preview is bound to its tab, document, and form. Changed pages or expired previews require another preview before filling.

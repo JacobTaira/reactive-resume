@@ -1,20 +1,42 @@
-# Reactive Resume Capture Queue
+# Reactive Resume Capture and Autofill
 
-Manifest V3 Chrome extension for your own Reactive Resume installation. Capture uses deterministic extraction and never calls an AI provider. It creates saved applications, never marks jobs Applied.
+Manifest V3 Chrome extension for your own Reactive Resume installation. Capture uses deterministic extraction; autofill uses your approved profile and exact approved answers. Neither calls an AI provider or consumes Jobright credits. The extension never submits an application or marks it Applied.
 
 ## Install on Windows Chrome
 
 1. Update your fork checkout and start the local Reactive Resume website.
 2. Open `chrome://extensions`, enable **Developer mode**, then click **Load unpacked**.
 3. Choose this `apps/extension` folder. For an Ubuntu WSL checkout, browse to `\\wsl.localhost\Ubuntu\home\jacob\reactive-resume-latex\apps\extension`; substitute your actual distro and home directory.
-4. Pin **Reactive Resume Capture Queue** to Chrome's toolbar. Open its Details → Extension options.
+4. Pin **Reactive Resume Capture and Autofill** to Chrome's toolbar. Open its Details → Extension options for capture settings.
 5. Set **Installation URL** to `http://localhost:3000`. Create a capture-only API key in Reactive Resume's API settings and enter it under **Capture-only API key**. Click **Save settings and grant access**, approve access to your installation, then **Test connection**.
 
 No Node installation or extension build is needed to load the checked-in folder. After pulling extension changes, click Reload on its `chrome://extensions` card and reload open Jobright tabs.
 
 ## Capture a job
 
-Open its page and click the toolbar button, or press **Ctrl+Shift+Y**. The extension reads the rendered page: matching JobPosting JSON-LD first, Jobright sections next, selected text or main page text last. The fallback needs review and can include unrelated page text. Company/role fallback values are flagged.
+Open its page, click the toolbar button and choose **Save this job to the queue**, or press **Ctrl+Shift+Y**. The extension reads the rendered page: matching JobPosting JSON-LD first, Jobright sections next, selected text or main page text last. The fallback needs review and can include unrelated page text. Company/role fallback values are flagged.
+
+## Fill an application without Jobright credits
+
+1. Open the toolbar popup and choose **Autofill settings**. Enter the profile facts you approve for applications. Your Google Doc remains the authority for background facts; autofill does not read or interpret it automatically.
+2. To select saved jobs and their linked PDFs, enter your installation URL and a separate **normal MCP API key**. The capture-only key cannot read resumes or applications. Use the same installation origin as `APP_URL` so its signed PDF links resolve correctly. Alternatively, leave the MCP key empty and choose a PDF manually in the popup.
+3. Add recurring answers as explicit question/answer pairs. They match the complete question, ignoring punctuation/case. An optional `applicationId` restricts an answer to one saved job. Repeated history questions require the `fieldId` displayed in the preview; combine it with `applicationId` to approve the correct entry. Set `approved: false` to retain an answer without using it. Unknown screening answers, consent choices and demographic fields remain untouched unless you explicitly approved an exact answer.
+4. Open the employer's actual application form. In the popup, choose **Load prepared jobs**, select the intended company and role, then **Preview fields**. A saved application supplies its linked resume; a manually selected PDF overrides that attachment for this preview only.
+5. Review the displayed company, role, PDF filename and proposed field values. Uncheck any matched field you do not want filled. Choose **Fill selected empty fields**. Existing form values are preserved.
+6. Review the employer's page, confirm its PDF upload finished, complete unsupported controls and click its final Submit button yourself. On every new form step, open the popup and preview again. The selected saved job is retained when this is the exact same tab and URL; a different URL or tab requires selecting the job again.
+
+Example approved answers (replace fictional values with your confirmed information):
+
+```json
+[
+  { "question": "When can you start?", "answer": "My confirmed availability" },
+  { "question": "Why are you interested in this company?", "answer": "My reviewed job-specific answer", "applicationId": "saved-application-id" }
+]
+```
+
+Autofill supports labelled native fields, selects, exact approved radio choices, resume file inputs, open Shadow DOM, and some ARIA dropdowns. It operates in the main page and frames Chrome permits the extension to access. Complex controls and inaccessible embedded forms may need manual entry or opening the application form directly. It does not promise every job site is supported. File selection is checked, but the employer's upload confirmation remains the final check.
+
+Profiles, answers and keys are restricted to trusted extension contexts. Employer pages receive only the approved information needed to fill the form, never your installation API key or signed PDF download URL. Previews last ten minutes and are bound to the tab, document, form fields, approved profile and PDF. A stopped background worker can recover the preview from browser-session storage and verify that a downloaded PDF still matches the previewed file. Navigation, changed linkage, changed approvals, changed PDF bytes or changed form fields requires another preview. Manual PDF mode needs the same selected file; after closing the popup, select it again. PDF bytes are not saved in persistent or session browser storage.
 
 On Jobright, capture waits briefly for loading content, reads section bodies across nested wrappers, and uses matching posting-title/company metadata. Known skill-selection help is removed. When that help precedes explicit Required or Preferred sections, the personalized skill chips are omitted too; the employer's requirements remain. Headings, the skills legend, and selection help alone are not a description. Missing section bodies keep useful partial text under Needs details rather than allowing an unfinished capture into preparation.
 
@@ -62,3 +84,4 @@ python3 apps/extension/scripts/package.py
 Extract `apps/extension/dist/reactive-resume-capture.zip`, then load that extracted folder unpacked. No Chrome Web Store publication is required. Firefox and mobile are outside this extension's scope.
 
 Manual end-to-end check: Test connection → capture a real posting → confirm its application ID in extension options and Applications → capture again and verify duplicate result → stop the website, capture another job, restart, and confirm sync → capture a small Jobright liked list and inspect every incomplete/error row. These checks require your local installation and signed-in browser and cannot be replaced by fixture tests.
+

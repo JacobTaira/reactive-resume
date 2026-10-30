@@ -1,0 +1,104 @@
+---
+title: Prepare resumes overnight
+description: Run a resumable Claude queue with your authoritative background, independent reviews, and a rendered one-page check.
+---
+
+The optional local runner in `tooling/queue/run.mjs` processes one saved job at a time using the official Claude Code CLI and this installation's MCP tools. It preserves unfinished drafts, resumes interrupted batches, and keeps final submission with you. Capturing jobs or copying a queue prompt does not start this runner.
+
+## Keep your existing source hierarchy
+
+- **Google Doc:** the authoritative background, past work, achievements, and job preferences.
+- **Designated master resume:** your chosen structure and selected, formatted facts.
+- **Other Reactive Resume records:** saved jobs, company research, tailored wording references, and application tracking.
+
+You do not need another manually maintained fact bank. Export your Google Doc as plain text or Markdown and save the Claude Project instructions as another text file. Use the complete background document, not an old tailored resume. Files must contain real UTF-8 text; a `.docx` or a link alone is not an export.
+
+**Claude Code does not automatically receive the website conversation, Project instructions, or synced Google Doc.** The runner requires both context files before it changes the queue, supplies them explicitly to every drafting/factual-review session, and saves a private snapshot for this run. If you update either file, start a new run directory to use the updated context.
+
+## Prerequisites
+
+- Node.js 24 or newer.
+- The official [Claude Code CLI](https://code.claude.com/docs/en/overview), installed and authenticated using the method supported by your Claude plan.
+- A supported Claude model chosen explicitly. Effort defaults to `xhigh`; availability depends on the selected model.
+- Poppler's `pdftoppm` command for actual PDF-to-image inspection. On Ubuntu/WSL, install `poppler-utils` if it is unavailable.
+- Your updated Reactive Resume installation, including explicit queue finalization support and the configured LaTeX compiler.
+- A **normal API key** for the same account. A capture-only extension key cannot read or prepare resumes.
+- A private state directory outside your checkout, plus the exported background and instructions files.
+
+Run `claude --version` and `pdftoppm -v` to check the local executables. The runner checks them and the MCP tools before claiming jobs. It does not invoke Reactive Resume's provider-backed AI actions or call Jobright's services. Claude CLI requests still use your Claude access and its usage limits.
+
+## Start a batch
+
+Save postings into Applications and repair missing company, role, or description details first. Keep the application IDs from the queue, or choose an explicit count of oldest pending/failed entries. Jobs needing details are not silently treated as complete.
+
+In Ubuntu/WSL or another Bash shell, enter your key without putting its value in shell history:
+
+```sh
+read -r -s -p 'Reactive Resume API key: ' RR_API_KEY
+export RR_API_KEY
+```
+
+Run this from the repository root, substituting your actual paths and supported model name:
+
+```sh
+node tooling/queue/run.mjs \
+  --url http://localhost:3000 \
+  --model YOUR_SUPPORTED_CLAUDE_MODEL \
+  --effort xhigh \
+  --limit 30 \
+  --background /home/YOU/private/google-doc-background.txt \
+  --instructions /home/YOU/private/claude-project-instructions.txt \
+  --state-dir /home/YOU/private/resume-runs/tonight
+```
+
+Use `--ids APPLICATION_ID_1,APPLICATION_ID_2` instead of `--limit` to select specific applications. The runner freezes the selected IDs before beginning; newly captured jobs are not added to a running batch.
+
+The server's recognized master names are `Master_Resume`, `Master Resume`, and `Base Resume`. If more than one matches, specify the intended document with `--base-resume-id RESUME_ID`. The runner pins that master's ID, source timestamp, and content hash before making copies. It stops for attention if the master changes during the run. Your authoritative background and the formatted master remain separate sources with separate roles.
+
+Use a unique, empty state directory for each new batch. Keep the machine, installation, LaTeX service, and network connection available. Prevent the machine from sleeping while the command runs.
+
+## What each job does
+
+1. Read the saved posting and acquire a renewable exclusive queue claim.
+2. Recover or create its linked draft through `prepare_queued_resume`.
+3. Start a fresh Claude drafting session with your pinned background, instructions, current job, and prepared source. It edits using ordinary MCP tools, preserving design, truthful claims, and a readable one-page target.
+4. Compile the saved source, verify measured page count and nonempty extracted text, download the owned PDF, and render its page to a PNG locally.
+5. Run a fresh factual reviewer against the authoritative background and a separate hiring-reader reviewer against the posting, resume, and rendered page. The reader does not receive the writer's rationale, previous scores, or background document.
+6. Return material findings to drafting and recheck the revised version. There is no fixed quality-revision cap and no default model-run timeout.
+7. Finalize through the server only after the independent reviews and current PDF checks pass. The job becomes **Ready for review**, with its application still **Saved**.
+
+The writer cannot call the finalization tool. Reviewers have read/compile access and the hiring reader can read only the supplied preview image through its approved local file tool. The supervisor performs finalization itself. A successful CLI exit alone does not establish completion: it rereads the saved queue state and exact reviewed source timestamp.
+
+Material unknowns become **Missing details**. Unavailable visual checks, lost ownership, source conflicts, or persistent issues remain visible with the draft preserved. If the same concerns remain after an unchanged draft, the runner stops work on that item for attention instead of claiming it passed. Other independent jobs can continue.
+
+## Resume after an interruption or usage limit
+
+```sh
+node tooling/queue/run.mjs \
+  --resume \
+  --state-dir /home/YOU/private/resume-runs/tonight \
+  --background /home/YOU/private/google-doc-background.txt \
+  --instructions /home/YOU/private/claude-project-instructions.txt
+```
+
+Use the same background and instructions contents. The saved run supplies its model, effort, master, and application IDs. Completed entries are checked without reapplying edits. A lost completion response is reconciled against saved state before another action. A usage-limit failure pauses scheduling; resume after access is available again. The runner does not bypass provider limits or promise a specific number of completed jobs per night.
+
+The default process timeout is disabled. `--timeout-seconds N` is an optional operational safeguard for a process you decide is stuck; hitting it preserves the draft and never counts as a quality pass. `--cli PATH` and `--renderer PATH` select local executables when they are not on your normal path.
+
+## Review and apply
+
+Check **Applications → Queue → Ready for review**, open the PDFs, and review any missing details or attention items. The private run directory also contains the per-job PDFs, page images, independent review receipts, and worker outputs. `run.json` records progress, attempts, source versions, and brief failures without storing the API key. Routine terminal output shows counts and statuses without printing resume contents or credentials.
+
+The state directory uses owner-only permissions; individual artifacts use mode `0600`. Treat those files as private career information and keep them out of git or shared folders. The API key is placed only in a temporary owner-readable MCP configuration, passed by file path to Claude, and removed on normal shutdown. A resumed runner removes any matching credential files left by a forced shutdown after acquiring its exclusive run lock. Remove leftover `.mcp-private-*.json` files before sharing or archiving a directory that has not been resumed. Your Claude client/provider may retain its own conversation history according to its settings.
+
+This workflow prepares and reviews documents. It never clicks an employer's Submit button, sends recruiter messages, or marks an application Applied. Review the actual attached resume and application answers before submitting. Record submission only after the employer confirms it.
+
+## Development checks
+
+The supervisor uses Node's standard library and can be tested without an AI account or live server:
+
+```sh
+node --test tooling/queue/queue.test.mjs
+```
+
+Tests exercise context validation, private persistence, interruption recovery, claim renewal, independent-review gates, and completion reconciliation using local stubs. They do not establish live Claude authentication, a specific employer's parsing behavior, or real hiring outcomes.

@@ -21,13 +21,14 @@ beforeEach(() => {
 	mocks.authentication.mockResolvedValue({ user: { id: "user-1" }, method: "bearer", permissions: ["read"] });
 });
 
-function initialize(origin?: string) {
+function initialize(origin?: string, apiKey?: string) {
 	return new Request("https://resume.example/mcp", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
 			Accept: "application/json, text/event-stream",
 			...(origin && { Origin: origin }),
+			...(apiKey && { "x-api-key": apiKey }),
 		},
 		body: JSON.stringify({
 			jsonrpc: "2.0",
@@ -46,6 +47,29 @@ it("serves native and same-origin MCP initialization as complete JSON with priva
 		expect(response.headers.get("cache-control")).toBe("no-store");
 		expect(response.headers.get("x-content-type-options")).toBe("nosniff");
 	}
+});
+
+it("accepts an extension origin only through validated normal API-key authentication", async () => {
+	const origin = `chrome-extension://${"a".repeat(32)}`;
+	mocks.authentication.mockResolvedValue({ user: { id: "user-1" }, method: "api-key", permissions: ["read"] });
+	expect((await handleMcp(initialize(origin, "normal-key"))).status).toBe(200);
+	expect(mocks.authentication).toHaveBeenCalled();
+	mocks.authentication.mockResolvedValueOnce(null);
+	expect((await handleMcp(initialize(origin, "invalid-key"))).status).toBe(401);
+	mocks.authentication.mockResolvedValueOnce({ user: { id: "user-1" }, method: "api-key", permissions: ["capture"] });
+	expect((await handleMcp(initialize(origin, "capture-only-key"))).status).toBe(401);
+});
+
+it("retains origin protection for websites and keyless or malformed extension requests", async () => {
+	for (const [origin, key] of [
+		[`chrome-extension://${"a".repeat(32)}`, undefined],
+		[`chrome-extension://${"z".repeat(32)}`, "normal-key"],
+		[`chrome-extension://${"a".repeat(32)}.attacker.example`, "normal-key"],
+		["https://attacker.example", "normal-key"],
+	]) {
+		expect((await handleMcp(initialize(origin, key))).status).toBe(403);
+	}
+	expect(mocks.authentication).not.toHaveBeenCalled();
 });
 
 it("rejects foreign origins and standalone GET streams before authentication", async () => {
@@ -68,3 +92,4 @@ it("returns actionable rate limits and conceals unexpected authentication errors
 	expect(failed.status).toBe(500);
 	expect(await failed.text()).not.toContain("private database connection string");
 });
+

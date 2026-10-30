@@ -26,7 +26,12 @@ export async function handleMcp(request: Request, trustedClient = "unknown") {
 	let transport: WebStandardStreamableHTTPServerTransport | undefined;
 	try {
 		const origin = request.headers.get("origin");
-		if (origin !== null && !TRUSTED_ORIGINS.includes(origin)) {
+		// Extension workers use explicit API keys, never cookies. Accept their browser
+		// origin only when a key is supplied; authenticateRequest still validates it
+		// and rejects capture-only keys before any account-wide tool is available.
+		const extensionWithKey = origin !== null && /^chrome-extension:\/\/[a-p]{32}$/.test(origin) &&
+			Boolean(request.headers.get("x-api-key")?.trim());
+		if (origin !== null && !TRUSTED_ORIGINS.includes(origin) && !extensionWithKey) {
 			return errorResponse(403, "Origin is not allowed. Use the configured application origin or a native MCP client.");
 		}
 		if (request.method !== "POST") {
@@ -72,3 +77,4 @@ export async function handleMcp(request: Request, trustedClient = "unknown") {
 		}
 	}
 }
+

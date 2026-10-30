@@ -28,7 +28,7 @@ const fileManifestSchema = z.object({
 export const LATEX_TOOL_META = {
 	[T.readResumeLatex]: {
 		title: "Read LaTeX Resume Source",
-		description: "Read exact saved LaTeX source: active entrypoint by default, file manifest, updatedAt/applicationId and optional metadata. Other files are omitted, not deleted; use filePaths only for needed dependencies or evidence. Never replace the project from this partial view. For queued jobs prefer prepare_queued_resume, which returns source and job context together. Use server checks; do not create local files, run TeX/shell, calculate checksums or fetch PDFs during normal tailoring. No AI provider call.",
+		description: "Read exact saved LaTeX source: active entrypoint by default, file manifest, updatedAt/applicationId and optional metadata. Other files are omitted, not deleted; use filePaths only for needed dependencies or evidence. Never replace the project from this partial view. For queued jobs prefer prepare_queued_resume, which returns source and job context together. Use server compilation and current extracted-text diagnostics; inspect the rendered PDF with download_resume_pdf for quality review before finalization. Reuse unchanged reads instead of duplicate local TeX or checksum work. No AI provider call.",
 		inputSchema: latexReadInput,
 		outputSchema: toWireObjectSchema(z.object({
 			id: z.string(), name: z.string(), updatedAt: z.date(), applicationId: z.string().nullable(),
@@ -49,3 +49,4 @@ export const LATEX_TOOL_META = {
 		annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
 	},
 } as const;
+

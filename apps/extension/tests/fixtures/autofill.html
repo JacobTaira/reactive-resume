@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Fictional application autofill fixture</title>
+	</head>
+	<body>
+		<form id="application">
+			<label for="first">First name</label><input id="first" autocomplete="given-name" />
+			<label for="last">Last name</label><input id="last" autocomplete="family-name" />
+			<label for="full">Full name</label><input id="full" autocomplete="name" />
+			<label for="email">Email address</label><input id="email" type="email" autocomplete="email" />
+			<label for="phone">Phone number</label><input id="phone" type="tel" autocomplete="tel" />
+			<label for="city">City</label><input id="city" autocomplete="address-level2" />
+			<label for="state">State</label>
+			<select id="state" autocomplete="address-level1"><option value="">Select state</option><option value="TX">Texas</option></select>
+			<label>Country<select id="country" autocomplete="country-name"><option value="">Select country</option><option value="US">United States</option></select></label>
+			<label for="linkedin">LinkedIn profile</label><input id="linkedin" type="url" />
+			<label for="github">GitHub profile</label><input id="github" type="url" />
+			<label for="website">Personal website</label><input id="website" type="url" />
+			<label for="company">Current employer name</label><input id="company" name="employerName" />
+			<fieldset><legend>Reference</legend><label for="reference-email">Email</label><input id="reference-email" autocomplete="email" /></fieldset>
+			<label for="emergency-phone">Phone</label><input id="emergency-phone" name="emergencyPhone" autocomplete="tel" />
+			<label for="employer-city">City</label><input id="employer-city" name="employerCity" autocomplete="address-level2" />
+			<label for="preserved">Preferred name</label><input id="preserved" autocomplete="given-name" value="Already edited" />
+			<label for="reason">Why do you want to work at this company?</label><textarea id="reason"></textarea>
+			<label for="unapproved">How many years of management experience do you have?</label><input id="unapproved" type="number" />
+			<fieldset>
+				<legend>Will you require visa sponsorship?</legend>
+				<label><input id="visa-yes" type="radio" name="visa" value="yes" />Yes</label>
+				<label><input id="visa-no" type="radio" name="visa" value="no" />No</label>
+			</fieldset>
+			<fieldset>
+				<legend>Gender</legend>
+				<label><input id="gender-a" type="radio" name="gender" value="a" />Woman</label>
+				<label><input id="gender-b" type="radio" name="gender" value="b" />Man</label>
+			</fieldset>
+			<label><input id="consent" type="checkbox" />I agree to the terms and consent to data processing</label>
+			<label for="password">Password</label><input id="password" type="password" />
+			<label for="hidden">First name</label><input id="hidden" type="hidden" />
+			<label for="disabled">Email address</label><input id="disabled" type="email" disabled />
+			<label for="readonly">Email address</label><input id="readonly" type="email" readonly />
+			<label for="resume">Resume</label><input id="resume" type="file" accept="application/pdf,.pdf" />
+			<label for="cover">Cover letter</label><input id="cover" type="file" accept="application/pdf,.pdf" />
+			<label for="unsupported-combo">Favorite framework</label>
+			<div id="unsupported-combo" role="combobox" aria-labelledby="unsupported-label" aria-expanded="false" tabindex="0"></div>
+			<span id="unsupported-label">Favorite framework</span>
+			<label id="button-country-label">Country</label>
+			<button id="button-country" type="button" aria-haspopup="listbox" aria-controls="country-menu" aria-labelledby="button-country-label">Select country</button>
+			<div id="country-menu" role="listbox" hidden><div role="option" data-value="US">United States</div><div role="option" data-value="CA">Canada</div></div>
+			<button id="next" type="button">Next</button>
+			<button id="submit" type="submit">Submit application</button>
+		</form>
+		<div id="shadow-host"></div>
+		<script>
+			window.fixtureEvents = [];
+			window.fixtureSubmits = 0;
+			window.fixtureNext = 0;
+			window.fixtureChoiceState = { visa: null, consent: false, country: "" };
+			document.querySelector("#application").addEventListener("submit", (event) => {
+				event.preventDefault();
+				window.fixtureSubmits++;
+			});
+			document.querySelector("#next").addEventListener("click", () => window.fixtureNext++);
+			for (const radio of document.querySelectorAll('[name="visa"]')) radio.addEventListener("click", (event) => {
+				if (event.target.checked) window.fixtureChoiceState.visa = event.target.value;
+			});
+			document.querySelector("#consent").addEventListener("click", (event) => { window.fixtureChoiceState.consent = event.target.checked; });
+			document.querySelector("#button-country").addEventListener("click", () => { document.querySelector("#country-menu").hidden = false; });
+			for (const option of document.querySelectorAll("#country-menu [role=option]")) option.addEventListener("click", () => {
+				window.fixtureChoiceState.country = option.dataset.value;
+				document.querySelector("#button-country").textContent = option.textContent;
+				document.querySelector("#country-menu").hidden = true;
+			});
+			for (const eventName of ["input", "change", "blur"]) {
+				document.querySelector("#first").addEventListener(eventName, (event) => {
+					window.fixtureEvents.push({ type: event.type, value: event.target.value });
+				});
+			}
+			const shadow = document.querySelector("#shadow-host").attachShadow({ mode: "open" });
+			shadow.innerHTML = '<label for="shadow-email">Email address</label><input id="shadow-email" type="email" autocomplete="email">';
+		</script>
+	</body>
+</html>

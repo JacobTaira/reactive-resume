@@ -279,7 +279,7 @@ const BASE_TOOL_META = {
 			"",
 			"Use this when resume IDs are unknown; IDs already returned by related-resume, queue, application or copy tools do not require another listing.",
 			"Results can be filtered by tags and sorted by last updated date, creation date, or name.",
-			`For queued preparation use \`${T.prepareQueuedResume}\` to resolve Base Resume and receive useful related references automatically. Optional broader library searches use \`${T.findRelatedResumes}\`.`,
+			`For queued preparation use \`${T.prepareQueuedResume}\` to resolve the designated master, Master_Resume or Base Resume, and receive useful related references automatically. Optional broader library searches use \`${T.findRelatedResumes}\`.`,
 		].join("\n"),
 		outputSchema: toWireObjectSchema(resumeDto.list.output),
 		inputSchema: wireInput(
@@ -403,7 +403,7 @@ const BASE_TOOL_META = {
 		description: [
 			"Create a copy of an existing resume with all its data.",
 			"",
-			"Returns the ID of the newly duplicated resume. For a job-specific draft, use the user-designated Base Resume and explicitly supply a company-and-role name; related versions are comparison references.",
+			"Returns the ID of the newly duplicated resume. For a job-specific draft, use the user-designated master and explicitly supply a company-and-role name; related versions are wording references. The supplied Google Doc remains the factual authority.",
 			"Name and tags default to the original; a unique slug is generated when omitted.",
 			"Useful for creating job-specific variants of a base resume.",
 		].join("\n"),
@@ -1076,4 +1076,5 @@ export const TOOL_META = withAnnotationTitles({
 		outputSchema: toWireObjectSchema(applicationDto.bulkDelete.output),
 	},
 } as const);
+
 

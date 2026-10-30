@@ -19,6 +19,11 @@ function chromeMock(storage) {
 	});
 	const chrome = {
 		storage: {
+			session: {
+				setAccessLevel: async value => assert.equal(value.accessLevel, "TRUSTED_CONTEXTS"),
+				get: async defaults => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, clone(storage[`session:${key}`] ?? value)])),
+				set: async data => { for (const [key, value] of Object.entries(data)) storage[`session:${key}`] = clone(value); },
+			},
 			local: {
 				setAccessLevel: async value => {
 					assert.equal(value.accessLevel, "TRUSTED_CONTEXTS");
@@ -419,3 +424,4 @@ test("progress from an old tab cannot replace a newer bulk run", async () => {
 	assert.equal(storage.bulk.id, "bulk-new");
 	assert.equal(storage.bulk.phase, "collecting");
 });
+

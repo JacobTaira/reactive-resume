@@ -123,6 +123,44 @@ function registered(client: unknown) {
 }
 
 describe("compact queued-resume tools", () => {
+	it("saves a review draft and returns extracted text while retaining Processing", async () => {
+		const { client, draft } = fixture();
+		client.resume.latex.compile.mockResolvedValue({
+			success: true, resumeUpdatedAt: savedAt,
+			checks: {
+				pageCount: 1, pageCountMatches: true, expectedPageCount: 1,
+				overfullBoxes: { count: 0, messages: [], truncated: false },
+				textExtraction: { status: "success", text: "Candidate\nImplemented a verified sensor pipeline." },
+			},
+		});
+		const result = await finishQueuedResume(client as never, input({ finalize: false }));
+		expect(result).toMatchObject({ success: true, finalized: false, state: "processing", reviewRequired: true });
+		if (!("pdf" in result)) throw new Error("Missing review PDF diagnostics");
+		expect(result.pdf).toMatchObject({ checks: { textExtraction: { text: expect.stringContaining("Candidate") } } });
+		expect(client.applications.queue.finish).not.toHaveBeenCalled();
+		expect(client.resume.latex.compile).toHaveBeenCalledWith({ id: "draft", expectedUpdatedAt: savedAt, expectedPageCount: 1 });
+		expect(draft.updatedAt).toEqual(savedAt);
+	});
+
+	it("retains a failed review draft and permits further corrections without marking Ready", async () => {
+		const { client } = fixture();
+		client.resume.latex.compile.mockResolvedValue({ success: false, log: "Undefined control sequence" });
+		const result = await finishQueuedResume(client as never, input({ finalize: false }));
+		expect(result).toMatchObject({ success: false, saved: true, finalized: false, state: "processing", needsCorrection: true });
+		expect(client.applications.queue.finish).not.toHaveBeenCalled();
+	});
+
+	it("rejects a review receipt if another edit occurs during compilation", async () => {
+		const { client, draft } = fixture();
+		client.resume.latex.compile.mockImplementation(async () => {
+			draft.updatedAt = new Date(savedAt.getTime() + 1);
+			return { success: true, checks: { pageCount: 1, textExtraction: { status: "success", text: "Candidate" } } };
+		});
+		const result = await finishQueuedResume(client as never, input({ finalize: false }));
+		expect(result).toMatchObject({ success: false, saved: true, code: "CONFLICT" });
+		expect(client.applications.queue.finish).not.toHaveBeenCalled();
+	});
+
 	it("prepares one active source without duplicating Base content, unused alternatives or audit profiles", async () => {
 		const { client } = fixture();
 		const result = await registered(client)(T.prepareQueuedResume)({ applicationId: "job" });
@@ -408,3 +446,4 @@ Documented system interfaces.
 		}
 	});
 });
+
