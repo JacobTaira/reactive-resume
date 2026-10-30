@@ -109,7 +109,7 @@ test("settings state can load without an employer tab and never enables form act
 	assert.equal(subject.scripts.length, 0);
 });
 
-test("detached preview, fill, diagnostics, capture and clearing stay bound after focus changes and worker restart", async () => {
+for (const viewMode of ["window", "sidepanel"]) test(`${viewMode} preview, fill, diagnostics, capture and clearing stay bound after focus changes and worker restart`, async () => {
 	const subject = fixture({ configured: false });
 	await subject.message({ type: "autofill-state" });
 	const source = { ...subject.tab, windowId: 1 };
@@ -118,6 +118,7 @@ test("detached preview, fill, diagnostics, capture and clearing stay bound after
 	let windowTab;
 	const captured = [];
 	subject.chrome.runtime.getURL = (path) => `chrome-extension://fixture/${path}`;
+	subject.chrome.runtime.getContexts = async () => [{ contextType: "SIDE_PANEL", documentId: "native-panel", windowId: 1, documentUrl: windowTab.url }];
 	subject.chrome.tabs.query = async () => [structuredClone(active)];
 	subject.chrome.tabs.get = async (id) => {
 		if (id === 7) return structuredClone(source);
@@ -131,12 +132,18 @@ test("detached preview, fill, diagnostics, capture and clearing stay bound after
 		},
 		update: async (id) => ({ id }),
 	};
+	subject.chrome.sidePanel = {
+		setOptions: async ({ path }) => { windowTab = { url: `chrome-extension://fixture/${path}` }; },
+		open: async () => {},
+	};
 	let service = createAutofillService(subject.chrome, { fetchImpl: subject.fetchImpl, captureTab: async (tab) => captured.push(tab.id) });
-	await service({ type: "autofill-open-window", tabId: 7, tabUrl: source.url }, sender);
-	const from = { ...sender, url: windowTab.url, tab: { id: 101 } };
+	if (viewMode === "window") await service({ type: "autofill-open-window", tabId: 7, tabUrl: source.url }, sender);
+	else await service.openSidePanel(source);
+	const from = { ...sender, url: windowTab.url, ...(viewMode === "window" ? { tab: { id: 101 } } : { documentId: "native-panel" }) };
 	active = other;
 	const state = await service({ type: "autofill-state" }, from);
-	assert.equal(state.windowMode, true);
+	assert.equal(state.windowMode, viewMode === "window");
+	assert.equal(state.viewMode, viewMode);
 	assert.equal(state.draftContext.tabId, 7);
 	assert.equal(state.draftContext.tabUrl, source.url);
 	const expected = { expectedTabId: 7, expectedTabUrl: source.url };

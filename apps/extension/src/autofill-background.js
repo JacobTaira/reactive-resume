@@ -145,9 +145,9 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		try { return JSON.parse(content); } catch { throw new Error("The MCP server did not return the expected saved record."); }
 	}
 	async function activeTab(sender, message) {
-		const { tab, windowMode } = await applicationWindows.resolveTab(sender);
+		const { tab, viewMode } = await applicationWindows.resolveTab(sender);
 		const hasExpectation = message && ("expectedTabId" in message || "expectedTabUrl" in message);
-		if ((windowMode || hasExpectation) && (message?.expectedTabId !== tab.id || message?.expectedTabUrl !== tab.url)) {
+		if ((viewMode !== "popup" || hasExpectation) && (message?.expectedTabId !== tab.id || message?.expectedTabUrl !== tab.url)) {
 			throw new Error("The application page changed. Reload this window or reopen the extension on the intended form before previewing again.");
 		}
 		return tab;
@@ -274,7 +274,7 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 			return { reports, message: "Review every filled value and confirm the selected PDF finished uploading on the employer’s page. Complete remaining fields and submit yourself. On the next step, preview again." };
 		} finally { filling.delete(message.token); }
 	}
-	return async (message, sender) => {
+	const handle = async (message, sender) => {
 		if (!trustedAutofillSender(sender, chromeApi.runtime.id)) throw new Error("Autofill is available only from this extension’s popup and settings.");
 		if (message.type === "autofill-open-window") {
 			await ready;
@@ -284,11 +284,11 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		if (message.type === "autofill-state") {
 			const saved = await state();
 			const { autofillSelection, autofillPreview } = await chromeApi.storage.session.get({ autofillSelection: null, autofillPreview: null });
-			const { tab, windowMode } = await applicationWindows.resolveTab(sender, { allowNonWeb: true });
+			const { tab, windowMode, viewMode } = await applicationWindows.resolveTab(sender, { allowNonWeb: true });
 			const selection = autofillSelection && tab?.id === autofillSelection.tabId && tab?.url === autofillSelection.tabUrl ? autofillSelection.application : null;
 			const previewToken = autofillPreview && tab?.id === autofillPreview.tabId && tab?.url === autofillPreview.tabUrl
 				&& Date.now() - autofillPreview.createdAt <= 10 * 60 * 1000 ? autofillPreview.token : null;
-			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), commonAnswers: approvedCommonAnswers(saved.autofillCommonAnswers), selection, previewToken, windowMode,
+			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), commonAnswers: approvedCommonAnswers(saved.autofillCommonAnswers), selection, previewToken, windowMode, viewMode,
 				draftContext: { sessionId: await ready, tabId: tab?.id, tabUrl: tab?.url } };
 		}
 		if (message.type === "autofill-diagnostics") {
@@ -339,4 +339,6 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		}
 		throw new Error("Unknown autofill command.");
 	};
+	handle.openSidePanel = applicationWindows.openSidePanel;
+	return handle;
 }

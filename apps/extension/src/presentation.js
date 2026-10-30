@@ -138,7 +138,8 @@ export function mountFeedback({ document }) {
 }
 
 if (globalThis.document && globalThis.chrome) {
-	if (new URL(document.location.href).searchParams.get("mode") === "window") document.body.dataset.mode = "window";
+	const mode = new URL(document.location.href).searchParams.get("mode");
+	if (mode === "window" || mode === "sidepanel") document.body.dataset.mode = mode;
 	void mountTheme({ document, chromeApi: chrome });
 	mountFeedback({ document });
 	if (document.body.classList.contains("settings")) mountTooltips({ document });

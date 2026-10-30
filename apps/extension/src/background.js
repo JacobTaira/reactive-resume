@@ -127,7 +127,14 @@ async function captureTab(tab) {
 		await chrome.runtime.openOptionsPage();
 	}
 }
-chrome.action.onClicked.addListener((tab) => { void captureTab(tab); });
+chrome.action.onClicked.addListener((tab) => {
+	// No awaits before this call: the native panel must open in this user gesture.
+	void autofill.openSidePanel(tab).catch(async (error) => {
+		await chrome.storage.local.set({ lastError: error.message });
+		await badge("!", "#b42318");
+		await chrome.runtime.openOptionsPage();
+	});
+});
 chrome.commands.onCommand.addListener((command) => {
 	if (command === "capture-job") void chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => captureTab(tab));
 });

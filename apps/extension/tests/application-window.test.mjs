@@ -147,7 +147,7 @@ test("normal settings can load without an ordinary application tab", async () =>
 	assert.equal((await f.service.resolveTab({ ...sender, url: "chrome-extension://fixture/autofill.html" }, { allowNonWeb: true })).tab.id, 9);
 });
 
-function pageFixture({ windowMode = false } = {}) {
+function pageFixture({ windowMode = false, viewMode } = {}) {
 	const listeners = new Map();
 	const element = () => ({ disabled: true, dataset: {}, setAttribute() {}, addEventListener(type, listener) { listeners.set(type, listener); } });
 	const button = element(), context = element(), workspace = element(), message = element();
@@ -155,7 +155,7 @@ function pageFixture({ windowMode = false } = {}) {
 	let closed = 0, reloaded = 0, saved = 0;
 	const document = { body: element(), getElementById: (id) => ({ "open-window": button, "source-context": context, workspace, message })[id],
 		defaultView: { close: () => { closed++; }, location: { reload: () => { reloaded++; } } } };
-	const state = { windowMode, draftContext: { tabId: 7, tabUrl: "https://careers.example/apply/one" } };
+	const state = { windowMode, viewMode, draftContext: { tabId: 7, tabUrl: "https://careers.example/apply/one" } };
 	const chromeApi = { runtime: { sendMessage: async (value) => { calls.push(value); return { ok: true }; } },
 		tabs: { onUpdated: { addListener: (fn) => updated.push(fn) }, onRemoved: { addListener: (fn) => removed.push(fn) } } };
 	mountApplicationWindow({ document, chromeApi, state, beforeOpen: async () => { saved++; } });
@@ -187,4 +187,15 @@ test("detached navigation reloads the draft context and a closed source disables
 	assert.equal(f.workspace.disabled, true);
 	assert.equal(f.button.disabled, true);
 	assert.match(f.context.textContent, /closed/u);
+});
+
+test("native side panels retain their mode and offer the separate resizable window", async () => {
+	const f = pageFixture({ viewMode: "sidepanel" });
+	assert.equal(f.document.body.dataset.mode, "sidepanel");
+	assert.equal(f.button.textContent, "Open in window");
+	await f.click();
+	assert.deepEqual(f.calls, [{ type: "autofill-open-window", tabId: 7, tabUrl: f.state.draftContext.tabUrl }]);
+	assert.equal(f.closed, 0);
+	f.updated[0](7, { url: "https://careers.example/apply/one/next" }, {});
+	assert.equal(f.reloaded, 1);
 });

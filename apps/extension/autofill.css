@@ -56,6 +56,12 @@
 body { margin: 0 auto; padding: 22px; background: radial-gradient(ellipse at top left, color-mix(in srgb, var(--accent) 5%, transparent), transparent 65%), var(--canvas); }
 body.popup { width: 440px; max-height: 600px; overflow: auto; }
 body.popup[data-mode="window"] { width: 100%; min-width: 320px; max-width: 840px; max-height: none; min-height: 100vh; padding: clamp(20px, 4vw, 36px); }
+body.popup[data-mode="sidepanel"] { width: 100%; min-width: 0; max-width: 100%; max-height: none; min-height: 100vh; padding: 20px 16px; }
+body.popup[data-mode="sidepanel"] h1 { font-size: 21px; overflow-wrap: anywhere; }
+body.popup[data-mode="sidepanel"] section { padding: 18px; }
+body.popup[data-mode="sidepanel"] .window-toolbar { flex-wrap: wrap; align-items: flex-start; }
+body.popup[data-mode="sidepanel"] #source-context { flex-basis: 100%; }
+body.popup[data-mode="sidepanel"] #open-window { margin-left: auto; }
 body.settings { max-width: 920px; padding: 40px 24px 70px; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 h1, h2 { letter-spacing: -.025em; }

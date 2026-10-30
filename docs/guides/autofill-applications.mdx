@@ -7,7 +7,7 @@ The Chrome extension includes an independent autofill engine. It uses your appro
 
 ## Set up once
 
-Update the checkout, reload the extension at `chrome://extensions`, and open its toolbar popup. Choose **Autofill settings** and enter the contact details you approve for applications. Your Google Doc remains the authority for background facts; this local profile is a selected copy for form filling, not a replacement career record.
+Update the checkout, reload the extension at `chrome://extensions`, and click its toolbar icon on an application page. The assistant opens beside the form in Chrome’s side panel. Choose **Autofill settings** and enter the contact details you approve for applications. Your Google Doc remains the authority for background facts; this local profile is a selected copy for form filling, not a replacement career record.
 
 To load prepared resumes from your installation, supply its URL and a **normal MCP API key**. Keep the existing capture-only key for job capture; it cannot read resumes. Grant the extension access to this installation. The autofill URL must use the same origin as the server's `APP_URL`, including your public HTTPS address if that is how Claude reaches the app.
 
@@ -25,7 +25,9 @@ Enter your approved website or portfolio URL in **Approved profile → Website U
 
 ### Keep the assistant open
 
-Choose **Open in window** in the toolbar popup for a window that stays open when you click elsewhere. Resize it by dragging its edges. The window remains linked to the original employer tab, and **Show application** brings that tab to the front. Choosing another browser tab or window does not change its destination.
+Clicking the toolbar icon opens Chrome’s side panel automatically. It stays beside the application while you click the form; drag Chrome’s divider to resize it. Each application tab keeps its own panel and saved draft.
+
+For a separate window, choose **Open in window** and resize it by dragging its edges. This window stays linked to the original employer tab, and **Show application** brings that tab to the front. Choosing another browser tab or window does not change its destination.
 
 Each application URL still has its own draft. Moving to another step refreshes the assistant for that URL; review the current resume selection and make a new preview. Closing the employer tab or navigating to another website disconnects the window. Open the extension on the intended application again to reconnect.
 
