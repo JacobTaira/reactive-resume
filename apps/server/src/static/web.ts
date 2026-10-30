@@ -355,6 +355,20 @@ export async function handleWebApp(request: Request, readFile: ReadWebFile = (pa
 	const isHead = request.method === "HEAD";
 	const pathname = new URL(request.url).pathname;
 
+	// This self-hosted fork opens the workspace by default. A configured public
+	// root resume still owns /; dashboard authentication handles signed-out visits.
+	if (pathname === "/" && !env.ROOT_RESUME_ID) {
+		return new Response(null, {
+			status: 302,
+			headers: {
+				Location: "/dashboard",
+				"Cache-Control": "no-store",
+				"X-Robots-Tag": "noindex, follow",
+				...BASE_SECURITY_HEADERS,
+			},
+		});
+	}
+
 	if (!isNoindexShellPath(pathname) && isAssetPath(pathname)) {
 		return new Response(isHead ? null : "Not Found", { status: 404 });
 	}

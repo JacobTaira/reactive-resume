@@ -10,9 +10,13 @@ const PublicResumePage = lazyRouteComponent(() => import("@/features/resume/publ
 
 export const Route = createFileRoute("/_home/")({
 	component: RouteComponent,
-	loader: async ({ context }) => ({
-		root: await context.queryClient.fetchQuery(orpc.resume.getRoot.queryOptions({ staleTime: 0 })),
-	}),
+	loader: async ({ context }) => {
+		const data = {
+			root: await context.queryClient.fetchQuery(orpc.resume.getRoot.queryOptions({ staleTime: 0 })),
+		};
+		if (data.root.status === "disabled") throw redirect({ to: "/dashboard", replace: true });
+		return data;
+	},
 	onError: (error) => {
 		if (error instanceof ORPCError && error.code === "NEED_PASSWORD") {
 			const { username, slug } = error.data as { username: string; slug: string };

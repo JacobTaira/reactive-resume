@@ -39,58 +39,18 @@ describe("web app fallback classification", () => {
 		mocks.getPublicResumeSocialMeta.mockResolvedValue(null);
 	});
 
-	it("injects canonical metadata and structured data into tracking-parameter root requests only", async () => {
-		vi.mocked(fs.readFile).mockResolvedValue(`
-			<!doctype html>
-			<html>
-				<head>
-					<title>Reactive Resume — A free and open-source resume builder</title>
-					<meta
-						name="description"
-						content="Reactive Resume is a free and open-source resume builder that makes it easy to create, update, and share your resume."
-					>
-				</head>
-				<body><div id="app"></div></body>
-			</html>
-		`);
-
-		const response = await handleWebApp(new Request("http://server.internal/?utm_source=search"));
-		const html = await response.text();
-
-		expect(html).toContain('<link rel="canonical" href="https://rxresu.me/">');
-		expect(html).toContain('<meta property="og:url" content="https://rxresu.me/">');
-		expect(html).toContain('<script type="application/ld+json">');
-		expect(html).toContain(
-			'<meta property="og:description" content="Reactive Resume is a free and open-source resume builder that makes it easy to create, update, and share your resume.">',
+	it.each(["GET", "HEAD"])("redirects %s root visits to the dashboard before reading marketing HTML", async (method) => {
+		const response = await handleWebApp(
+			new Request("https://resume.example/?utm_source=bookmark&callbackURL=https://attacker.example", { method }),
 		);
-		expect(html).toContain('"contactType":"support","email":"amruth@rxresu.me"');
-		expect(html).not.toContain("utm_source");
 
-		const dashboardResponse = await handleWebApp(new Request("https://example.com/dashboard"));
-		expect(await dashboardResponse.text()).not.toContain('rel="canonical"');
-	});
-
-	it("serves the homepage prerendered in the requested or saved locale, with hreflang alternates", async () => {
-		vi.mocked(fs.readFile).mockImplementation((path) => {
-			const locale = String(path).match(/dist-prerender\/home\/(.+)\.html$/)?.[1];
-			return Promise.resolve(`<html><head></head><body><div id="app">${locale ?? "shell"}</div></body></html>`);
-		});
-
-		const german = await handleWebApp(new Request("https://example.com/?locale=de-DE"));
-		const html = await german.text();
-		expect(html).toContain('<div id="app">de-DE</div>');
-		expect(html).toContain('<link rel="canonical" href="https://rxresu.me/?locale=de-DE">');
-		expect(html).toContain('<link rel="alternate" hreflang="x-default" href="https://rxresu.me/">');
-		expect(german.headers.get("Vary")).toBe("Cookie");
-
-		const saved = new Request("https://example.com/", { headers: { cookie: "theme=dark; locale=ar-SA" } });
-		const savedHtml = await (await handleWebApp(saved)).text();
-		expect(savedHtml).toContain('<div id="app">ar-SA</div>');
-		expect(savedHtml).toContain('<link rel="canonical" href="https://rxresu.me/">');
-
-		// Only known locales name a file, so the parameter can't point anywhere else.
-		const unknown = await handleWebApp(new Request("https://example.com/?locale=../../index"));
-		expect(await unknown.text()).toContain('<div id="app">en-US</div>');
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe("/dashboard");
+		expect(response.headers.get("Cache-Control")).toBe("no-store");
+		expect(response.headers.get("X-Robots-Tag")).toBe("noindex, follow");
+		expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+		expect(await response.text()).toBe("");
+		expect(fs.readFile).not.toHaveBeenCalled();
 	});
 
 	describe("the ATS checker page", () => {
@@ -160,7 +120,7 @@ describe("web app fallback classification", () => {
 		});
 	});
 
-	it.each(["/", "/alice/resume"])("sets framing and report-only CSP security headers on %s", async (pathname) => {
+	it.each(["/alice/resume"])("sets framing and report-only CSP security headers on %s", async (pathname) => {
 		const response = await handleWebApp(new Request(`https://example.com${pathname}`));
 
 		expect(response.status).toBe(200);
