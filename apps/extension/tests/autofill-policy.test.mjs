@@ -23,6 +23,8 @@ class FixtureElement {
 		this.attributes = options.attributes || {};
 		this.innerText = options.text || "";
 		this.ashbyWrapper = options.ashbyWrapper || null;
+		this.entry = options.entry || null;
+		this.booleanContainer = options.booleanContainer || null;
 		this.radioGroup = options.radioGroup || null;
 		this._value = options.value || "";
 		this._checked = options.checked || false;
@@ -40,7 +42,7 @@ class FixtureElement {
 		this.children = [];
 		this.events = [];
 		this.clicks = 0;
-		this.form = document.form;
+		this.form = Object.hasOwn(options, "form") ? options.form : document.form;
 		this.accept = options.accept || "";
 		this.fieldset = options.fieldset;
 	}
@@ -64,6 +66,9 @@ class FixtureElement {
 	closest(selector) {
 		if (selector === "fieldset") return this.fieldset || null;
 		if (selector === ".ashby-application-form-field-entry") return this.ashbyWrapper;
+		if (selector === '[data-field-path][data-field-entry-id]') return this.entry;
+		if (selector === '[class*="_yesno_"]') return this.booleanContainer;
+		if (selector === "form") return this.closestForm || null;
 		if (selector.includes('[role="radiogroup"]')) return this.radioGroup;
 		return null;
 	}
@@ -71,6 +76,7 @@ class FixtureElement {
 	dispatchEvent(event) { this.events.push(event.type); return true; }
 	click() {
 		this.clicks++;
+		if (this.onClick) { this.onClick(); return; }
 		if (this.type === "radio" || this.type === "checkbox") {
 			this.checked = this.type === "radio" || !this.checked;
 			for (const type of ["click", "input", "change"]) this.dispatchEvent(new FixtureEvent(type));
@@ -117,6 +123,132 @@ function questionWrapper(title, { duplicateTitle = false } = {}) {
 	wrapper.querySelectorAll = (selector) => selector === ".ashby-application-form-question-title" ? (duplicateTitle ? [heading, { ...heading }] : [heading]) : [];
 	return wrapper;
 }
+
+// Independently authored fixtures of observed Ashby markup. Its native choice
+// title is a LABEL in a FIELDSET (no legend); Yes/No uses two raw buttons and an
+// answered-state checkbox. No third-party autofill implementation is copied.
+function capturedQuestion(title, { path = "question-one", entryId = "entry-question-one", duplicateTitle = false, titleFor = path, native = false } = {}) {
+	const entry = { tagName: "DIV", id: entryId, nodeType: 1, children: [], parentElement: null, isConnected: true,
+		getAttribute: (key) => ({ "data-field-path": path, "data-field-entry-id": entryId })[key] || null,
+		getRootNode: () => ({}), querySelector: () => entry.buttons?.[0] || null, querySelectorAll: () => [],
+		closest: (selector) => selector === '[data-field-path][data-field-entry-id]' || !native && selector === ".ashby-application-form-field-entry" ? entry : null };
+	const fieldset = { tagName: "FIELDSET", id: "", nodeType: 1, children: [], parentElement: entry,
+		getAttribute: () => null, getRootNode: () => ({}), querySelector: () => null, querySelectorAll: () => [],
+		closest: (selector) => selector === "fieldset" ? fieldset : selector === '[data-field-path][data-field-entry-id]' ? entry : null };
+	const heading = { innerText: title, getAttribute: (key) => key === "for" ? titleFor : null,
+		closest: (selector) => selector === "fieldset" ? native ? fieldset : null : selector === '[data-field-path][data-field-entry-id]' ? entry : !native && selector === ".ashby-application-form-field-entry" ? entry : null };
+	const titles = duplicateTitle ? [heading, { ...heading }] : [heading];
+	entry.querySelectorAll = (selector) => selector === ".ashby-application-form-question-title" ? titles : selector === '[class*="_yesno_"]' ? [entry.container] : [];
+	fieldset.querySelectorAll = (selector) => selector === ".ashby-application-form-question-title" ? titles : [];
+	return { entry, fieldset, titles, path, entryId };
+}
+
+function booleanEnvironment({ selected = "", checkboxName, duplicateTitle = false, form = null, explicitType, retain = true } = {}) {
+	const shape = capturedQuestion("Prior Government Employment?", { duplicateTitle });
+	const { entry } = shape;
+	const container = { tagName: "DIV", nodeType: 1, id: "", children: [], parentElement: entry,
+		getAttribute: (key) => key === "class" ? "_container_fixture _yesno_fixture" : null, getRootNode: () => ({}), querySelector: () => null,
+		querySelectorAll: (selector) => selector === "button" ? entry.buttons : selector === 'input[type="checkbox"]' ? [entry.backing] : [],
+		closest: (selector) => selector === '[data-field-path][data-field-entry-id]' ? entry : null };
+	entry.container = container;
+	const definitions = ["Yes", "No"].map((label) => ({ tag: "BUTTON", type: explicitType || "submit", text: label, entry, ashbyWrapper: entry, booleanContainer: container, parent: container, form,
+		attributes: { class: `_container_fixture _option_fixture${selected === label ? " _active_fixture" : ""}`, ...(explicitType ? { type: explicitType } : {}) } }));
+	definitions.push({ type: "checkbox", name: checkboxName || shape.path, value: selected || "on", checked: Boolean(selected), entry, ashbyWrapper: entry, booleanContainer: container, parent: container, form });
+	const subject = environment(definitions);
+	entry.buttons = subject.fields.slice(0, 2); entry.backing = subject.fields[2];
+	for (const button of entry.buttons) button.onClick = () => {
+		if (!retain) return;
+		entry.backing.checked = true; entry.backing.value = button.innerText;
+		for (const choice of entry.buttons) choice.attributes.class = `_container_fixture _option_fixture${choice === button ? " _active_fixture" : ""}`;
+	};
+	return { ...subject, ...shape };
+}
+
+test("observed Ashby fieldset LABEL titles identify native Gender, Race and Veteran Status groups", async () => {
+	const shapes = [capturedQuestion("Gender", { native: true, path: "gender", entryId: "survey-gender" }),
+		capturedQuestion("Race", { native: true, path: "race", entryId: "survey-race" }),
+		capturedQuestion("Veteran Status", { native: true, path: "veteran", entryId: "survey-veteran" })];
+	const answers = ["Male", "Asian (Not Hispanic or Latino)", "I am not a protected veteran"];
+	const definitions = shapes.flatMap((shape, index) => [answers[index], "Decline to self-identify"].map((label, option) => ({ label, type: "radio", name: shape.entryId, value: String(option), entry: shape.entry, fieldset: shape.fieldset, parent: shape.fieldset })));
+	const { document, fields, engine } = environment(definitions);
+	const value = { ...packet, commonAnswers: { gender: answers[0], race: answers[1], protectedVeteranStatus: answers[2] } };
+	assert.deepEqual(Array.from(engine.plan(document, value).fields, field => field.label), ["Gender", "Race", "Veteran Status"]);
+	const result = await engine.fill(document, value);
+	assert.equal(result.filled.length, 3);
+	assert.deepEqual(fields.map(field => field.checked), [true, false, true, false, true, false]);
+});
+
+test("Ashby native title path mismatches and duplicate question titles stay manual", async () => {
+	for (const options of [{ titleFor: "other-question" }, { duplicateTitle: true }]) {
+		const shape = capturedQuestion("Gender", { native: true, ...options });
+		const { document, fields, engine } = environment([{ label: "Male", type: "radio", name: shape.entryId, value: "male", entry: shape.entry, fieldset: shape.fieldset, parent: shape.fieldset }]);
+		const result = await engine.fill(document, { ...packet, commonAnswers: { gender: "Male" }, answers: [{ question: "Male", answer: "male" }] });
+		assert.equal(result.filled.length, 0); assert.equal(fields[0].clicks, 0);
+	}
+});
+
+test("observed no-type Ashby Yes/No buttons fill an approved No by clicking while marking the backing checkbox answered", async () => {
+	const { document, fields, engine, entry } = booleanEnvironment();
+	const value = { ...packet, commonAnswers: { priorGovernmentEmployment: "No" } };
+	const plan = engine.plan(document, value);
+	assert.equal(plan.fields.length, 1); assert.equal(plan.fields[0].label, "Prior Government Employment?");
+	assert.equal(plan.fields[0].type, "ashby-boolean"); assert.equal(plan.matched.length, 1);
+	const result = await engine.fill(document, value);
+	assert.equal(result.filled.length, 1);
+	assert.equal(fields[0].clicks, 0); assert.equal(fields[1].clicks, 1);
+	assert.equal(entry.backing.checked, true); assert.equal(entry.backing.value, "No");
+});
+
+test("an unchecked Ashby backing checkbox is unanswered rather than an implicit No", async () => {
+	const subject = booleanEnvironment();
+	assert.equal(subject.engine.plan(subject.document, packet).matched.length, 0);
+	await subject.engine.fill(subject.document, packet);
+	assert.ok(subject.fields.every(field => field.clicks === 0));
+	assert.equal(subject.entry.backing.checked, false);
+});
+
+test("existing active Yes and No are preserved even when another common answer is approved", async () => {
+	for (const selected of ["Yes", "No"]) {
+		const subject = booleanEnvironment({ selected });
+		const value = { ...packet, commonAnswers: { priorGovernmentEmployment: selected === "Yes" ? "No" : "Yes" } };
+		assert.equal(subject.engine.plan(subject.document, value).fields[0].status, "preserved");
+		await subject.engine.fill(subject.document, value);
+		assert.ok(subject.fields.every(field => field.clicks === 0));
+		assert.equal(subject.entry.backing.value, selected);
+	}
+});
+
+test("Ashby Yes/No groups with mismatched backing paths or duplicate titles are not filled", async () => {
+	for (const options of [{ checkboxName: "other-question" }, { duplicateTitle: true }]) {
+		const subject = booleanEnvironment(options);
+		await subject.engine.fill(subject.document, { ...packet, commonAnswers: { priorGovernmentEmployment: "No" } });
+		assert.ok(subject.fields.every(field => field.clicks === 0));
+	}
+});
+
+test("Ashby button clicks must survive actual selection-state readback", async () => {
+	const subject = booleanEnvironment({ retain: false });
+	const result = await subject.engine.fill(subject.document, { ...packet, commonAnswers: { priorGovernmentEmployment: "No" } });
+	assert.equal(result.filled.length, 0); assert.equal(result.failed.length, 1);
+	assert.match(result.failed[0].reason, /did not retain/);
+});
+
+test("raw Ashby submit-capable buttons with a native form are never clicked", async () => {
+	for (const options of [{ form: { id: "native-form" } }, { explicitType: "submit" }]) {
+		const subject = booleanEnvironment(options);
+		await subject.engine.fill(subject.document, { ...packet, commonAnswers: { priorGovernmentEmployment: "No" } });
+		assert.ok(subject.fields.every(field => field.clicks === 0));
+	}
+});
+
+test("Ashby option buttons that become form-associated after preview are refused before clicking", async () => {
+	const subject = booleanEnvironment();
+	const value = { ...packet, commonAnswers: { priorGovernmentEmployment: "No" } };
+	const plan = subject.engine.plan(subject.document, value);
+	for (const button of subject.entry.buttons) button.form = { id: "new-native-form" };
+	const result = await subject.engine.fill(subject.document, value, { expectedFingerprint: plan.fingerprint });
+	assert.equal(result.filled.length, 0); assert.ok(subject.fields.every(field => field.clicks === 0));
+});
 
 test("common answers require explicit saved values and recognize only narrow equivalent questions", async () => {
 	const definitions = [

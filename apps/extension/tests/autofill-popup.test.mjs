@@ -27,6 +27,7 @@ function fixture() {
 	const records = new Map();
 	const calls = [];
 	const job = { id: "app-1", company: "Example", role: "Engineer", resumeId: "resume-1" };
+	const diagnostics = { schemaVersion: 1, fields: [{ tagName: "INPUT", type: "file", label: "Resume" }] };
 	const state = { configured: false, selection: null, previewToken: null, draftContext: { sessionId: "session-1", tabId: 7, tabUrl: "https://careers.example.test/apply/123" } };
 	let writeError = false;
 	let beforePreview = async () => {};
@@ -52,6 +53,7 @@ function fixture() {
 		let data;
 		if (message.type === "autofill-state") data = structuredClone(state);
 		else if (message.type === "autofill-list") data = { items: [job], nextOffset: 100 };
+		else if (message.type === "autofill-diagnostics") data = structuredClone(diagnostics);
 		else if (message.type === "autofill-preview") {
 			await beforePreview();
 			state.previewToken = `preview-${++previewCount}`;
@@ -75,17 +77,35 @@ function fixture() {
 		return { ok: true, data };
 	} } };
 	async function open() {
-		const ids = ["message", "draft-status", "pdf-status", "cover-letter-status", "workspace", "review", "selection", "page", "fields", "company", "role", "pdf", "cover-letter", "application", "job", "manual", "load", "more", "capture", "preview", "fill", "clear"];
-		const elements = Object.fromEntries(ids.map((id) => [id, new Element(["load", "more", "capture", "preview", "fill", "clear"].includes(id) ? "BUTTON" : "DIV")]));
+		const ids = ["message", "draft-status", "pdf-status", "cover-letter-status", "workspace", "review", "selection", "page", "fields", "company", "role", "pdf", "cover-letter", "application", "job", "manual", "load", "more", "capture", "preview", "fill", "clear", "diagnostics"];
+		const elements = Object.fromEntries(ids.map((id) => [id, new Element(["load", "more", "capture", "preview", "fill", "clear", "diagnostics"].includes(id) ? "BUTTON" : "DIV")]));
 		elements.pdf.type = "file"; elements["cover-letter"].type = "file"; elements.review.hidden = true; elements.workspace.disabled = true;
-		const document = { getElementById: (id) => elements[id], createElement: (tag) => new Element(tag.toUpperCase()),
-			defaultView: { DataTransfer: class { constructor() { this.files = []; this.items = { add: (file) => this.files.push(file) }; } } } };
+		const downloads = [], timers = [], revoked = [], objectUrls = new Map();
+		const document = {
+			body: new Element("BODY"), getElementById: (id) => elements[id],
+			createElement: (tag) => {
+				const element = new Element(tag.toUpperCase());
+				if (tag === "a") {
+					element.click = () => downloads.push({ href: element.href, download: element.download, blob: objectUrls.get(element.href) });
+					element.remove = () => { document.body.children = document.body.children.filter((child) => child !== element); };
+				}
+				return element;
+			},
+			defaultView: {
+				DataTransfer: class { constructor() { this.files = []; this.items = { add: (file) => this.files.push(file) }; } },
+				Blob, URL: {
+					createObjectURL: (blob) => { const url = `blob:fixture-${objectUrls.size + 1}`; objectUrls.set(url, blob); return url; },
+					revokeObjectURL: (url) => { revoked.push(url); objectUrls.delete(url); },
+				},
+				setTimeout: (callback, delay) => { timers.push({ callback, delay }); },
+			},
+		};
 		await mountAutofillPopup({ document, chromeApi, openDraftStore });
-		return { ...elements, type: async (id, value) => { elements[id].value = value; await elements[id].emit("input"); },
+		return { ...elements, downloads, timers, revoked, document, type: async (id, value) => { elements[id].value = value; await elements[id].emit("input"); },
 			selectPdf: async (file = pdf) => { elements.pdf.files = [file]; await elements.pdf.emit("change"); },
 			selectCoverLetter: async (file = coverLetterPdf) => { elements["cover-letter"].files = [file]; await elements["cover-letter"].emit("change"); } };
 	}
-	return { open, state, calls, job, records, failWrites: () => { writeError = true; }, delayPreview: (callback) => { beforePreview = callback; },
+	return { open, state, calls, job, records, diagnostics, failWrites: () => { writeError = true; }, delayPreview: (callback) => { beforePreview = callback; },
 		delayFill: (callback) => { beforeFill = callback; }, rejectNextFill: (message) => { fillError = message; } };
 }
 
@@ -370,4 +390,52 @@ test("each PDF is limited to 10 MB and invalid cover letter replacements keep th
 	const reopened = await subject.open();
 	assert.equal(reopened.pdf.files[0].name, pdf.name);
 	assert.equal(reopened["cover-letter"].files[0].name, coverLetterPdf.name);
+});
+
+test("form diagnostics download requires an explicit click but no PDFs, profile or field preview", async () => {
+	const subject = fixture(); const popup = await subject.open();
+	assert.equal(subject.state.configured, false);
+	assert.equal(popup.pdf.files.length, 0);
+	assert.equal(popup["cover-letter"].files.length, 0);
+	assert.equal(subject.calls.some((message) => message.type === "autofill-diagnostics"), false);
+	await popup.diagnostics.emit("click");
+	assert.equal(subject.calls.filter((message) => message.type === "autofill-diagnostics").length, 1);
+	assert.equal(subject.calls.some((message) => ["autofill-preview", "autofill-fill"].includes(message.type)), false);
+	assert.equal(popup.downloads.length, 1);
+	const download = popup.downloads[0];
+	assert.equal(download.download, "reactive-resume-form-diagnostics.json");
+	assert.equal(download.blob.type, "application/json");
+	assert.deepEqual(JSON.parse(await download.blob.text()), subject.diagnostics);
+	assert.equal(popup.message.textContent, "Diagnostics downloaded. Review the file before sharing it.");
+	assert.equal(subject.records.size, 0);
+	assert.equal(popup.document.body.children.length, 0);
+	assert.deepEqual(popup.revoked, []);
+	assert.equal(popup.timers.length, 1);
+	assert.ok(popup.timers[0].delay >= 1000);
+	popup.timers[0].callback();
+	assert.deepEqual(popup.revoked, [download.href]);
+});
+
+test("downloading diagnostics preserves the current review, unchecked fields and both saved PDFs", async () => {
+	const subject = fixture(); const first = await subject.open();
+	await first.type("company", "Example Robotics"); await first.type("role", "Autonomy Engineer");
+	await first.selectPdf(); await first.selectCoverLetter(); await first.preview.emit("click");
+	const phone = first.fields.querySelectorAll("input[type=checkbox]")[1];
+	phone.checked = false; await phone.emit("change");
+	const savedBefore = JSON.stringify([...subject.records.entries()]);
+	await first.diagnostics.emit("click");
+	assert.equal(first.review.hidden, false);
+	assert.equal(first.fill.disabled, false);
+	assert.equal(first.company.value, "Example Robotics");
+	assert.equal(first.role.value, "Autonomy Engineer");
+	assert.equal(first.pdf.files[0].name, pdf.name);
+	assert.equal(first["cover-letter"].files[0].name, coverLetterPdf.name);
+	assert.deepEqual(first.fields.querySelectorAll("input[type=checkbox]").map((field) => field.checked), [true, false]);
+	assert.equal(JSON.stringify([...subject.records.entries()]), savedBefore);
+	assert.equal(savedBefore.includes("schemaVersion"), false);
+	const reopened = await subject.open();
+	assert.equal(reopened.review.hidden, false);
+	assert.equal(reopened.pdf.files[0].name, pdf.name);
+	assert.equal(reopened["cover-letter"].files[0].name, coverLetterPdf.name);
+	assert.deepEqual(reopened.fields.querySelectorAll("input[type=checkbox]").map((field) => field.checked), [true, false]);
 });

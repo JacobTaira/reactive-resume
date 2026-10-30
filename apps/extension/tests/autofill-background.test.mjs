@@ -400,3 +400,36 @@ test("an unreviewed cover letter cannot be added while filling", async () => {
 	await assert.rejects(subject.message({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"], manualResume, manualCoverLetter }), /cover letter changed after preview/);
 	assert.equal(subject.scripts.length, 2);
 });
+
+test("trusted diagnostics require no resume or MCP connection and export only saved common answer kinds", async () => {
+	const subject = fixture({ configured: false });
+	subject.storage.autofillCommonAnswers = { priorGovernmentEmployment: "No", gender: "Decline to self-identify" };
+	subject.chrome.runtime.getManifest = () => ({ version: "0.3.1" });
+	subject.chrome.scripting.executeScript = async (request) => {
+		subject.scripts.push(request);
+		if (request.files) return [];
+		return [{ frameId: 0, documentId: "document-1", result: { origin: "https://careers.example.com", questions: [], truncated: false } }];
+	};
+	const result = await subject.message({ type: "autofill-diagnostics" });
+	assert.equal(result.schemaVersion, 1);
+	assert.equal(result.extensionVersion, "0.3.1");
+	assert.deepEqual(result.savedCommonAnswerKinds, ["priorGovernmentEmployment", "gender"]);
+	assert.equal(result.frames[0].origin, "https://careers.example.com");
+	assert.deepEqual(subject.scripts[0].files, ["src/autofill-diagnostics.js"]);
+	assert.equal(subject.scripts[1].args, undefined);
+	assert.equal(subject.calls.length, 0);
+	assert.equal(subject.session.autofillPreview, undefined);
+	for (const secret of ["candidate@example.com", "normal-fictional", "capture-only-fictional", "Decline to self-identify"]) assert.equal(JSON.stringify(result).includes(secret), false);
+	await assert.rejects(subject.message({ type: "autofill-diagnostics" }, { id: "fixture", url: "https://careers.example.com/popup.html" }), /only from this extension/);
+});
+
+test("diagnostics refuse a tab that navigates during structure collection", async () => {
+	const subject = fixture({ configured: false });
+	subject.chrome.scripting.executeScript = async (request) => {
+		if (request.files) return [];
+		subject.tab.url = "https://another-employer.example.test";
+		return [{ result: { origin: "https://careers.example.com", questions: [] } }];
+	};
+	await assert.rejects(subject.message({ type: "autofill-diagnostics" }), /tab navigated/);
+	assert.equal(subject.calls.length, 0);
+});

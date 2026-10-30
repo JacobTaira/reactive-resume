@@ -41,8 +41,14 @@ Use [Review prepared resumes](./reviewing-prepared-resumes.mdx) to compare the a
 
 ## Supported fields
 
-The engine handles ordinary labelled contact fields, native selects, approved choices, separately selected resume/cover-letter PDFs, open Shadow DOM, and supported ARIA controls. Ashby question containers can supply the question title for grouped choices, rather than treating the first option as the question. Some embedded forms require opening the application directly so Chrome can grant access. Complex custom widgets and repeated employment or education sections can need manual entry. Unsupported or ambiguous controls remain visible for review; support for every Workday or other ATS form is not assumed.
+The engine handles ordinary labelled contact fields, native selects, approved choices, separately selected resume/cover-letter PDFs, open Shadow DOM, and supported ARIA controls. Ashby choice groups can use their question-title label even when they have no legend. Recognized Ashby Yes/No button groups are filled by clicking the approved option and verifying that the site retained it; existing selections are preserved. Some embedded forms require opening the application directly so Chrome can grant access. Complex custom widgets and repeated employment or education sections can need manual entry. Unsupported or ambiguous controls remain visible for review; support for every Workday or other ATS form is not assumed.
 
 A cover letter is attached only when you select its PDF and approve a clearly labelled cover-letter field. The resume is never substituted for it. Uploading a file still requires the employer's page to finish its upload before you submit.
+
+## Report a missed control
+
+If a question remains missing or unsupported after saving its approved answer and making a fresh preview, choose **Download form diagnostics** in the popup. This works without selecting a PDF and does not fill or submit the form. Review the downloaded JSON before sharing it with a bug report or this conversation.
+
+The report describes question/option labels, grouping and control types, the extension version and which common-answer categories have been saved. It excludes entered field values, selected-state values, profile/answer contents, API keys, PDFs and private page URL paths or query parameters. It is downloaded only when requested and is not sent anywhere automatically. A screenshot or printed PDF shows appearance; this report supplies the page structure needed to debug a custom control.
 
 Profile data and keys stay in trusted extension contexts. Employer pages receive the selected form values and PDF bytes, never your installation key or signed download link. A preview is bound to its tab, document, and form. Changed pages or expired previews require another preview before filling.

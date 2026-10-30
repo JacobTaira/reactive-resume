@@ -29,6 +29,10 @@ Open its page, click the toolbar button and choose **Save this job to the queue*
 
 **Optional cover letter:** Expand **Resume and optional cover letter PDFs** in the popup to select a separate PDF for that job. It has its own previewed filename and digest, is retained with the tab draft, and fills only clearly labelled cover-letter uploads. The resume is never reused as a cover letter. Both files must still finish uploading on the employer's page.
 
+**Ashby choices:** Supported question-title labels include the native demographic fieldset structure without a legend. Known Yes/No widgets use their actual option buttons and backing answered state, rather than treating an unchecked checkbox as No. Generic buttons are excluded; form-associated submit-capable choices are refused and safety is rechecked at the click.
+
+**Missed controls:** Choose **Download form diagnostics** to explicitly download a bounded JSON report of question/option labels, grouping, structural control hooks, extension version and saved common-answer category names. It works without a PDF and does not fill or submit anything. The report excludes entered values, selected-state values, profile/answer contents, credentials, files and private URL paths/query strings. It is not saved into tab drafts or sent anywhere automatically. Review the file before sharing it. This is more useful than a printed PDF for debugging an unknown widget's DOM structure.
+
 Example approved answers (replace fictional values with your confirmed information):
 
 ```json

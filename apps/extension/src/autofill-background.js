@@ -281,6 +281,16 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), commonAnswers: approvedCommonAnswers(saved.autofillCommonAnswers), selection, previewToken,
 				draftContext: { sessionId: await ready, tabId: tab?.id, tabUrl: tab?.url } };
 		}
+		if (message.type === "autofill-diagnostics") {
+			const saved = await state();
+			const tab = await activeTab();
+			await chromeApi.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["src/autofill-diagnostics.js"] });
+			const frames = await chromeApi.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: () => globalThis.ReactiveResumeDiagnostics.inspect(document) });
+			if ((await chromeApi.tabs.get(tab.id)).url !== tab.url) throw new Error("The tab navigated while collecting form structure. Open the intended form and try again.");
+			return { schemaVersion: 1, extensionVersion: chromeApi.runtime.getManifest?.().version || "unknown",
+				savedCommonAnswerKinds: Object.entries(approvedCommonAnswers(saved.autofillCommonAnswers)).filter(([, value]) => value).map(([key]) => key),
+				frames: frames.slice(0, 20).filter((frame) => frame.result).map((frame, index) => ({ frame: index, ...frame.result })) };
+		}
 		if (message.type === "autofill-save") {
 			const saved = await state();
 			const baseUrl = normalizedBaseUrl(message.baseUrl);

@@ -141,6 +141,23 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	}
 	byId("manual").addEventListener("toggle", saveInput);
 	byId("capture").addEventListener("click", safely(async () => { const result = await send({ type: "autofill-capture" }); report(result.message); }));
+	byId("diagnostics").addEventListener("click", safely(async () => {
+		const diagnostics = await send({ type: "autofill-diagnostics" });
+		const view = document.defaultView;
+		const blob = new view.Blob([`${JSON.stringify(diagnostics, null, 2)}\n`], { type: "application/json" });
+		const url = view.URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = "reactive-resume-form-diagnostics.json";
+		document.body.append(link);
+		try { link.click(); }
+		finally {
+			link.remove();
+			// Leave time for Chrome to begin reading the download before revoking.
+			view.setTimeout(() => view.URL.revokeObjectURL(url), 10000);
+		}
+		report("Diagnostics downloaded. Review the file before sharing it.");
+	}));
 	byId("preview").addEventListener("click", safely(async () => {
 		invalidate();
 		const currentRevision = revision;

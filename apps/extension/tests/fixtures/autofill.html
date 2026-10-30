@@ -70,6 +70,38 @@
 			<button id="submit" type="submit">Submit application</button>
 		</form>
 		<div id="shadow-host"></div>
+		<!-- Independent minimal fixture of observed Ashby structures; inert until a test mounts it. -->
+		<template id="captured-ashby-shapes">
+			<div class="ashby-application-form-container">
+				<div class="ashby-application-form-field-entry" data-field-path="prior-government" data-field-entry-id="application-prior-government">
+					<label class="ashby-application-form-question-title" for="prior-government">Prior Government Employment?</label>
+					<div class="_container_fixture _yesno_fixture">
+						<button id="captured-government-yes" class="_container_fixture _option_fixture">Yes</button>
+						<button id="captured-government-no" class="_container_fixture _option_fixture">No</button>
+						<input type="checkbox" class="_input_fixture" name="prior-government" tabindex="-1" style="position:absolute;opacity:0;width:1px;height:1px">
+					</div>
+				</div>
+				<div data-field-path="gender" data-field-entry-id="survey-gender">
+					<fieldset><label class="ashby-application-form-question-title" for="gender">Gender</label>
+						<div><span><input id="captured-gender-male" type="radio" name="survey-gender"></span><label for="captured-gender-male">Male</label></div>
+						<div><span><input id="captured-gender-female" type="radio" name="survey-gender"></span><label for="captured-gender-female">Female</label></div>
+					</fieldset>
+				</div>
+				<div data-field-path="race" data-field-entry-id="survey-race">
+					<fieldset><label class="ashby-application-form-question-title" for="race">Race</label>
+						<div class="ashby-application-form-question-description">Fictional explanatory description, separate from the title.</div>
+						<div><span><input id="captured-race-asian" type="radio" name="survey-race"></span><label for="captured-race-asian">Asian (Not Hispanic or Latino)</label></div>
+						<div><span><input id="captured-race-decline" type="radio" name="survey-race"></span><label for="captured-race-decline">Decline to self-identify</label></div>
+					</fieldset>
+				</div>
+				<div data-field-path="veteran" data-field-entry-id="survey-veteran">
+					<fieldset><label class="ashby-application-form-question-title" for="veteran">Veteran Status</label>
+						<div><span><input id="captured-veteran-no" type="radio" name="survey-veteran"></span><label for="captured-veteran-no">I am not a protected veteran</label></div>
+						<div><span><input id="captured-veteran-decline" type="radio" name="survey-veteran"></span><label for="captured-veteran-decline">I decline to self-identify for protected veteran status</label></div>
+					</fieldset>
+				</div>
+			</div>
+		</template>
 		<script>
 			window.fixtureEvents = [];
 			window.fixtureSubmits = 0;

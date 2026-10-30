@@ -1,7 +1,8 @@
 /* Runs only after the user opens the extension. No network, storage, or submission. */
 (() => {
 	const MAX_RESUME_BYTES = 10 * 1024 * 1024;
-	const CONTROL_SELECTOR = 'input, textarea, select, [role="combobox"], [aria-haspopup="listbox"], [role="radio"]';
+	const CONTROL_SELECTOR = 'input, textarea, select, [role="combobox"], [aria-haspopup="listbox"], [role="radio"], button[class*="_option"]';
+	const ASHBY_ENTRY_SELECTOR = '[data-field-path][data-field-entry-id]';
 	const normalize = value => String(value ?? "").normalize("NFKC").toLocaleLowerCase("en-US")
 		.replace(/[’']/g, "").replace(/[\s\p{P}\p{S}]+/gu, " ").trim();
 	const questionKey = value => normalize(String(value ?? "").replace(/\s*\*\s*$/, ""));
@@ -37,11 +38,55 @@
 	const ariaRadio = element => element.type !== "radio" && element.getAttribute("role") === "radio";
 	const checkedChoice = element => ariaRadio(element) ? element.getAttribute("aria-checked") === "true" : element.checked;
 	function ashbyQuestion(element) {
-		const wrapper = element.closest(".ashby-application-form-field-entry");
+		const fieldset = element.closest("fieldset");
+		const entry = element.closest(ASHBY_ENTRY_SELECTOR);
+		const wrapper = element.closest(".ashby-application-form-field-entry") || entry;
 		if (!wrapper) return null;
-		const titles = [...wrapper.querySelectorAll(".ashby-application-form-question-title")]
-			.filter(title => title.closest(".ashby-application-form-field-entry") === wrapper);
-		return titles.length === 1 && labelText(titles[0]) ? { wrapper, label: labelText(titles[0]).slice(0, 1500) } : null;
+		const scope = fieldset && fieldset.closest(ASHBY_ENTRY_SELECTOR) === entry && entry ? fieldset : wrapper;
+		const titles = [...scope.querySelectorAll(".ashby-application-form-question-title")]
+			.filter(title => entry ? title.closest(ASHBY_ENTRY_SELECTOR) === entry
+				&& (scope !== fieldset || title.closest("fieldset") === fieldset) : title.closest(".ashby-application-form-field-entry") === wrapper);
+		if (titles.length !== 1 || !labelText(titles[0])) return null;
+		const path = entry?.getAttribute("data-field-path");
+		if (path && titles[0].getAttribute?.("for") && titles[0].getAttribute("for") !== path) return null;
+		if (path && element.type === "radio" && element.name !== path && element.name !== entry.getAttribute("data-field-entry-id")) return null;
+		return { wrapper: entry || wrapper, label: labelText(titles[0]).slice(0, 1500) };
+	}
+	function ashbyBoolean(element) {
+		const entry = element.closest(".ashby-application-form-field-entry");
+		const path = entry?.getAttribute("data-field-path"), entryId = entry?.getAttribute("data-field-entry-id");
+		if (!path || !entryId) return null;
+		const question = ashbyQuestion(element);
+		if (!question || question.wrapper !== entry) return null;
+		const containers = [...entry.querySelectorAll('[class*="_yesno_"]')]
+			.filter(container => container.closest(ASHBY_ENTRY_SELECTOR) === entry);
+		if (containers.length !== 1) return null;
+		const container = containers[0];
+		const buttons = [...container.querySelectorAll("button")].filter(button => button.closest(ASHBY_ENTRY_SELECTOR) === entry);
+		const checks = [...container.querySelectorAll('input[type="checkbox"]')];
+		if (buttons.length !== 2 || checks.length !== 1 || checks[0].name !== path
+			|| new Set(buttons.map(button => normalize(text(button)))).size !== 2
+			|| buttons.some(button => !/^(yes|no)$/.test(normalize(text(button))) || !/(?:^|\s)_option(?:_|\b)/.test(button.getAttribute("class") || ""))) return null;
+		return { entry, container, buttons, backing: checks[0], question, path, entryId };
+	}
+	function ashbyBacking(element) {
+		return element.type === "checkbox" && element.closest('[class*="_yesno_"]')
+			&& element.closest(".ashby-application-form-field-entry")?.getAttribute("data-field-path");
+	}
+	function safeAshbyButton(button) {
+		const type = button.getAttribute("type");
+		return type?.toLowerCase() === "button" || (type === null || type === "")
+			&& button.form === null && !button.closest("form") && !button.getAttribute("form");
+	}
+	function ashbyBooleanValue(widget) {
+		const selected = widget.buttons.filter(button => button.getAttribute("aria-pressed") === "true"
+			|| /(?:^|\s)_active(?:_|\b)/.test(button.getAttribute("class") || ""));
+		if (selected.length === 1) return text(selected[0]);
+		if (selected.length > 1) return "Existing ambiguous selection";
+		// The backing checkbox means answered; it is checked for BOTH Yes and No.
+		// An unchecked checkbox must never be interpreted as an approved No.
+		if (widget.backing.checked) return /^(yes|no)$/i.test(widget.backing.value) ? widget.backing.value : "Existing answer";
+		return "";
 	}
 
 	function labelText(element, excludedIds = new Set()) {
@@ -125,14 +170,16 @@
 		return parts.reverse().join("/");
 	}
 	function controlOptions(element, type, elements) {
-		return type === "radio" ? selectableChoices(elements).map(item => ({ label: labelFor(item), value: ariaRadio(item) ? labelFor(item) : item.value }))
+		return type === "ashby-boolean" ? selectableChoices(elements).map(item => ({ label: text(item), value: text(item) }))
+			: type === "radio" ? selectableChoices(elements).map(item => ({ label: labelFor(item), value: ariaRadio(item) ? labelFor(item) : item.value }))
 			: element.tagName === "SELECT" ? [...element.options].filter(option => !option.disabled)
 				.map(option => ({ label: option.label || text(option), value: option.value })) : [];
 	}
 	function selectableChoices(elements) {
 		return elements.filter(element => !element.disabled && !element.readOnly && element.getAttribute("aria-disabled") !== "true" && visible(element));
 	}
-	function controlValue(element, type, elements) {
+	function controlValue(element, type, elements, widget) {
+		if (type === "ashby-boolean") return ashbyBooleanValue(widget);
 		const comboText = type === "combobox" && element.tagName !== "INPUT" ? text(element) : "";
 		const comboValue = comboText && !/^(?:select|choose|please select|please choose)(?:\b|$)/i.test(comboText) ? comboText : "";
 		const selected = type === "radio" ? elements.find(checkedChoice) : null;
@@ -146,9 +193,10 @@
 		function visit(root) {
 			for (const element of root.querySelectorAll(CONTROL_SELECTOR)) {
 				allControls.push(element);
+				if (ashbyBacking(element)) continue;
 				const type = String(element.type || element.getAttribute("role") || element.tagName).toLowerCase();
 				if (["hidden", "password", "submit", "reset", "button", "image"].includes(type)
-					&& !combobox(element) && !ariaRadio(element)) continue;
+					&& !combobox(element) && !ariaRadio(element) && !ashbyBoolean(element)) continue;
 				if (element.disabled || element.readOnly || element.getAttribute("aria-disabled") === "true" || !visible(element)) continue;
 				controls.push(element);
 			}
@@ -157,11 +205,16 @@
 		visit(document);
 		const seenRadioGroups = new Set();
 		return controls.flatMap(element => {
-			const type = element.type === "radio" || ariaRadio(element) ? "radio" : combobox(element) ? "combobox"
+			const widget = element.tagName === "BUTTON" ? ashbyBoolean(element) : null;
+			const type = widget ? "ashby-boolean" : element.type === "radio" || ariaRadio(element) ? "radio" : combobox(element) ? "combobox"
 				: String(element.type || element.tagName).toLowerCase();
 			let elements = [element];
 			let ambiguousGroup = false;
-			if (ariaRadio(element)) {
+			if (widget) {
+				if (seenRadioGroups.has(widget.container)) return [];
+				seenRadioGroups.add(widget.container);
+				elements = widget.buttons;
+			} else if (ariaRadio(element)) {
 				const group = element.closest('[role="radiogroup"]');
 				if (!group) ambiguousGroup = true;
 				else {
@@ -178,17 +231,18 @@
 					&& item.form === element.form && item.getRootNode() === root);
 			}
 			const question = ashbyQuestion(element);
+			if (type === "radio" && element.closest(ASHBY_ENTRY_SELECTOR) && !question) ambiguousGroup = true;
 			if (question && elements.some(item => ashbyQuestion(item)?.wrapper !== question.wrapper)) ambiguousGroup = true;
-			const label = (type === "radio" ? groupLabel(element) : "") || labelFor(element);
+			const label = widget ? widget.question.label : (type === "radio" ? groupLabel(element) : "") || labelFor(element);
 			const id = `rr-${hash(`${identity(element)}|${type}|${label}`)}`;
 			const options = controlOptions(element, type, elements);
-			const currentValue = controlValue(element, type, elements);
+			const currentValue = controlValue(element, type, elements, widget);
 			return [{ id, label, type, options, currentValue, ambiguousGroup, required: Boolean(element.required || element.getAttribute("aria-required") === "true"),
-				name: element.name || "", autocomplete: element.getAttribute("autocomplete") || "", context: contextFor(element), element, elements }];
+				name: widget?.path || element.name || "", autocomplete: element.getAttribute("autocomplete") || "", context: contextFor(element), element, elements, widget }];
 		});
 	}
 	function publicField(field) {
-		const { element: _element, elements: _elements, context: _context, ...result } = field;
+		const { element: _element, elements: _elements, context: _context, widget: _widget, ...result } = field;
 		return result;
 	}
 	function approvedAnswer(field, packet, questionCounts) {
@@ -326,7 +380,8 @@
 		if (!value) return result;
 		if (field.type === "combobox" && ((field.element.tagName === "BUTTON" && field.element.type !== "button")
 			|| ["submit", "image", "reset"].includes(field.element.type))) return { ...result, status: "unsupported", reason: "This dropdown can submit the form; select it manually." };
-		if (field.type === "radio" || field.element.tagName === "SELECT") {
+		if (field.type === "radio" || field.type === "ashby-boolean" || field.element.tagName === "SELECT") {
+			if (field.widget && field.elements.some(element => !safeAshbyButton(element))) return { ...result, status: "unsupported", reason: "A choice button can submit a native form; select it manually." };
 			if (field.elements.some(element => ariaRadio(element) && ((element.tagName === "BUTTON" && element.type !== "button") || ["submit", "image", "reset"].includes(element.type)))) return { ...result, status: "unsupported", reason: "A choice button can submit the form; select it manually." };
 			const index = optionIndex(field.options, value.value, value.commonKey);
 			if (index < 0 || field.element.tagName === "SELECT" && [...field.element.options].filter(option => option.value === field.options[index].value).length !== 1) return { ...result, status: "unsupported", reason: "No unique option exactly matches the approved value.", value: value.value, source: value.source };
@@ -387,6 +442,24 @@
 		const current = element.isConnected ? element : getById(element.getRootNode(), element.id);
 		if (!current || checkedChoice(current) !== checked) throw new Error("The site did not retain this choice.");
 	}
+	async function fillAshbyBoolean(field, desired, commonKey) {
+		const widget = ashbyBoolean(field.element);
+		if (!widget || widget.path !== field.widget.path || widget.entryId !== field.widget.entryId
+			|| widget.question.label !== field.label || widget.buttons.some(button => !safeAshbyButton(button))) throw new Error("This choice group changed or can submit a form. Preview it again.");
+		if (ashbyBooleanValue(widget)) throw new Error("This question already has an answer. Keep it or clear it manually.");
+		const choices = selectableChoices(widget.buttons);
+		const index = optionIndex(choices.map(button => ({ label: text(button), value: text(button) })), desired, commonKey);
+		if (index < 0) throw new Error("No unique available choice matches the approved answer.");
+		const button = choices[index];
+		if (!safeAshbyButton(button) || button.disabled || button.getAttribute("aria-disabled") === "true" || !visible(button)) throw new Error("This choice is no longer safely available.");
+		button.click();
+		await new Promise(resolve => setTimeout(resolve, 0));
+		const entries = [...field.element.ownerDocument.querySelectorAll(ASHBY_ENTRY_SELECTOR)];
+		const currentEntry = widget.entry.isConnected ? widget.entry : entries.find(entry => entry.getAttribute("data-field-path") === widget.path && entry.getAttribute("data-field-entry-id") === widget.entryId);
+		const currentButton = currentEntry?.querySelector('button[class*="_option"]');
+		const current = currentButton && ashbyBoolean(currentButton);
+		if (!current || !current.backing.checked || approvedOption(ashbyBooleanValue(current), commonKey) !== approvedOption(desired, commonKey)) throw new Error("The site did not retain this choice.");
+	}
 	async function fillCombobox(field, desired, commonKey = "") {
 		const element = field.element;
 		if ((element.tagName === "BUTTON" && element.type !== "button") || ["submit", "image", "reset"].includes(element.type)) throw new Error("This dropdown can submit the form; select it manually.");
@@ -432,7 +505,7 @@
 		const files = new Map();
 		const controls = collect(document), questionCounts = countQuestions(controls);
 		for (const snapshot of controls) {
-			const field = { ...snapshot, currentValue: controlValue(snapshot.element, snapshot.type, snapshot.elements),
+			const field = { ...snapshot, currentValue: controlValue(snapshot.element, snapshot.type, snapshot.elements, snapshot.widget),
 				options: controlOptions(snapshot.element, snapshot.type, snapshot.elements) };
 			const entry = classify(field, packet, questionCounts);
 			if (!entry.matched || (chosen && !chosen.has(field.id))) {
@@ -447,7 +520,7 @@
 				result.failed.push({ ...entry, reason: "The page changed while filling. Scan this step again." }); continue;
 			}
 			if (field.element.disabled || field.element.readOnly || !visible(field.element)
-				|| ((field.type === "radio" ? groupLabel(field.element) : "") || labelFor(field.element)) !== field.label) {
+				|| (field.widget ? ashbyQuestion(field.element)?.label : ((field.type === "radio" ? groupLabel(field.element) : "") || labelFor(field.element))) !== field.label) {
 				result.failed.push({ ...entry, reason: "This field changed while filling. Scan this step again." }); continue;
 			}
 			try {
@@ -460,7 +533,8 @@
 					setNative(field.element, "files", transfer.files); events(field.element, false);
 					if (field.element.files?.[0]?.name !== pdf.name || field.element.files[0].size !== pdf.size) throw new Error("The website did not retain the selected file.");
 					note = "PDF selected. Verify the website finishes uploading it before submitting.";
-				} else if (field.type === "combobox") note = await fillCombobox(field, entry.value, entry.commonKey);
+				} else if (field.type === "ashby-boolean") await fillAshbyBoolean(field, entry.value, entry.commonKey);
+				else if (field.type === "combobox") note = await fillCombobox(field, entry.value, entry.commonKey);
 				else if (field.type === "radio") {
 					const index = optionIndex(field.options, entry.value, entry.commonKey);
 					await setChecked(selectableChoices(field.elements)[index], true);

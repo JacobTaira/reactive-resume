@@ -47,6 +47,61 @@ async function withPage(run) {
 	}
 }
 
+async function mountObservedAshbyShapes(page) {
+	await page.evaluate(() => {
+		const content = document.querySelector("#captured-ashby-shapes").content.cloneNode(true);
+		document.body.replaceChildren(content);
+		const container = document.querySelector('[class*="_yesno_"]');
+		const backing = container.querySelector('input[type="checkbox"]');
+		for (const button of container.querySelectorAll("button")) button.addEventListener("click", () => {
+			backing.checked = true;
+			backing.value = button.textContent.trim();
+			for (const option of container.querySelectorAll("button")) option.classList.toggle("_active_fixture", option === button);
+			backing.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+	});
+}
+
+test("observed no-form Ashby button and no-legend fieldsets fill approved answers with native readback", { skip: skipReason }, async () => {
+	await withPage(async (page) => {
+		await mountObservedAshbyShapes(page);
+		const packet = { ...demoPacket, commonAnswers: { priorGovernmentEmployment: "No", gender: "Male", race: "Asian (Not Hispanic or Latino)", protectedVeteranStatus: "I am not a protected veteran" } };
+		const plan = await page.evaluate((value) => globalThis.ReactiveResumeAutofill.plan(document, value), packet);
+		assert.deepEqual(plan.fields.map((field) => field.label), ["Prior Government Employment?", "Gender", "Race", "Veteran Status"]);
+		const result = await page.evaluate((value) => globalThis.ReactiveResumeAutofill.fill(document, value), packet);
+		assert.equal(result.filled.length, 4);
+		const state = await page.evaluate(() => ({ forms: document.forms.length, buttonType: document.querySelector("#captured-government-no").type,
+			buttonForm: document.querySelector("#captured-government-no").form, active: document.querySelector("#captured-government-no").classList.contains("_active_fixture"),
+			backing: document.querySelector('[name="prior-government"]').checked, backingValue: document.querySelector('[name="prior-government"]').value,
+			gender: document.querySelector("#captured-gender-male").checked, race: document.querySelector("#captured-race-asian").checked, veteran: document.querySelector("#captured-veteran-no").checked,
+			submits: window.fixtureSubmits }));
+		assert.deepEqual(state, { forms: 0, buttonType: "submit", buttonForm: null, active: true, backing: true, backingValue: "No", gender: true, race: true, veteran: true, submits: 0 });
+	});
+});
+
+test("observed Ashby choices preserve existing selections and refuse newly associated submit buttons", { skip: skipReason }, async () => {
+	await withPage(async (page) => {
+		await mountObservedAshbyShapes(page);
+		await page.locator("#captured-government-yes").click();
+		await page.locator("#captured-gender-female").check();
+		const packet = { ...demoPacket, commonAnswers: { priorGovernmentEmployment: "No", gender: "Male" } };
+		await page.evaluate((value) => globalThis.ReactiveResumeAutofill.fill(document, value), packet);
+		assert.equal(await page.locator("#captured-gender-female").isChecked(), true);
+		assert.equal(await page.locator('[name="prior-government"]').inputValue(), "Yes");
+		await page.evaluate(() => {
+			for (const button of document.querySelectorAll('[class*="_yesno_"] button')) button.classList.remove("_active_fixture");
+			document.querySelector('[name="prior-government"]').checked = false;
+			const form = document.createElement("form"); form.id = "late-native-form";
+			form.addEventListener("submit", (event) => { event.preventDefault(); window.fixtureSubmits++; }); document.body.append(form);
+			document.querySelector("#captured-government-no").setAttribute("form", form.id);
+		});
+		const result = await page.evaluate((value) => globalThis.ReactiveResumeAutofill.fill(document, value), packet);
+		assert.equal(result.filled.length, 0);
+		assert.equal(await page.evaluate(() => window.fixtureSubmits), 0);
+		assert.equal(await page.locator('[name="prior-government"]').isChecked(), false);
+	});
+});
+
 test("autofill scan is serializable and field IDs remain stable across scans", { skip: skipReason }, async () => {
 	await withPage(async (page) => {
 		const result = await page.evaluate(() => {
