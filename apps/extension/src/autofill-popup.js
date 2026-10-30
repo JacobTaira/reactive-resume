@@ -1,6 +1,7 @@
 /* global chrome */
 import { openAutofillDraftStore } from "./autofill-drafts.js";
 import { mountTooltips } from "./tooltips.js";
+import { mountApplicationWindow } from "./application-window.js";
 
 export async function mountAutofillPopup({ document, chromeApi, openDraftStore = openAutofillDraftStore }) {
 	const byId = (id) => document.getElementById(id);
@@ -13,9 +14,13 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	let initialized = false;
 	let revision = 0;
 	let saveVersion = 0;
+	let applicationContext = null;
+	const pageActions = new Set(["autofill-preview", "autofill-fill", "autofill-diagnostics", "autofill-capture", "autofill-clear-draft"]);
 	byId("fill").disabled = true;
 	const send = async (message) => {
-		const result = await chromeApi.runtime.sendMessage(message);
+		const result = await chromeApi.runtime.sendMessage(applicationContext && pageActions.has(message.type)
+			? { ...message, expectedTabId: applicationContext.tabId, expectedTabUrl: applicationContext.tabUrl }
+			: message);
 		if (!result?.ok) throw new Error(result?.error || "The extension worker did not respond.");
 		return result.data;
 	};
@@ -210,6 +215,7 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	}));
 	try {
 		const state = await send({ type: "autofill-state" });
+		applicationContext = state.draftContext;
 		draftStore = await openDraftStore(state.draftContext);
 		const draft = await draftStore.read();
 		if (draft) {
@@ -231,6 +237,7 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 		}
 		initialized = true;
 		byId("workspace").disabled = false;
+		mountApplicationWindow({ document, chromeApi, state, beforeOpen: saveDraft });
 	} catch (error) { report(error.message, true); byId("draft-status").textContent = "The application draft could not be opened. Reopen this popup to try again."; }
 }
 

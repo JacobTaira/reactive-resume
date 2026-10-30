@@ -1,6 +1,7 @@
 import { normalizedBaseUrl } from "./outbox.js";
 import { pruneAutofillDrafts } from "./autofill-drafts.js";
 import { approvedCommonAnswers } from "./autofill-common.js";
+import { createApplicationWindowService } from "./application-window.js";
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
@@ -107,6 +108,7 @@ export function checkedPdfUrl(downloadUrl, baseUrl, resumeId) {
 }
 
 export function createAutofillService(chromeApi, { captureTab, fetchImpl = globalThis.fetch } = {}) {
+	const applicationWindows = createApplicationWindowService(chromeApi);
 	const previews = new Map();
 	const filling = new Set();
 	const ready = Promise.all([
@@ -142,9 +144,12 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		const content = result?.content?.find((item) => item.type === "text")?.text;
 		try { return JSON.parse(content); } catch { throw new Error("The MCP server did not return the expected saved record."); }
 	}
-	async function activeTab() {
-		const [tab] = await chromeApi.tabs.query({ active: true, currentWindow: true });
-		if (!tab?.id || !/^https?:\/\//.test(tab.url || "")) throw new Error("Open the employer’s application form in an ordinary browser tab.");
+	async function activeTab(sender, message) {
+		const { tab, windowMode } = await applicationWindows.resolveTab(sender);
+		const hasExpectation = message && ("expectedTabId" in message || "expectedTabUrl" in message);
+		if ((windowMode || hasExpectation) && (message?.expectedTabId !== tab.id || message?.expectedTabUrl !== tab.url)) {
+			throw new Error("The application page changed. Reload this window or reopen the extension on the intended form before previewing again.");
+		}
 		return tab;
 	}
 	async function linkedResume(application, saved) {
@@ -176,8 +181,8 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		return { packet: { profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), commonAnswers: approvedCommonAnswers(saved.autofillCommonAnswers), application, resume,
 			...(coverLetter ? { coverLetter } : {}) }, resumeId, manualResume: Boolean(message.manualResume?.base64), baseUrl: saved.autofillConfig?.baseUrl || null };
 	}
-	async function preview(message) {
-		const tab = await activeTab();
+	async function preview(message, sender) {
+		const tab = await activeTab(sender, message);
 		const { packet, resumeId, manualResume, baseUrl } = await makePacket(message);
 		const current = await chromeApi.tabs.get(tab.id);
 		if (current.url !== tab.url) throw new Error("The tab navigated while loading the resume. Preview again on the intended form.");
@@ -203,7 +208,7 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 			fields: frames.flatMap((frame) => frame.result.fields.map((field) => ({ ...field, fieldId: field.id, id: `${frame.frameId}:${field.id}`, frameUrl: frame.result.pageUrl }))),
 			message: "Review the selected job, PDF and field values. Existing answers are preserved. Filling does not submit an application." };
 	}
-	async function fill(message) {
+	async function fill(message, sender) {
 		await ready;
 		const { autofillPreview: item } = await chromeApi.storage.session.get({ autofillPreview: null });
 		if (!item || item.token !== message.token || Date.now() - item.createdAt > 10 * 60 * 1000) throw new Error("This preview expired. Preview the current form again.");
@@ -219,7 +224,7 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 				|| (saved.autofillConfig?.baseUrl || null) !== item.baseUrl) {
 				throw new Error("Your approved profile, answers or connection changed. Preview again before filling.");
 			}
-			const tab = await activeTab();
+			const tab = await activeTab(sender, message);
 			if (tab.id !== item.tabId || tab.url !== item.tabUrl) throw new Error("The active tab changed. Preview the intended form again.");
 			if (!Array.isArray(message.fieldIds) || !message.fieldIds.length) throw new Error("Select at least one matched field.");
 			const allowed = new Set(item.frames.flatMap((frame) => frame.result.fields.filter((field) => field.status === "matched").map((field) => `${frame.frameId}:${field.id}`)));
@@ -271,19 +276,24 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 	}
 	return async (message, sender) => {
 		if (!trustedAutofillSender(sender, chromeApi.runtime.id)) throw new Error("Autofill is available only from this extension’s popup and settings.");
+		if (message.type === "autofill-open-window") {
+			await ready;
+			return applicationWindows.open(sender, { tabId: message.tabId, tabUrl: message.tabUrl });
+		}
+		if (message.type === "autofill-show-source") return applicationWindows.showSource(sender);
 		if (message.type === "autofill-state") {
 			const saved = await state();
 			const { autofillSelection, autofillPreview } = await chromeApi.storage.session.get({ autofillSelection: null, autofillPreview: null });
-			const [tab] = await chromeApi.tabs.query({ active: true, currentWindow: true });
-			const selection = tab?.id === autofillSelection?.tabId && tab?.url === autofillSelection?.tabUrl ? autofillSelection.application : null;
-			const previewToken = tab?.id === autofillPreview?.tabId && tab?.url === autofillPreview?.tabUrl
+			const { tab, windowMode } = await applicationWindows.resolveTab(sender, { allowNonWeb: true });
+			const selection = autofillSelection && tab?.id === autofillSelection.tabId && tab?.url === autofillSelection.tabUrl ? autofillSelection.application : null;
+			const previewToken = autofillPreview && tab?.id === autofillPreview.tabId && tab?.url === autofillPreview.tabUrl
 				&& Date.now() - autofillPreview.createdAt <= 10 * 60 * 1000 ? autofillPreview.token : null;
-			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), commonAnswers: approvedCommonAnswers(saved.autofillCommonAnswers), selection, previewToken,
+			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), commonAnswers: approvedCommonAnswers(saved.autofillCommonAnswers), selection, previewToken, windowMode,
 				draftContext: { sessionId: await ready, tabId: tab?.id, tabUrl: tab?.url } };
 		}
 		if (message.type === "autofill-diagnostics") {
 			const saved = await state();
-			const tab = await activeTab();
+			const tab = await activeTab(sender, message);
 			await chromeApi.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["src/autofill-diagnostics.js"] });
 			const frames = await chromeApi.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: () => globalThis.ReactiveResumeDiagnostics.inspect(document) });
 			if ((await chromeApi.tabs.get(tab.id)).url !== tab.url) throw new Error("The tab navigated while collecting form structure. Open the intended form and try again.");
@@ -309,7 +319,7 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		}
 		if (message.type === "autofill-clear-draft") {
 			await ready;
-			const tab = await activeTab();
+			const tab = await activeTab(sender, message);
 			const { autofillSelection, autofillPreview } = await chromeApi.storage.session.get({ autofillSelection: null, autofillPreview: null });
 			const cleared = {};
 			if (autofillSelection?.tabId === tab.id && autofillSelection.tabUrl === tab.url) cleared.autofillSelection = null;
@@ -320,11 +330,11 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 			await chromeApi.storage.session.set(cleared);
 			return { message: "This application’s draft selection was cleared." };
 		}
-		if (message.type === "autofill-preview") return preview(message);
-		if (message.type === "autofill-fill") return fill(message);
+		if (message.type === "autofill-preview") return preview(message, sender);
+		if (message.type === "autofill-fill") return fill(message, sender);
 		if (message.type === "autofill-capture") {
 			if (!captureTab) throw new Error("Capture is unavailable.");
-			await captureTab(await activeTab());
+			await captureTab(await activeTab(sender, message));
 			return { message: "Capture requested. Check Capture settings for server confirmation." };
 		}
 		throw new Error("Unknown autofill command.");

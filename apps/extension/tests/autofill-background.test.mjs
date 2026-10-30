@@ -99,6 +99,75 @@ test("state never exposes either API key; capture key does not enable MCP reads"
 	assert.equal(subject.calls.length, 0);
 });
 
+test("settings state can load without an employer tab and never enables form actions on extension pages", async () => {
+	const subject = fixture({ configured: false });
+	subject.chrome.tabs.query = async () => [];
+	const state = await subject.message({ type: "autofill-state" }, { ...sender, url: "chrome-extension://fixture/autofill.html" });
+	assert.equal(state.configured, false);
+	assert.equal(state.draftContext.tabId, undefined);
+	await assert.rejects(subject.message({ type: "autofill-preview", manualResume }), /ordinary browser tab/u);
+	assert.equal(subject.scripts.length, 0);
+});
+
+test("detached preview, fill, diagnostics, capture and clearing stay bound after focus changes and worker restart", async () => {
+	const subject = fixture({ configured: false });
+	await subject.message({ type: "autofill-state" });
+	const source = { ...subject.tab, windowId: 1 };
+	const other = { id: 8, windowId: 2, url: "https://other-employer.example/apply" };
+	let active = source;
+	let windowTab;
+	const captured = [];
+	subject.chrome.runtime.getURL = (path) => `chrome-extension://fixture/${path}`;
+	subject.chrome.tabs.query = async () => [structuredClone(active)];
+	subject.chrome.tabs.get = async (id) => {
+		if (id === 7) return structuredClone(source);
+		if (id === 101 && windowTab) return structuredClone(windowTab);
+		throw new Error("No such tab");
+	};
+	subject.chrome.windows = {
+		create: async ({ url }) => {
+			windowTab = { id: 101, windowId: 10, url }; active = windowTab;
+			return { id: 10, tabs: [windowTab] };
+		},
+		update: async (id) => ({ id }),
+	};
+	let service = createAutofillService(subject.chrome, { fetchImpl: subject.fetchImpl, captureTab: async (tab) => captured.push(tab.id) });
+	await service({ type: "autofill-open-window", tabId: 7, tabUrl: source.url }, sender);
+	const from = { ...sender, url: windowTab.url, tab: { id: 101 } };
+	active = other;
+	const state = await service({ type: "autofill-state" }, from);
+	assert.equal(state.windowMode, true);
+	assert.equal(state.draftContext.tabId, 7);
+	assert.equal(state.draftContext.tabUrl, source.url);
+	const expected = { expectedTabId: 7, expectedTabUrl: source.url };
+	const preview = await service({ type: "autofill-preview", manualResume, ...expected }, from);
+	assert.equal(preview.tabUrl, source.url);
+	service = createAutofillService(subject.chrome, { fetchImpl: subject.fetchImpl, captureTab: async (tab) => captured.push(tab.id) });
+	const result = await service({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"], manualResume, ...expected }, from);
+	assert.equal(result.reports[0].filled.length, 1);
+	await service({ type: "autofill-diagnostics", ...expected }, from);
+	await service({ type: "autofill-capture", ...expected }, from);
+	await service({ type: "autofill-clear-draft", ...expected }, from);
+	assert.deepEqual(captured, [7]);
+	assert.ok(subject.scripts.length > 0);
+	assert.ok(subject.scripts.every((request) => request.target.tabId === 7));
+});
+
+test("same-tab navigation refuses a detached window's old preview before any fill", async () => {
+	const subject = fixture({ configured: false });
+	await subject.message({ type: "autofill-state" });
+	const token = "fictional-window-context";
+	subject.session.autofillApplicationWindows = { [token]: { sourceTabId: 7, sourceOrigin: new URL(subject.tab.url).origin, sourceUrl: subject.tab.url, extensionTabId: 101, windowId: 10 } };
+	const from = { ...sender, url: `chrome-extension://fixture/popup.html?mode=window&context=${token}`, tab: { id: 101 } };
+	const expected = { expectedTabId: 7, expectedTabUrl: subject.tab.url };
+	const preview = await subject.message({ type: "autofill-preview", manualResume, ...expected }, from);
+	subject.tab.url += "/next";
+	const before = subject.scripts.length;
+	await assert.rejects(subject.message({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"], manualResume, ...expected }, from), /page changed/u);
+	await assert.rejects(subject.message({ type: "autofill-preview", manualResume, ...expected }, from), /page changed/u);
+	assert.equal(subject.scripts.length, before);
+});
+
 test("approved inputs whitelist profile fields and retain explicit application-scoped answers", () => {
 	const profile = approvedProfile({ firstName: " Example ", apiKey: "must not leak", hidden: "no" });
 	assert.equal(profile.firstName, "Example");

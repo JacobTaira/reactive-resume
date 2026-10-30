@@ -1,15 +1,13 @@
-:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-body { margin: 0; background: light-dark(#f5f7fb, #101722); color: light-dark(#17233b, #e1e8f4); }
-main { max-width: 900px; margin: 32px auto; padding: 24px; }
-h1 { font-size: 26px; }
-h2 { margin-top: 32px; }
-label { display: block; margin: 16px 0; font-weight: 600; }
-input { display: block; box-sizing: border-box; width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #8390a8; border-radius: 5px; font: inherit; }
-textarea { box-sizing: border-box; width: 100%; margin-top: 8px; padding: 10px; font: inherit; }
-button { margin: 4px 8px 4px 0; padding: 8px 12px; cursor: pointer; border: 1px solid #8190ab; border-radius: 5px; font: inherit; }
-p { line-height: 1.5; }
-.item { margin: 12px 0; padding: 16px; background: light-dark(#fff, #1b2638); border: 1px solid #8190ab; border-radius: 7px; overflow-wrap: anywhere; }
-.item strong { display: block; }
-.error { color: light-dark(#a5281b, #ffb4a8); }
-.muted { opacity: .8; }
-a { color: light-dark(#254db1, #a7c7ff); }
+@import "./autofill.css";
+
+body.capture-settings { max-width: 920px; padding: 40px 24px 70px; }
+.capture-settings main { margin: 0; padding: 0; }
+.capture-settings h2 { margin-top: 30px; }
+.capture-settings #settings, .capture-settings .item { margin: 18px 0; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.capture-settings label input { display: block; margin-top: 8px; }
+.capture-settings #settings button { margin: 5px 7px 0 0; }
+.capture-settings .item { overflow-wrap: anywhere; }
+.capture-settings .item strong { display: block; }
+.capture-settings .item button { margin: 10px 6px 0 0; }
+.capture-settings #bulk:not(:empty) { padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+

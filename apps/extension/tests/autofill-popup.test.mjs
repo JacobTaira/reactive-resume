@@ -136,6 +136,21 @@ test("manual PDF selection survives closing before preview and supplies the same
 	assert.equal(atob(message.manualResume.base64), await pdf.text());
 });
 
+test("page actions retain the exact draft context even if navigation events are missed", async () => {
+	const subject = fixture();
+	const expected = structuredClone(subject.state.draftContext);
+	const popup = await subject.open();
+	subject.state.draftContext.tabId = 999;
+	subject.state.draftContext.tabUrl = "https://another-employer.example/apply";
+	await popup.selectPdf();
+	await popup.preview.emit("click");
+	await popup.diagnostics.emit("click");
+	for (const message of subject.calls.filter((entry) => ["autofill-preview", "autofill-diagnostics"].includes(entry.type))) {
+		assert.equal(message.expectedTabId, expected.tabId);
+		assert.equal(message.expectedTabUrl, expected.tabUrl);
+	}
+});
+
 test("loaded jobs, pagination and a selection made before preview are retained", async () => {
 	const subject = fixture();
 	const first = await subject.open();
