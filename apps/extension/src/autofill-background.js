@@ -205,8 +205,10 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		filling.add(message.token);
 		try {
 			const saved = await state();
-			if (JSON.stringify(approvedProfile(saved.autofillProfile)) !== JSON.stringify(item.packet.profile)
-				|| JSON.stringify(approvedAnswers(saved.autofillAnswers)) !== JSON.stringify(item.packet.answers)
+			// Browser storage can reorder object keys. Normalize both snapshots so
+			// equality tracks approved values and scopes, not serialization order.
+			if (JSON.stringify(approvedProfile(saved.autofillProfile)) !== JSON.stringify(approvedProfile(item.packet.profile))
+				|| JSON.stringify(approvedAnswers(saved.autofillAnswers)) !== JSON.stringify(approvedAnswers(item.packet.answers))
 				|| (saved.autofillConfig?.baseUrl || null) !== item.baseUrl) {
 				throw new Error("Your approved profile, answers or connection changed. Preview again before filling.");
 			}

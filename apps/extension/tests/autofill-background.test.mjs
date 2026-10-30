@@ -13,6 +13,13 @@ import {
 const sender = { id: "fixture", url: "chrome-extension://fixture/popup.html" };
 const baseUrl = "http://localhost:3000";
 const manualResume = { base64: btoa("%PDF-1.7\nfictional test document"), fileName: "Example Engineer.pdf", mimeType: "application/pdf" };
+// Storage may reorder dictionary keys. Preserve array order and values while
+// exercising that round-trip instead of structuredClone's insertion order.
+function storageClone(value) {
+	if (Array.isArray(value)) return value.map(storageClone);
+	if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((key) => [key, storageClone(value[key])]));
+	return value;
+}
 function fixture({ configured = true } = {}) {
 	const storage = {
 		config: { baseUrl, apiKey: "capture-only-fictional" },
@@ -29,12 +36,12 @@ function fixture({ configured = true } = {}) {
 		runtime: { id: "fixture" },
 		storage: { session: {
 			setAccessLevel: async (value) => assert.equal(value.accessLevel, "TRUSTED_CONTEXTS"),
-			get: async (defaults) => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, structuredClone(session[key] ?? value)])),
-			set: async (value) => Object.assign(session, structuredClone(value)),
+			get: async (defaults) => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, storageClone(session[key] ?? value)])),
+			set: async (value) => Object.assign(session, storageClone(value)),
 		}, local: {
 			setAccessLevel: async (value) => assert.equal(value.accessLevel, "TRUSTED_CONTEXTS"),
-			get: async (defaults) => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, storage[key] ?? value])),
-			set: async (value) => Object.assign(storage, structuredClone(value)),
+			get: async (defaults) => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, storageClone(storage[key] ?? value)])),
+			set: async (value) => Object.assign(storage, storageClone(value)),
 		} },
 		permissions: { contains: async () => true },
 		tabs: { query: async () => [structuredClone(tab)], get: async () => structuredClone(tab) },
@@ -291,4 +298,38 @@ test("clearing a draft invalidates its worker selection and preview without touc
 	assert.equal(subject.session.autofillPreview, null);
 	assert.equal(subject.session.autofillSelection, null);
 	await assert.rejects(subject.message({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"] }), /preview expired/);
+});
+
+for (const configured of [false, true]) for (const restart of [false, true]) {
+	test(`unchanged ${configured ? "saved-job" : "manual"} approvals survive reordered storage${restart ? " and a worker restart" : ""}`, async () => {
+		const subject = fixture({ configured });
+		subject.storage.autofillAnswers = [{ question: "When can you start?", answer: "After graduation", applicationId: "app-1", fieldId: "start-date", approved: true }];
+		const preview = await subject.message({ type: "autofill-preview", ...(configured ? { applicationId: "app-1" } : { company: "Example", role: "Engineer", manualResume }) });
+		const stored = subject.session.autofillPreview.packet;
+		assert.notEqual(JSON.stringify(stored.profile), JSON.stringify(approvedProfile(subject.storage.autofillProfile)));
+		assert.notEqual(JSON.stringify(stored.answers), JSON.stringify(approvedAnswers(subject.storage.autofillAnswers)));
+		const service = restart ? createAutofillService(subject.chrome, { fetchImpl: subject.fetchImpl }) : subject.service;
+		const result = await service({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"], ...(!configured ? { manualResume } : {}) }, sender);
+		assert.equal(result.reports[0].filled.length, 1);
+		assert.equal(subject.session.autofillPreview, null);
+	});
+}
+
+test("real profile, answer, approval scope and connection changes still block before any fill", async () => {
+	const changes = [
+		(storage) => { storage.autofillProfile.email = "changed@example.test"; },
+		(storage) => { storage.autofillAnswers[0].answer = "A different answer"; },
+		(storage) => { storage.autofillAnswers[0].question = "A different question?"; },
+		(storage) => { storage.autofillAnswers[0].applicationId = "different-app"; },
+		(storage) => { storage.autofillAnswers[0].fieldId = "different-field"; },
+		(storage) => { storage.autofillAnswers[0].approved = false; },
+		(storage) => { storage.autofillConfig.baseUrl = "https://another-installation.example.test"; },
+	];
+	for (const change of changes) {
+		const subject = fixture();
+		const preview = await subject.message({ type: "autofill-preview", applicationId: "app-1" });
+		change(subject.storage);
+		await assert.rejects(subject.message({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"] }), /profile, answers or connection changed/);
+		assert.equal(subject.scripts.length, 2);
+	}
 });

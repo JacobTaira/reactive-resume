@@ -11,19 +11,22 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	let initialized = false;
 	let revision = 0;
 	let saveVersion = 0;
+	byId("fill").disabled = true;
 	const send = async (message) => {
 		const result = await chromeApi.runtime.sendMessage(message);
 		if (!result?.ok) throw new Error(result?.error || "The extension worker did not respond.");
 		return result.data;
 	};
 	const report = (text, error = false) => { byId("message").textContent = text; byId("message").className = error ? "error" : ""; };
-	const invalidate = () => { revision++; preview = null; byId("review").hidden = true; };
+	const invalidate = () => { revision++; preview = null; byId("review").hidden = true; byId("fill").disabled = true; };
 	const safely = (action) => async (event) => {
 		event?.preventDefault();
 		const button = event?.currentTarget;
 		if (button?.tagName === "BUTTON") button.disabled = true;
 		try { await action(); } catch (error) { report(error.message, true); }
-		finally { if (button?.tagName === "BUTTON") button.disabled = false; }
+		finally {
+			if (button?.tagName === "BUTTON") button.disabled = button === byId("fill") && !preview?.fields.some((field) => field.status === "matched");
+		}
 	};
 	const append = (parent, tag, text, className = "") => { const element = document.createElement(tag); element.textContent = text; element.className = className; parent.append(element); return element; };
 	const option = (text, value) => { const element = document.createElement("option"); element.textContent = text; element.value = value; return element; };
@@ -149,7 +152,18 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 		const currentRevision = revision;
 		const message = { type: "autofill-fill", token: preview.token, fieldIds: selectedFields(), manualResume: await manualPdf() };
 		if (currentRevision !== revision) throw new Error("The application details changed. Preview the current selection again.");
-		const result = await send(message);
+		let result;
+		try { result = await send(message); }
+		catch (error) {
+			// A rejected review must not remain available for repeated filling or be
+			// revived from the draft. Preserve a newer review created while waiting.
+			if (currentRevision !== revision || preview?.token !== message.token) return;
+			invalidate();
+			report(error.message, true);
+			await saveDraft();
+			return;
+		}
+		if (currentRevision !== revision || preview?.token !== message.token) return;
 		const filled = result.reports.flatMap((entry) => entry?.filled || []);
 		const failed = result.reports.flatMap((entry) => [...new Map([...(entry?.failed || []), ...(entry?.unsupported || [])]
 			.map((field) => [field.id || field.label, field])).values()]);

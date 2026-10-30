@@ -29,6 +29,9 @@ function fixture() {
 	const state = { configured: false, selection: null, previewToken: null, draftContext: { sessionId: "session-1", tabId: 7, tabUrl: "https://careers.example.test/apply/123" } };
 	let writeError = false;
 	let beforePreview = async () => {};
+	let beforeFill = async () => {};
+	let fillError = null;
+	let previewCount = 0;
 	const openDraftStore = async (context) => {
 		const key = JSON.stringify(context);
 		return {
@@ -50,13 +53,19 @@ function fixture() {
 		else if (message.type === "autofill-list") data = { items: [job], nextOffset: 100 };
 		else if (message.type === "autofill-preview") {
 			await beforePreview();
-			state.previewToken = "preview-1";
+			state.previewToken = `preview-${++previewCount}`;
 			data = { token: state.previewToken, tabUrl: state.draftContext.tabUrl, application: message.applicationId ? job : { company: message.company, role: message.role },
 				fileName: message.manualResume?.fileName || "Linked-resume.pdf", message: "Review these fields.", fields: [
 					{ id: "0:email", fieldId: "email", label: "Email", status: "matched", value: "example@example.test" },
 					{ id: "0:phone", fieldId: "phone", label: "Phone", status: "matched", value: "555-0100" },
 				] };
 		} else if (message.type === "autofill-fill") {
+			await beforeFill();
+			if (fillError) {
+				const error = fillError;
+				fillError = null;
+				return { ok: false, error };
+			}
 			state.previewToken = null;
 			data = { reports: [{ filled: message.fieldIds.map((id) => ({ id })), failed: [] }], message: "Review on the employer page." };
 		} else if (message.type === "autofill-clear-draft") { state.selection = null; state.previewToken = null; data = {}; }
@@ -73,7 +82,8 @@ function fixture() {
 		return { ...elements, type: async (id, value) => { elements[id].value = value; await elements[id].emit("input"); },
 			selectPdf: async (file = pdf) => { elements.pdf.files = [file]; await elements.pdf.emit("change"); } };
 	}
-	return { open, state, calls, job, records, failWrites: () => { writeError = true; }, delayPreview: (callback) => { beforePreview = callback; } };
+	return { open, state, calls, job, records, failWrites: () => { writeError = true; }, delayPreview: (callback) => { beforePreview = callback; },
+		delayFill: (callback) => { beforeFill = callback; }, rejectNextFill: (message) => { fillError = message; } };
 }
 
 test("typing saves on input without blur and restores the latest company and role after popup recreation", async () => {
@@ -206,4 +216,57 @@ test("an in-flight preview cannot revive fields after the user edits the draft",
 	assert.equal(first.review.hidden, true);
 	assert.match(first.message.textContent, /details changed/);
 	assert.equal((await subject.open()).company.value, "Changed during preview");
+});
+
+test("a rejected fill clears the saved review while retaining the job, details and PDF for a fresh preview", async () => {
+	const subject = fixture();
+	const first = await subject.open(); await first.load.emit("click");
+	first.application.value = subject.job.id; await first.application.emit("change");
+	await first.type("company", "Example"); await first.type("role", "Engineer");
+	await first.selectPdf(); await first.preview.emit("click");
+	const error = "Your approved profile, answers or connection changed. Preview again before filling.";
+	subject.rejectNextFill(error);
+	await first.fill.emit("click");
+	assert.equal(first.review.hidden, true);
+	assert.equal(first.fill.disabled, true);
+	assert.equal(first.message.textContent, error);
+	const reopened = await subject.open();
+	assert.equal(reopened.review.hidden, true);
+	assert.equal(reopened.fill.disabled, true);
+	assert.equal(reopened.message.textContent, error);
+	assert.equal(reopened.message.className, "error");
+	assert.equal(reopened.application.value, subject.job.id);
+	assert.equal(reopened.company.value, "Example");
+	assert.equal(reopened.role.value, "Engineer");
+	assert.equal(reopened.pdf.files[0].name, pdf.name);
+	await reopened.preview.emit("click");
+	assert.equal(reopened.review.hidden, false);
+	assert.equal(reopened.fill.disabled, false);
+	await reopened.fill.emit("click");
+	assert.match(reopened.message.textContent, /2 fields filled/);
+	const fills = subject.calls.filter((message) => message.type === "autofill-fill");
+	assert.equal(fills.length, 2);
+	assert.notEqual(fills[0].token, fills[1].token);
+	assert.equal(atob(fills[1].manualResume.base64), await pdf.text());
+});
+
+test("an older rejected fill cannot clear or replace a newer review", async () => {
+	const subject = fixture(); const first = await subject.open();
+	await first.selectPdf(); await first.preview.emit("click");
+	let release;
+	subject.delayFill(() => new Promise((resolve) => { release = resolve; }));
+	subject.rejectNextFill("The older preview was rejected.");
+	const pending = first.fill.emit("click");
+	while (!release) await new Promise((resolve) => setImmediate(resolve));
+	await first.preview.emit("click");
+	const newerToken = subject.state.previewToken;
+	release(); await pending;
+	assert.equal(first.review.hidden, false);
+	assert.equal(first.fill.disabled, false);
+	assert.equal(first.message.textContent, "Review these fields.");
+	const reopened = await subject.open();
+	assert.equal(subject.state.previewToken, newerToken);
+	assert.equal(reopened.review.hidden, false);
+	assert.equal(reopened.fill.disabled, false);
+	assert.equal(reopened.message.textContent, "Review these fields.");
 });
