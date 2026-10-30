@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createApplicationWindowService } from "../src/application-window.js";
+import { createAutofillService } from "../src/autofill-background.js";
+import { mountAutofillPopup } from "../src/autofill-popup.js";
 
 function fixture() {
 	const storage = {};
@@ -19,10 +21,13 @@ function fixture() {
 			id: "fixture", getURL: (path) => `chrome-extension://fixture/${path}`,
 			getContexts: async (filter) => {
 				assert.deepEqual(filter.contextTypes, ["SIDE_PANEL"]);
-				return filter.documentIds.map((id) => contexts.get(id)).filter(Boolean);
+				assert.ok(filter.documentUrls?.length);
+				return [...contexts.values()].filter((context) => filter.documentUrls.includes(context.documentUrl)
+					&& (!filter.documentIds || filter.documentIds.includes(context.documentId)));
 			},
 		},
 		storage: { session: {
+			setAccessLevel: async () => {},
 			get: async (defaults) => {
 				if (blocked) await blocked;
 				return Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, structuredClone(storage[key] ?? value)]));
@@ -42,8 +47,7 @@ function fixture() {
 	function panelSender(documentId = "native-panel") {
 		const options = [...calls].reverse().find(([name]) => name === "options")[1];
 		const url = `chrome-extension://fixture/${options.path}`;
-		const tab = tabs.get(options.tabId);
-		contexts.set(documentId, { contextType: "SIDE_PANEL", documentId, documentUrl: url, windowId: tab.windowId });
+		contexts.set(documentId, { contextType: "SIDE_PANEL", documentId, documentUrl: url, tabId: -1, windowId: -1 });
 		return { id: "fixture", url, documentId };
 	}
 	return { service, chrome, source, other, storage, tabs, calls, contexts, panelSender,
@@ -84,17 +88,77 @@ test("native side panel without sender.tab retains its source through focus chan
 	assert.equal(f.queryCount, 0);
 });
 
+test("Chrome side panels without sender documentId accept exact live context URLs and unknown native window IDs", async () => {
+	const f = fixture();
+	await f.service.openSidePanel(f.source);
+	const from = f.panelSender();
+	delete from.documentId;
+	f.activate(f.other);
+	const state = await f.service.resolveTab(from);
+	assert.equal(state.viewMode, "sidepanel");
+	assert.equal(state.tab.id, 7);
+	assert.equal(f.queryCount, 0);
+	const restarted = createApplicationWindowService(f.chrome);
+	assert.equal((await restarted.resolveTab(from)).tab.id, 7);
+	f.contexts.clear();
+	await assert.rejects(restarted.resolveTab(from), /Reactive Resume.*Chrome’s toolbar/u);
+});
+
+test("missing native context support reports a reload error instead of a misleading instruction", async () => {
+	const f = fixture();
+	await f.service.openSidePanel(f.source);
+	const from = f.panelSender();
+	delete from.documentId;
+	delete f.chrome.runtime.getContexts;
+	await assert.rejects(f.service.resolveTab(from), /Update Chrome and reload the extension at chrome:\/\/extensions/u);
+});
+
+test("native panel bootstrap without sender documentId enables the workspace and Open in window control", async () => {
+	const f = fixture();
+	await f.service.openSidePanel(f.source);
+	const from = f.panelSender();
+	delete from.documentId;
+	f.chrome.storage.local = { setAccessLevel: async () => {}, get: async (defaults) => structuredClone(defaults) };
+	f.chrome.tabs.onUpdated = { addListener() {} };
+	f.chrome.tabs.onRemoved = { addListener() {} };
+	const service = createAutofillService(f.chrome);
+	f.chrome.runtime.sendMessage = async (message) => {
+		try { return { ok: true, data: await service(message, from) }; }
+		catch (error) { return { ok: false, error: error.message }; }
+	};
+	class Element {
+		constructor() { Object.assign(this, { children: [], listeners: {}, dataset: {}, value: "", files: [], disabled: false, hidden: false, textContent: "", className: "" }); }
+		addEventListener(type, listener) { (this.listeners[type] ||= []).push(listener); }
+		append(...children) { this.children.push(...children); }
+		replaceChildren(...children) { this.children = children; }
+		querySelectorAll() { return []; }
+		setAttribute() {}
+	}
+	const ids = ["message", "draft-status", "pdf-status", "cover-letter-status", "workspace", "review", "selection", "page", "fields", "company", "role", "pdf", "cover-letter", "application", "job", "manual", "load", "more", "capture", "preview", "fill", "clear", "diagnostics", "open-window", "source-context"];
+	const elements = Object.fromEntries(ids.map((id) => [id, new Element()]));
+	elements.workspace.disabled = true; elements["open-window"].disabled = true;
+	const document = { body: new Element(), getElementById: (id) => elements[id], createElement: () => new Element(), defaultView: {} };
+	const openDraftStore = async () => ({ read: async () => null, write: async () => {}, clear: async () => {} });
+	await mountAutofillPopup({ document, chromeApi: f.chrome, openDraftStore });
+	assert.equal(elements.workspace.disabled, false);
+	assert.equal(elements["open-window"].disabled, false);
+	assert.equal(elements["open-window"].textContent, "Open in window");
+	assert.equal(elements["open-window"].listeners.click.length, 1);
+	assert.equal(document.body.dataset.mode, "sidepanel");
+	assert.notEqual(elements.message.className, "error");
+});
+
 test("copied URLs, wrong documents, wrong native windows and cross-mode tokens are rejected", async () => {
 	const f = fixture();
 	await f.service.openSidePanel(f.source);
 	const from = f.panelSender();
-	await assert.rejects(f.service.resolveTab({ ...from, documentId: "unknown" }), /linked Chrome side panel/u);
-	await assert.rejects(f.service.resolveTab({ ...from, documentId: undefined }), /extension button/u);
+	await assert.rejects(f.service.resolveTab({ ...from, documentId: "unknown" }), /Chrome’s toolbar/u);
+	await assert.rejects(f.service.resolveTab({ ...from, documentId: undefined, tab: { id: 100, url: from.url } }), /Chrome’s toolbar/u);
 	const context = f.contexts.get(from.documentId);
 	f.contexts.set(from.documentId, { ...context, contextType: "TAB" });
-	await assert.rejects(f.service.resolveTab(from), /linked Chrome side panel/u);
+	await assert.rejects(f.service.resolveTab(from), /Chrome’s toolbar/u);
 	f.contexts.set(from.documentId, { ...context, windowId: 999 });
-	await assert.rejects(f.service.resolveTab(from), /linked Chrome side panel/u);
+	await assert.rejects(f.service.resolveTab(from), /Chrome’s toolbar/u);
 	f.contexts.set(from.documentId, context);
 	await assert.rejects(f.service.resolveTab({ ...from, url: from.url.replace("mode=sidepanel", "mode=window") }), /context does not match/u);
 	await assert.rejects(f.service.resolveTab({ ...from, url: "chrome-extension://fixture/popup.html?mode=sidepanel" }), /not linked/u);

@@ -6,7 +6,7 @@ function viewContext(sender, extensionId) {
 	const viewMode = url.searchParams.get("mode");
 	if (!["window", "sidepanel"].includes(viewMode)) return null;
 	const token = url.searchParams.get("context");
-	if (!token) throw new Error("This assistant is not linked to an application. Click the extension button on the intended application again.");
+	if (!token) throw new Error("Reactive Resume is not linked to an application. Click its Chrome toolbar button on the intended job application tab.");
 	return { token, viewMode };
 }
 
@@ -23,12 +23,20 @@ export function createApplicationWindowService(chromeApi) {
 		const { token, viewMode } = context;
 		const record = pendingPanels.get(token) || (await read())[token];
 		if (!record) throw new Error("This window is no longer linked to an application. Open the extension on the intended application again.");
-		if ((record.viewMode || "window") !== viewMode) throw new Error("The application context does not match this assistant view.");
+		if ((record.viewMode || "window") !== viewMode) throw new Error("The application context does not match this Reactive Resume view.");
 		if (viewMode === "sidepanel") {
-			if (typeof sender.documentId !== "string" || !chromeApi.runtime.getContexts) throw new Error("Open the assistant from Chrome’s extension button on the application.");
-			const contexts = await chromeApi.runtime.getContexts({ contextTypes: ["SIDE_PANEL"], documentIds: [sender.documentId] });
-			const native = contexts.find((value) => value.contextType === "SIDE_PANEL" && value.documentId === sender.documentId && value.windowId === record.sourceWindowId);
-			if (!native || native.documentUrl !== sender.url) throw new Error("This assistant must run in its linked Chrome side panel.");
+			if (typeof chromeApi.runtime.getContexts !== "function") throw new Error("Chrome could not verify Reactive Resume’s side panel. Update Chrome and reload the extension at chrome://extensions.");
+			// Chrome can omit MessageSender.documentId for a side panel and reports
+			// windowId=-1 for its native context. Verify the exact session-token URL
+			// instead; retain a supplied document ID and any known window ID checks.
+			if (sender.tab) throw new Error("Open Reactive Resume from Chrome’s toolbar on the job application tab.");
+			const hasDocumentId = typeof sender.documentId === "string";
+			const contexts = await chromeApi.runtime.getContexts({ contextTypes: ["SIDE_PANEL"], documentUrls: [sender.url],
+				...(hasDocumentId ? { documentIds: [sender.documentId] } : {}) });
+			const native = contexts.find((value) => value.contextType === "SIDE_PANEL" && value.documentUrl === sender.url
+				&& (!hasDocumentId || value.documentId === sender.documentId)
+				&& (value.windowId === -1 || value.windowId === record.sourceWindowId));
+			if (!native) throw new Error("Open Reactive Resume from Chrome’s toolbar on the job application tab.");
 		} else if (record.extensionTabId !== undefined && sender.tab?.id !== record.extensionTabId) {
 			throw new Error("Open the linked application window using the extension’s Open in window button.");
 		}
