@@ -261,3 +261,34 @@ test("last saved-job selection is restored only for its exact tab and URL", asyn
 	subject.tab.id = 8;
 	assert.equal((await restarted({ type: "autofill-state" }, sender)).selection, null);
 });
+
+test("popup draft context survives worker suspension and exposes only the current page's live preview token", async () => {
+	const subject = fixture();
+	const initial = await subject.message({ type: "autofill-state" });
+	assert.deepEqual(initial.draftContext, { sessionId: subject.session.autofillDraftSessionId, tabId: 7, tabUrl: subject.tab.url });
+	assert.equal(initial.previewToken, null);
+	const preview = await subject.message({ type: "autofill-preview", company: "Example", role: "Engineer", manualResume });
+	const restarted = createAutofillService(subject.chrome, { fetchImpl: subject.fetchImpl });
+	let state = await restarted({ type: "autofill-state" }, sender);
+	assert.equal(state.draftContext.sessionId, initial.draftContext.sessionId);
+	assert.equal(state.previewToken, preview.token);
+	subject.tab.id = 8;
+	assert.equal((await restarted({ type: "autofill-state" }, sender)).previewToken, null);
+	subject.tab.id = 7;
+	subject.session.autofillPreview.createdAt = Date.now() - 11 * 60 * 1000;
+	state = await restarted({ type: "autofill-state" }, sender);
+	assert.equal(state.previewToken, null);
+});
+
+test("clearing a draft invalidates its worker selection and preview without touching another tab", async () => {
+	const subject = fixture();
+	const preview = await subject.message({ type: "autofill-preview", applicationId: "app-1" });
+	subject.tab.id = 8;
+	await subject.message({ type: "autofill-clear-draft" });
+	assert.equal(subject.session.autofillPreview.token, preview.token);
+	subject.tab.id = 7;
+	await subject.message({ type: "autofill-clear-draft" });
+	assert.equal(subject.session.autofillPreview, null);
+	assert.equal(subject.session.autofillSelection, null);
+	await assert.rejects(subject.message({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"] }), /preview expired/);
+});

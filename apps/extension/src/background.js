@@ -1,6 +1,7 @@
 /* global chrome */
 import { addCapture, captureFailed, captureSucceeded, dueCaptures, normalizedBaseUrl } from "./outbox.js";
 import { createAutofillService } from "./autofill-background.js";
+import { deleteAutofillTabDrafts } from "./autofill-drafts.js";
 import "./extractor.js";
 
 let serial = Promise.resolve();
@@ -132,7 +133,10 @@ chrome.commands.onCommand.addListener((command) => {
 });
 chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === "capture-sync") void flush(); });
 chrome.runtime.onInstalled.addListener(() => { void chrome.alarms.create("capture-sync", { periodInMinutes: 0.5 }); });
-chrome.runtime.onStartup.addListener(() => { void chrome.alarms.create("capture-sync", { periodInMinutes: 0.5 }); void flush(); });
+chrome.runtime.onStartup.addListener(() => {
+	void chrome.alarms.create("capture-sync", { periodInMinutes: 0.5 }); void flush();
+});
+chrome.tabs?.onRemoved?.addListener((tabId) => { void deleteAutofillTabDrafts(tabId).catch(() => {}); });
 
 const autofill = createAutofillService(chrome, { captureTab });
 chrome.runtime.onMessage.addListener((message, sender, respond) => {

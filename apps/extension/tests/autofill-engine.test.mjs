@@ -212,3 +212,91 @@ test("Workday-style listbox button and wrapping native label are both supported"
 		assert.equal(await page.evaluate(() => window.fixtureSubmits), 0);
 	});
 });
+
+async function withPopupPages(run) {
+	const browser = await chromium.launch({ executablePath: executable, headless: true, args: ["--no-sandbox"] });
+	try {
+		const context = await browser.newContext();
+		const files = new Map(["popup.html", "autofill.css", "src/autofill-popup.js", "src/autofill-drafts.js"]
+			.map((name) => [`/${name}`, fs.readFileSync(path.join(extensionRoot, name), "utf8")]));
+		await context.route("http://autofill.test/**", (route) => {
+			const pathname = new URL(route.request().url()).pathname;
+			return route.fulfill({ status: files.has(pathname) ? 200 : 404, body: files.get(pathname) || "",
+				contentType: pathname.endsWith(".js") ? "text/javascript" : pathname.endsWith(".css") ? "text/css" : "text/html" });
+		});
+		await context.addInitScript(() => {
+			globalThis.chrome = { runtime: { sendMessage: async (message) => {
+				let data;
+				if (message.type === "autofill-state") data = { configured: false, previewToken: "fixture-preview", draftContext: {
+					sessionId: "browser-fixture", tabId: 7, tabUrl: "https://employer.example.test/apply/123",
+				} };
+				else if (message.type === "autofill-preview") {
+					globalThis.lastPreview = message;
+					data = { token: "fixture-preview", tabUrl: "https://employer.example.test/apply/123", application: { company: message.company, role: message.role },
+						fileName: message.manualResume.fileName, message: "Review the selected fields.", fields: [
+							{ id: "0:email", fieldId: "email", label: "Email", status: "matched", value: "example@example.test" },
+							{ id: "0:phone", fieldId: "phone", label: "Phone", status: "matched", value: "555-0100" },
+						] };
+				} else if (message.type === "autofill-fill") { globalThis.lastFill = message; data = { reports: [], message: "Review the employer page." }; }
+				else if (message.type === "autofill-clear-draft") data = {};
+				else throw new Error("Unexpected fixture message");
+				return { ok: true, data };
+			} } };
+		});
+		const open = async () => {
+			const page = await context.newPage();
+			await page.goto("http://autofill.test/popup.html");
+			await page.locator("#workspace:not([disabled])").waitFor();
+			return page;
+		};
+		await run(open);
+	} finally { await browser.close(); }
+}
+
+test("popup recreation retains real IndexedDB File bytes, text and unchecked review fields", { skip: skipReason }, async () => {
+	await withPopupPages(async (open) => {
+		let page = await open();
+		await page.locator("#company").fill("Example Robotics");
+		await page.locator("#role").fill("Autonomy Engineer");
+		// This PDF's base64 would exceed chrome.storage.session's 10 MB quota.
+		const bytes = Buffer.alloc(8 * 1024 * 1024, 32); bytes.write("%PDF-1.7\nfictional resume");
+		await page.locator("#pdf").setInputFiles({ name: "Exact-Resume.pdf", mimeType: "application/pdf", buffer: bytes });
+		await page.locator("#draft-status").filter({ hasText: "Draft saved" }).waitFor();
+		await page.close();
+		page = await open();
+		assert.equal(await page.locator("#company").inputValue(), "Example Robotics");
+		assert.equal(await page.locator("#role").inputValue(), "Autonomy Engineer");
+		assert.deepEqual(await page.locator("#pdf").evaluate((input) => ({ name: input.files[0].name, size: input.files[0].size })), { name: "Exact-Resume.pdf", size: bytes.length });
+		await page.locator("#preview").click(); await page.locator("#review").waitFor();
+		await page.locator('#fields input[value="0:phone"]').uncheck();
+		await page.locator("#draft-status").filter({ hasText: "Draft saved" }).waitFor();
+		await page.close();
+		page = await open();
+		assert.equal(await page.locator('#fields input[value="0:phone"]').isChecked(), false);
+		await page.locator("#fill").click();
+		await page.waitForFunction(() => Boolean(globalThis.lastFill));
+		assert.deepEqual(await page.evaluate(() => globalThis.lastFill.fieldIds), ["0:email"]);
+		assert.equal(await page.evaluate(() => atob(globalThis.lastFill.manualResume.base64).length), bytes.length);
+	});
+});
+
+test("browser draft store isolates pages and deletes closed-tab and old-session files", { skip: skipReason }, async () => {
+	await withPopupPages(async (open) => {
+		const page = await open();
+		const result = await page.evaluate(async () => {
+			const { openAutofillDraftStore, deleteAutofillTabDrafts } = await import("/src/autofill-drafts.js");
+			const context = { sessionId: "browser-fixture", tabId: 7, tabUrl: "https://employer.example.test/apply/123" };
+			const original = await openAutofillDraftStore(context);
+			await original.write({ company: "Original", file: new File(["%PDF-1.7"], "Original.pdf") });
+			const otherTab = await openAutofillDraftStore({ ...context, tabId: 8 });
+			const otherPage = await openAutofillDraftStore({ ...context, tabUrl: "https://employer.example.test/apply/456" });
+			const isolated = !await otherTab.read() && !await otherPage.read();
+			await deleteAutofillTabDrafts(7);
+			const closedTabDeleted = !await original.read();
+			await original.write({ company: "Expired session", file: new File(["%PDF-1.7"], "Old.pdf") });
+			await openAutofillDraftStore({ ...context, sessionId: "new-browser-session" });
+			return { isolated, closedTabDeleted, oldSessionDeleted: !await original.read() };
+		});
+		assert.deepEqual(result, { isolated: true, closedTabDeleted: true, oldSessionDeleted: true });
+	});
+});

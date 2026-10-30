@@ -3,6 +3,7 @@
 body { margin: 0 auto; padding: 22px; }
 body.popup { width: 440px; max-height: 600px; overflow: auto; }
 body.settings { max-width: 900px; padding: 40px 24px 70px; }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 h1 { margin: 0; font-size: 23px; letter-spacing: -.02em; }
 h2 { margin: 0 0 12px; font-size: 17px; }
 p { line-height: 1.5; margin: 8px 0 14px; }

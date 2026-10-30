@@ -9,6 +9,7 @@
 <body class="popup">
 	<header><h1>Reactive Resume</h1><p>Fill applications with your approved information.</p></header>
 	<nav><a href="autofill.html" target="_blank">Autofill settings</a><a href="options.html" target="_blank">Capture settings</a></nav>
+	<fieldset id="workspace" disabled>
 	<button type="button" id="capture" class="secondary">Save this job to the queue</button>
 	<section>
 		<h2>Choose the application</h2>
@@ -20,7 +21,7 @@
 			<label for="company">Company</label><input id="company" maxlength="300" autocomplete="off">
 			<label for="role">Role</label><input id="role" maxlength="300" autocomplete="off">
 			<label for="pdf">Exact resume PDF for this job</label><input id="pdf" type="file" accept="application/pdf,.pdf">
-			<p class="muted">Manual PDFs stay in this popup until you close it. Select the file again for another application.</p>
+			<p id="pdf-status" class="muted">No manual PDF selected.</p>
 		</details>
 		<button type="button" id="preview">Preview fields</button>
 	</section>
@@ -29,6 +30,9 @@
 		<div id="fields"></div>
 		<button type="button" id="fill">Fill selected empty fields</button>
 	</section>
+	<div class="actions"><button type="button" id="clear" class="secondary">Clear this draft</button></div>
+	<p id="draft-status" class="muted" role="status">Restoring this application’s draft…</p>
+	</fieldset>
 	<p id="message" role="status" aria-live="polite"></p>
 	<p class="muted">You review and submit on the employer’s page. On each new form step, preview again.</p>
 	<script type="module" src="src/autofill-popup.js"></script>

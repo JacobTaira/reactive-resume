@@ -1,4 +1,5 @@
 import { normalizedBaseUrl } from "./outbox.js";
+import { pruneAutofillDrafts } from "./autofill-drafts.js";
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
@@ -110,7 +111,13 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 	const ready = Promise.all([
 		chromeApi.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }),
 		chromeApi.storage.session.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }),
-	]);
+	]).then(async () => {
+		const { autofillDraftSessionId } = await chromeApi.storage.session.get({ autofillDraftSessionId: null });
+		const sessionId = autofillDraftSessionId || crypto.randomUUID();
+		if (!autofillDraftSessionId) await chromeApi.storage.session.set({ autofillDraftSessionId: sessionId });
+		if (globalThis.indexedDB) await pruneAutofillDrafts(sessionId);
+		return sessionId;
+	});
 	async function state() {
 		await ready;
 		return chromeApi.storage.local.get({ autofillConfig: null, autofillProfile: {}, autofillAnswers: [], config: null });
@@ -247,10 +254,13 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		if (!trustedAutofillSender(sender, chromeApi.runtime.id)) throw new Error("Autofill is available only from this extension’s popup and settings.");
 		if (message.type === "autofill-state") {
 			const saved = await state();
-			const { autofillSelection } = await chromeApi.storage.session.get({ autofillSelection: null });
+			const { autofillSelection, autofillPreview } = await chromeApi.storage.session.get({ autofillSelection: null, autofillPreview: null });
 			const [tab] = await chromeApi.tabs.query({ active: true, currentWindow: true });
 			const selection = tab?.id === autofillSelection?.tabId && tab?.url === autofillSelection?.tabUrl ? autofillSelection.application : null;
-			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), selection };
+			const previewToken = tab?.id === autofillPreview?.tabId && tab?.url === autofillPreview?.tabUrl
+				&& Date.now() - autofillPreview.createdAt <= 10 * 60 * 1000 ? autofillPreview.token : null;
+			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), selection, previewToken,
+				draftContext: { sessionId: await ready, tabId: tab?.id, tabUrl: tab?.url } };
 		}
 		if (message.type === "autofill-save") {
 			const saved = await state();
@@ -266,6 +276,19 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		if (message.type === "autofill-list") {
 			const result = await callTool("list_tailoring_queue", { states: ["ready"], limit: 100, offset: Number.isSafeInteger(message.offset) && message.offset >= 0 ? message.offset : 0, includeDescription: false });
 			return { items: (result.items || []).map((item) => ({ id: item.id, company: item.company, role: item.role, resumeId: item.preparation?.draftResumeId || null })), nextOffset: result.nextOffset ?? null, total: result.total || 0 };
+		}
+		if (message.type === "autofill-clear-draft") {
+			await ready;
+			const tab = await activeTab();
+			const { autofillSelection, autofillPreview } = await chromeApi.storage.session.get({ autofillSelection: null, autofillPreview: null });
+			const cleared = {};
+			if (autofillSelection?.tabId === tab.id && autofillSelection.tabUrl === tab.url) cleared.autofillSelection = null;
+			if (autofillPreview?.tabId === tab.id && autofillPreview.tabUrl === tab.url) {
+				previews.delete(autofillPreview.token);
+				cleared.autofillPreview = null;
+			}
+			await chromeApi.storage.session.set(cleared);
+			return { message: "This application’s draft selection was cleared." };
 		}
 		if (message.type === "autofill-preview") return preview(message);
 		if (message.type === "autofill-fill") return fill(message);
