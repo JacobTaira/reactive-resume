@@ -333,3 +333,70 @@ test("real profile, answer, approval scope and connection changes still block be
 		assert.equal(subject.scripts.length, 2);
 	}
 });
+
+test("common answers round-trip separately and old settings clients preserve them", async () => {
+	const subject = fixture();
+	const commonAnswers = { jobSource: "Personal search", priorGovernmentEmployment: "No", gender: "Decline to self-identify", race: "", protectedVeteranStatus: "I am not a protected veteran" };
+	await subject.message({ type: "autofill-save", baseUrl, profile: subject.storage.autofillProfile, answers: subject.storage.autofillAnswers, commonAnswers });
+	let state = await subject.message({ type: "autofill-state" });
+	assert.deepEqual(state.commonAnswers, commonAnswers);
+	assert.equal(state.answers[0].applicationId, "app-1");
+	await subject.message({ type: "autofill-save", baseUrl, profile: subject.storage.autofillProfile, answers: subject.storage.autofillAnswers });
+	state = await subject.message({ type: "autofill-state" });
+	assert.deepEqual(state.commonAnswers, commonAnswers);
+	await subject.message({ type: "autofill-save", baseUrl, profile: subject.storage.autofillProfile, answers: subject.storage.autofillAnswers, commonAnswers: {} });
+	assert.ok(Object.values((await subject.message({ type: "autofill-state" })).commonAnswers).every((value) => value === ""));
+});
+
+test("approved common answers reach preview and unchanged reordered snapshots still fill", async () => {
+	const subject = fixture({ configured: false });
+	subject.storage.autofillCommonAnswers = { jobSource: "Personal search", priorGovernmentEmployment: "No", gender: "Decline to self-identify" };
+	const preview = await subject.message({ type: "autofill-preview", company: "Example", role: "Engineer", manualResume });
+	const packet = subject.scripts.at(-1).args[0];
+	assert.equal(packet.commonAnswers.jobSource, "Personal search");
+	assert.equal(packet.commonAnswers.gender, "Decline to self-identify");
+	assert.equal(packet.commonAnswers.race, "");
+	const restarted = createAutofillService(subject.chrome, { fetchImpl: subject.fetchImpl });
+	const result = await restarted({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"], manualResume }, sender);
+	assert.equal(result.reports[0].filled.length, 1);
+});
+
+test("changing or withdrawing a common answer invalidates the reviewed snapshot", async () => {
+	for (const changed of ["Female", ""]) {
+		const subject = fixture({ configured: false });
+		subject.storage.autofillCommonAnswers = { gender: "Male" };
+		const preview = await subject.message({ type: "autofill-preview", manualResume });
+		subject.storage.autofillCommonAnswers.gender = changed;
+		await assert.rejects(subject.message({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"], manualResume }), /profile, answers or connection changed/);
+		assert.equal(subject.scripts.length, 2);
+	}
+});
+
+const manualCoverLetter = { base64: btoa("%PDF-1.7\nfictional cover letter"), fileName: "Example-Cover-Letter.pdf", mimeType: "application/pdf" };
+test("cover letters are separately selected, previewed and digest-bound without persisting bytes in session", async () => {
+	const subject = fixture({ configured: false });
+	const preview = await subject.message({ type: "autofill-preview", company: "Example", role: "Engineer", manualResume, manualCoverLetter });
+	assert.equal(preview.coverLetterName, manualCoverLetter.fileName);
+	assert.equal(subject.scripts.at(-1).args[0].coverLetter.base64, manualCoverLetter.base64);
+	const stored = JSON.stringify(subject.session);
+	assert.equal(stored.includes("base64"), false);
+	assert.equal(stored.includes(manualCoverLetter.base64), false);
+	assert.match(subject.session.autofillPreview.coverLetterDigest, /^[0-9a-f]{64}$/);
+	const restarted = createAutofillService(subject.chrome, { fetchImpl: subject.fetchImpl });
+	const message = { type: "autofill-fill", token: preview.token, fieldIds: ["0:email"], manualResume };
+	await assert.rejects(restarted(message, sender), /same cover-letter PDF/);
+	await assert.rejects(restarted({ ...message, manualCoverLetter: { ...manualCoverLetter, base64: btoa("%PDF-1.7\nwrong cover letter") } }, sender), /cover-letter PDF changed/);
+	assert.equal(subject.scripts.length, 2);
+	await restarted({ ...message, manualCoverLetter }, sender);
+	const packet = subject.scripts.at(-1).args[0];
+	assert.equal(packet.resume.base64, manualResume.base64);
+	assert.equal(packet.coverLetter.base64, manualCoverLetter.base64);
+	assert.equal(subject.calls.length, 0);
+});
+
+test("an unreviewed cover letter cannot be added while filling", async () => {
+	const subject = fixture({ configured: false });
+	const preview = await subject.message({ type: "autofill-preview", manualResume });
+	await assert.rejects(subject.message({ type: "autofill-fill", token: preview.token, fieldIds: ["0:email"], manualResume, manualCoverLetter }), /cover letter changed after preview/);
+	assert.equal(subject.scripts.length, 2);
+});

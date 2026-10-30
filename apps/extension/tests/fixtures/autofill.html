@@ -42,6 +42,24 @@
 			<label for="readonly">Email address</label><input id="readonly" type="email" readonly />
 			<label for="resume">Resume</label><input id="resume" type="file" accept="application/pdf,.pdf" />
 			<label for="cover">Cover letter</label><input id="cover" type="file" accept="application/pdf,.pdf" />
+			<div class="ashby-application-form-field-entry">
+				<h3 class="ashby-application-form-question-title">Prior Government Employment?</h3>
+				<p class="ashby-application-form-question-description">Fictional question description.</p>
+				<label><input id="government-yes" type="radio" name="government" value="yes" />Yes</label>
+				<label><input id="government-no" type="radio" name="government" value="no" />No</label>
+			</div>
+			<section>
+				<h2>U.S. Equal Employment Opportunity Information</h2>
+				<div role="radiogroup" aria-label="Gender identity" id="aria-gender">
+					<button id="aria-male" type="button" role="radio" aria-checked="false">Male</button>
+					<button id="aria-female" type="button" role="radio" aria-checked="false">Female</button>
+				</div>
+				<div class="ashby-application-form-field-entry">
+					<h3 class="ashby-application-form-question-title">Race</h3>
+					<label><input id="race-asian" type="radio" name="race" value="asian" />Asian (Not Hispanic or Latino)</label>
+					<label><input id="race-decline" type="radio" name="race" value="decline" />Decline to self-identify</label>
+				</div>
+			</section>
 			<label for="unsupported-combo">Favorite framework</label>
 			<div id="unsupported-combo" role="combobox" aria-labelledby="unsupported-label" aria-expanded="false" tabindex="0"></div>
 			<span id="unsupported-label">Favorite framework</span>
@@ -57,6 +75,9 @@
 			window.fixtureSubmits = 0;
 			window.fixtureNext = 0;
 			window.fixtureChoiceState = { visa: null, consent: false, country: "" };
+			for (const radio of document.querySelectorAll('#aria-gender [role="radio"]')) radio.addEventListener("click", () => {
+				for (const option of document.querySelectorAll('#aria-gender [role="radio"]')) option.setAttribute("aria-checked", String(option === radio));
+			});
 			document.querySelector("#application").addEventListener("submit", (event) => {
 				event.preventDefault();
 				window.fixtureSubmits++;

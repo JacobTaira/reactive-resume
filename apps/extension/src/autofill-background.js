@@ -1,5 +1,6 @@
 import { normalizedBaseUrl } from "./outbox.js";
 import { pruneAutofillDrafts } from "./autofill-drafts.js";
+import { approvedCommonAnswers } from "./autofill-common.js";
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
@@ -120,7 +121,7 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 	});
 	async function state() {
 		await ready;
-		return chromeApi.storage.local.get({ autofillConfig: null, autofillProfile: {}, autofillAnswers: [], config: null });
+		return chromeApi.storage.local.get({ autofillConfig: null, autofillProfile: {}, autofillAnswers: [], autofillCommonAnswers: {}, config: null });
 	}
 	async function callTool(name, args, suppliedConfig) {
 		const config = suppliedConfig || (await state()).autofillConfig;
@@ -171,7 +172,9 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 			if (!resume) resume = await linkedResume(record, saved);
 		}
 		if (!resume) throw new Error("Choose the exact PDF for this application, or select a saved job with a linked resume.");
-		return { packet: { profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), application, resume }, resumeId, manualResume: Boolean(message.manualResume?.base64), baseUrl: saved.autofillConfig?.baseUrl || null };
+		const coverLetter = checkedManualResume(message.manualCoverLetter);
+		return { packet: { profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), commonAnswers: approvedCommonAnswers(saved.autofillCommonAnswers), application, resume,
+			...(coverLetter ? { coverLetter } : {}) }, resumeId, manualResume: Boolean(message.manualResume?.base64), baseUrl: saved.autofillConfig?.baseUrl || null };
 	}
 	async function preview(message) {
 		const tab = await activeTab();
@@ -183,17 +186,20 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 		const frames = results.filter((item) => item.result?.fields?.length && item.documentId);
 		if (!frames.length) throw new Error("No supported form fields were found. Open an embedded application form directly, then preview again.");
 		const token = crypto.randomUUID();
-		const item = { token, tabId: tab.id, tabUrl: tab.url, packet, resumeId, manualResume, baseUrl, frames, createdAt: Date.now(), pdfDigest: await pdfDigest(packet.resume) };
+		const item = { token, tabId: tab.id, tabUrl: tab.url, packet, resumeId, manualResume, baseUrl, frames, createdAt: Date.now(), pdfDigest: await pdfDigest(packet.resume), coverLetterDigest: packet.coverLetter ? await pdfDigest(packet.coverLetter) : null };
 		const { base64: _bytes, ...resumeMetadata } = packet.resume;
+		const storedPacket = { ...packet, resume: resumeMetadata,
+			...(packet.coverLetter ? { coverLetter: { fileName: packet.coverLetter.fileName, mimeType: packet.coverLetter.mimeType } } : {}) };
 		// MV3 workers can stop while the popup remains open. Session storage retains the
 		// reviewed context and PDF digest, never the large file or a download credential.
 		await chromeApi.storage.session.set({
-			autofillPreview: { ...item, packet: { ...packet, resume: resumeMetadata } },
+			autofillPreview: { ...item, packet: storedPacket },
 			autofillSelection: { tabId: tab.id, tabUrl: tab.url, application: packet.application },
 		});
 		previews.clear();
 		previews.set(token, item);
 		return { token, tabUrl: tab.url, application: packet.application, fileName: packet.resume.fileName,
+			...(packet.coverLetter ? { coverLetterName: packet.coverLetter.fileName } : {}),
 			fields: frames.flatMap((frame) => frame.result.fields.map((field) => ({ ...field, fieldId: field.id, id: `${frame.frameId}:${field.id}`, frameUrl: frame.result.pageUrl }))),
 			message: "Review the selected job, PDF and field values. Existing answers are preserved. Filling does not submit an application." };
 	}
@@ -209,6 +215,7 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 			// equality tracks approved values and scopes, not serialization order.
 			if (JSON.stringify(approvedProfile(saved.autofillProfile)) !== JSON.stringify(approvedProfile(item.packet.profile))
 				|| JSON.stringify(approvedAnswers(saved.autofillAnswers)) !== JSON.stringify(approvedAnswers(item.packet.answers))
+				|| JSON.stringify(approvedCommonAnswers(saved.autofillCommonAnswers)) !== JSON.stringify(approvedCommonAnswers(item.packet.commonAnswers))
 				|| (saved.autofillConfig?.baseUrl || null) !== item.baseUrl) {
 				throw new Error("Your approved profile, answers or connection changed. Preview again before filling.");
 			}
@@ -229,7 +236,17 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 				resume = await linkedResume(currentApplication, saved);
 			}
 			if (await pdfDigest(resume) !== item.pdfDigest) throw new Error("The PDF changed after preview. Preview the current file again before filling.");
-			const packet = { ...item.packet, resume: { ...resume, fileName: item.packet.resume.fileName } };
+			let coverLetter = previews.get(message.token)?.packet.coverLetter;
+			if (message.manualCoverLetter?.base64) {
+				if (!item.coverLetterDigest) throw new Error("The cover letter changed after preview. Preview the current files again.");
+				coverLetter = checkedManualResume(message.manualCoverLetter);
+			}
+			if (item.coverLetterDigest) {
+				if (!coverLetter?.base64) throw new Error("Select the same cover-letter PDF again, then fill from this preview.");
+				if (await pdfDigest(coverLetter) !== item.coverLetterDigest) throw new Error("The cover-letter PDF changed after preview. Preview the current files again.");
+			}
+			const packet = { ...item.packet, resume: { ...resume, fileName: item.packet.resume.fileName },
+				...(coverLetter ? { coverLetter: { ...coverLetter, fileName: item.packet.coverLetter.fileName } } : {}) };
 			const latest = await chromeApi.storage.session.get({ autofillPreview: null });
 			if (latest.autofillPreview?.token !== message.token) throw new Error("A newer preview replaced this one. Review the current preview before filling.");
 			// Consume before mutation so double clicks cannot replay a fill.
@@ -261,7 +278,7 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 			const selection = tab?.id === autofillSelection?.tabId && tab?.url === autofillSelection?.tabUrl ? autofillSelection.application : null;
 			const previewToken = tab?.id === autofillPreview?.tabId && tab?.url === autofillPreview?.tabUrl
 				&& Date.now() - autofillPreview.createdAt <= 10 * 60 * 1000 ? autofillPreview.token : null;
-			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), selection, previewToken,
+			return { baseUrl: saved.autofillConfig?.baseUrl || saved.config?.baseUrl || "http://localhost:3000", configured: Boolean(saved.autofillConfig?.apiKey), profile: approvedProfile(saved.autofillProfile), answers: approvedAnswers(saved.autofillAnswers), commonAnswers: approvedCommonAnswers(saved.autofillCommonAnswers), selection, previewToken,
 				draftContext: { sessionId: await ready, tabId: tab?.id, tabUrl: tab?.url } };
 		}
 		if (message.type === "autofill-save") {
@@ -270,7 +287,8 @@ export function createAutofillService(chromeApi, { captureTab, fetchImpl = globa
 			if (!(await chromeApi.permissions.contains({ origins: [`${baseUrl}/*`] }))) throw new Error("Grant access to your installation before saving.");
 			const apiKey = cleanText(message.apiKey || (saved.autofillConfig?.baseUrl === baseUrl ? saved.autofillConfig.apiKey : ""), 10000);
 			const config = apiKey ? { baseUrl, apiKey } : null;
-			await chromeApi.storage.local.set({ autofillConfig: config, autofillProfile: approvedProfile(message.profile), autofillAnswers: approvedAnswers(message.answers) });
+			await chromeApi.storage.local.set({ autofillConfig: config, autofillProfile: approvedProfile(message.profile), autofillAnswers: approvedAnswers(message.answers),
+				autofillCommonAnswers: approvedCommonAnswers(message.commonAnswers === undefined ? saved.autofillCommonAnswers : message.commonAnswers) });
 			previews.clear();
 			await chromeApi.storage.session.set({ autofillPreview: null, autofillSelection: null });
 			return { configured: Boolean(config), message: "Approved profile and answers saved in this browser." };

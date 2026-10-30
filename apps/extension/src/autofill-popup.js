@@ -5,6 +5,7 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	const byId = (id) => document.getElementById(id);
 	let preview = null;
 	let selectedFile = null;
+	let selectedCoverLetter = null;
 	let nextOffset = null;
 	let jobs = new Map();
 	let draftStore = null;
@@ -40,7 +41,7 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 		return draftStore.write({
 			company: byId("company").value, role: byId("role").value,
 			applicationId: byId("application").value, jobs: [...jobs.values()], nextOffset,
-			manualOpen: byId("manual").open, file: selectedFile, preview,
+			manualOpen: byId("manual").open, file: selectedFile, coverLetter: selectedCoverLetter, preview,
 			selectedFields: preview ? selectedFields() : [],
 			message: byId("message").textContent, messageError: byId("message").className === "error",
 		}).then(() => {
@@ -55,12 +56,14 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 		const job = jobs.get(byId("application").value);
 		byId("job").textContent = job ? `${job.company} — ${job.role} · saved ID ${job.id}` : "Manual mode: choose a PDF and confirm the company and role.";
 	}
-	function showFile() {
+	function showFiles() {
 		byId("pdf-status").textContent = selectedFile ? `Selected PDF: ${selectedFile.name}` : "No manual PDF selected.";
-		if (selectedFile && !byId("pdf").files.length) {
+		byId("cover-letter-status").textContent = selectedCoverLetter ? `Selected cover letter: ${selectedCoverLetter.name}` : "No cover letter selected.";
+		for (const [id, file] of [["pdf", selectedFile], ["cover-letter", selectedCoverLetter]]) {
+			if (!file || byId(id).files.length) continue;
 			const transfer = new document.defaultView.DataTransfer();
-			transfer.items.add(selectedFile);
-			byId("pdf").files = transfer.files;
+			transfer.items.add(file);
+			byId(id).files = transfer.files;
 		}
 	}
 	function showJobs(applicationId = "") {
@@ -73,7 +76,7 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	function showPreview(value, checked = value.fields.filter((field) => field.status === "matched").map((field) => field.id)) {
 		preview = value;
 		const selection = new Set(checked);
-		byId("selection").textContent = `${preview.application.company || "Manual application"}${preview.application.role ? ` — ${preview.application.role}` : ""}\nPDF: ${preview.fileName}`;
+		byId("selection").textContent = `${preview.application.company || "Manual application"}${preview.application.role ? ` — ${preview.application.role}` : ""}\nResume PDF: ${preview.fileName}\nCover letter: ${preview.coverLetterName || "None selected"}`;
 		byId("page").textContent = preview.tabUrl;
 		byId("fields").replaceChildren();
 		for (const field of preview.fields) {
@@ -101,8 +104,7 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 		report(`${jobs.size} prepared jobs loaded. Select the intended application and preview its form.`);
 		await saveDraft();
 	}
-	async function manualPdf() {
-		const file = selectedFile;
+	async function manualPdf(file) {
 		if (!file) return null;
 		const bytes = new Uint8Array(await file.arrayBuffer());
 		let binary = "";
@@ -114,24 +116,29 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	byId("application").addEventListener("change", () => {
 		invalidate();
 		byId("pdf").value = "";
+		byId("cover-letter").value = "";
 		selectedFile = null;
-		showFile(); showJob();
+		selectedCoverLetter = null;
+		showFiles(); showJob();
 		byId("manual").open = !jobs.has(byId("application").value);
 		saveInput();
 	});
 	for (const id of ["company", "role"]) byId(id).addEventListener("input", () => { invalidate(); saveInput(); });
-	byId("pdf").addEventListener("change", () => {
-		const file = byId("pdf").files[0];
-		if (!file) return;
-		if (file.size > 10 * 1024 * 1024 || !/\.pdf$/i.test(file.name)) {
-			byId("pdf").value = "";
-			showFile();
-			report("Choose a PDF no larger than 10 MB.", true);
-			return;
-		}
-		selectedFile = file;
-		invalidate(); showFile(); saveInput();
-	});
+	for (const id of ["pdf", "cover-letter"]) {
+		byId(id).addEventListener("change", () => {
+			const file = byId(id).files[0];
+			if (!file) return;
+			if (file.size > 10 * 1024 * 1024 || !/\.pdf$/i.test(file.name)) {
+				byId(id).value = "";
+				showFiles();
+				report("Choose a PDF no larger than 10 MB.", true);
+				return;
+			}
+			if (id === "pdf") selectedFile = file;
+			else selectedCoverLetter = file;
+			invalidate(); showFiles(); saveInput();
+		});
+	}
 	byId("manual").addEventListener("toggle", saveInput);
 	byId("capture").addEventListener("click", safely(async () => { const result = await send({ type: "autofill-capture" }); report(result.message); }));
 	byId("preview").addEventListener("click", safely(async () => {
@@ -139,7 +146,8 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 		const currentRevision = revision;
 		report("Loading the selected resume and reading this form…");
 		await saveDraft();
-		const message = { type: "autofill-preview", applicationId: byId("application").value, company: byId("company").value, role: byId("role").value, manualResume: await manualPdf() };
+		const message = { type: "autofill-preview", applicationId: byId("application").value, company: byId("company").value, role: byId("role").value,
+			manualResume: await manualPdf(selectedFile), manualCoverLetter: await manualPdf(selectedCoverLetter) };
 		if (currentRevision !== revision) throw new Error("The application details changed. Preview the current selection again.");
 		const result = await send(message);
 		if (currentRevision !== revision) throw new Error("The application details changed. Preview the current selection again.");
@@ -150,7 +158,8 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	byId("fill").addEventListener("click", safely(async () => {
 		if (!preview) throw new Error("Preview the current form first.");
 		const currentRevision = revision;
-		const message = { type: "autofill-fill", token: preview.token, fieldIds: selectedFields(), manualResume: await manualPdf() };
+		const message = { type: "autofill-fill", token: preview.token, fieldIds: selectedFields(),
+			manualResume: await manualPdf(selectedFile), manualCoverLetter: await manualPdf(selectedCoverLetter) };
 		if (currentRevision !== revision) throw new Error("The application details changed. Preview the current selection again.");
 		let result;
 		try { result = await send(message); }
@@ -173,10 +182,10 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 	}));
 	byId("clear").addEventListener("click", safely(async () => {
 		invalidate(); saveVersion++;
-		byId("company").value = ""; byId("role").value = ""; byId("pdf").value = "";
-		selectedFile = null; showFile(); showJobs(); byId("manual").open = true;
+		byId("company").value = ""; byId("role").value = ""; byId("pdf").value = ""; byId("cover-letter").value = "";
+		selectedFile = null; selectedCoverLetter = null; showFiles(); showJobs(); byId("manual").open = true;
 		await Promise.all([draftStore.clear(), send({ type: "autofill-clear-draft" })]);
-		report("This application’s draft and manual PDF selection were cleared.");
+		report("This application’s draft and manual PDF selections were cleared.");
 		byId("draft-status").textContent = "New choices will be saved for this application tab.";
 	}));
 	try {
@@ -187,14 +196,15 @@ export async function mountAutofillPopup({ document, chromeApi, openDraftStore =
 			jobs = new Map(draft.jobs.map((job) => [job.id, job])); nextOffset = draft.nextOffset;
 			byId("company").value = draft.company; byId("role").value = draft.role;
 			selectedFile = draft.file;
-			showJobs(draft.applicationId); showFile();
+			selectedCoverLetter = draft.coverLetter || null;
+			showJobs(draft.applicationId); showFiles();
 			byId("manual").open = draft.manualOpen;
 			if (draft.preview?.token === state.previewToken && state.previewToken) showPreview(draft.preview, draft.selectedFields);
 			report(draft.preview && !preview ? "Draft restored. Preview the current form again before filling." : draft.message, draft.messageError);
 			byId("draft-status").textContent = "Draft restored for this application tab.";
 		} else {
 			if (state.selection?.id) jobs.set(state.selection.id, state.selection);
-			showJobs(state.selection?.id); showFile();
+			showJobs(state.selection?.id); showFiles();
 			byId("manual").open = !state.selection?.id;
 			byId("draft-status").textContent = "Choices and PDF selections are saved for this tab while Chrome stays open.";
 			if (!state.configured) report("Open Autofill settings to approve your profile. Add a normal MCP key for saved resumes, or choose a PDF manually.");

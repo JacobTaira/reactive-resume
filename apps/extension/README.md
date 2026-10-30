@@ -25,6 +25,10 @@ Open its page, click the toolbar button and choose **Save this job to the queue*
 5. Review the displayed company, role, PDF filename and proposed field values. Uncheck any matched field you do not want filled. Choose **Fill selected empty fields**. Existing form values are preserved.
 6. Review the employer's page, confirm its PDF upload finished, complete unsupported controls and click its final Submit button yourself. On every new form step, open the popup and preview again. Company, role, loaded jobs, selected job, manual PDF and reviewed field checkboxes are saved automatically for the exact same tab and URL. Clicking onto the application and reopening the popup restores this draft. A different URL or tab has a separate draft. Use **Clear this draft** to remove this page's choices and manual PDF.
 
+**Common answers:** Autofill settings includes blank/manual defaults for job source, prior government employment, gender, a combined U.S. EEO race/ethnicity category, and protected-veteran status. Explicitly save only the answers you want reused for recognized equivalent questions. Exact/scoped answers override these defaults. Prior/current/federal-only government work, gender/sex-at-birth, combined race/ethnicity/separate ethnicity, protected-veteran status/general military service and multi-select checkbox groups are not interchangeable. No demographic answer is inferred. Review every preview, including a default job source that may differ by job.
+
+**Optional cover letter:** Expand **Resume and optional cover letter PDFs** in the popup to select a separate PDF for that job. It has its own previewed filename and digest, is retained with the tab draft, and fills only clearly labelled cover-letter uploads. The resume is never reused as a cover letter. Both files must still finish uploading on the employer's page.
+
 Example approved answers (replace fictional values with your confirmed information):
 
 ```json

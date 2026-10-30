@@ -21,6 +21,9 @@ class FixtureElement {
 		this.name = options.name || "";
 		this.labels = options.labelNode ? [options.labelNode] : options.label ? [{ innerText: options.label }] : [];
 		this.attributes = options.attributes || {};
+		this.innerText = options.text || "";
+		this.ashbyWrapper = options.ashbyWrapper || null;
+		this.radioGroup = options.radioGroup || null;
 		this._value = options.value || "";
 		this._checked = options.checked || false;
 		this._files = [];
@@ -58,7 +61,12 @@ class FixtureElement {
 	getAttribute(name) { return this.attributes[name] ?? (name === "name" ? this.name : null); }
 	getRootNode() { return this.ownerDocument; }
 	getClientRects() { return [{}]; }
-	closest(selector) { return selector === "fieldset" ? this.fieldset || null : null; }
+	closest(selector) {
+		if (selector === "fieldset") return this.fieldset || null;
+		if (selector === ".ashby-application-form-field-entry") return this.ashbyWrapper;
+		if (selector.includes('[role="radiogroup"]')) return this.radioGroup;
+		return null;
+	}
 	querySelector() { return null; }
 	dispatchEvent(event) { this.events.push(event.type); return true; }
 	click() {
@@ -66,6 +74,10 @@ class FixtureElement {
 		if (this.type === "radio" || this.type === "checkbox") {
 			this.checked = this.type === "radio" || !this.checked;
 			for (const type of ["click", "input", "change"]) this.dispatchEvent(new FixtureEvent(type));
+		} else if (this.getAttribute("role") === "radio") {
+			for (const element of this.ownerDocument.controls) {
+				if (element.radioGroup === this.radioGroup) element.attributes["aria-checked"] = element === this ? "true" : "false";
+			}
 		}
 	}
 }
@@ -97,6 +109,221 @@ const packet = {
 	profile: { firstName: "Alex", lastName: "Example", email: "alex@example.test", country: "United States", state: "Texas", website: "https://example.test" },
 	application: { id: "application-one", company: "Example Robotics", role: "Engineer" }, answers: [],
 };
+
+function questionWrapper(title, { duplicateTitle = false } = {}) {
+	const wrapper = { tagName: "DIV", nodeType: 1, children: [], parentElement: null, id: `wrapper-${title}`,
+		getAttribute: () => null, getRootNode: () => ({}), querySelector: () => null, querySelectorAll: () => [] };
+	const heading = { innerText: title, closest: () => wrapper };
+	wrapper.querySelectorAll = (selector) => selector === ".ashby-application-form-question-title" ? (duplicateTitle ? [heading, { ...heading }] : [heading]) : [];
+	return wrapper;
+}
+
+test("common answers require explicit saved values and recognize only narrow equivalent questions", async () => {
+	const definitions = [
+		{ label: "How did you find about Example Robotics?" },
+		{ label: "Prior Government Employment?", name: "priorGovernmentEmployment", tag: "SELECT", options: [{ label: "Select", value: "" }, { label: "Yes", value: "yes" }, { label: "No", value: "no" }] },
+		{ label: "Gender", tag: "SELECT", options: [{ label: "Select", value: "" }, { label: "Man", value: "man" }, { label: "Woman", value: "woman" }] },
+		{ label: "Race", tag: "SELECT", options: [{ label: "Select", value: "" }, { label: "Asian (Not Hispanic or Latino)", value: "asian" }] },
+		{ label: "Veteran Status", tag: "SELECT", options: [{ label: "Select", value: "" }, { label: "I identify as one or more of the classifications of protected veteran listed above", value: "protected" }, { label: "I am not a protected veteran", value: "not-protected" }] },
+	];
+	const blank = environment(definitions);
+	assert.equal(blank.engine.plan(blank.document, packet).matched.length, 0);
+	const { document, fields, engine } = environment(definitions);
+	const commonAnswers = { jobSource: "My own search", priorGovernmentEmployment: "No", gender: "Male", race: "Asian (Not Hispanic or Latino)", protectedVeteranStatus: "I identify as a protected veteran" };
+	const result = await engine.fill(document, { ...packet, commonAnswers });
+	assert.equal(result.filled.length, 5);
+	assert.deepEqual(fields.map(field => field.value), ["My own search", "no", "man", "asian", "protected"]);
+});
+
+test("common answers never conflate government, gender, ethnicity, military-service or reference questions", async () => {
+	const { document, fields, engine } = environment([
+		{ label: "Current Government Employment?" }, { label: "Prior Federal Government Employment?" },
+		{ label: "Has your spouse ever worked for the government?" }, { label: "Sex assigned at birth" },
+		{ label: "Are you Hispanic or Latino?" }, { label: "Ethnicity" }, { label: "Have you ever served in the military?" },
+		{ label: "Veteran status", tag: "SELECT", options: [{ label: "Select", value: "" }, { label: "Veteran", value: "veteran" }, { label: "Not a veteran", value: "not-veteran" }] },
+		{ label: "Referral name" }, { label: "How did you hear about Another Company?" },
+		{ label: "Gender", heading: "Reference" }, { label: "Prior Government Employment?", heading: "Reference" },
+		{ label: "Race", type: "checkbox" },
+	]);
+	const result = await engine.fill(document, { ...packet, commonAnswers: { jobSource: "Job board", priorGovernmentEmployment: "No", gender: "Male", race: "Asian (Not Hispanic or Latino)", protectedVeteranStatus: "I am not a protected veteran" } });
+	assert.equal(result.filled.length, 0);
+	assert.ok(fields.every(field => field.value === "" && !field.checked && !field.clicks));
+});
+
+test("exact answers override common values and conflicts or repeated questions never fall back", async () => {
+	const { document, fields, engine } = environment([
+		{ label: "Gender" }, { label: "Prior Government Employment?" }, { label: "How did you hear about us?" }, { label: "How did you hear about us?" },
+	]);
+	const answers = [{ question: "Gender", answer: "Female", applicationId: packet.application.id },
+		{ question: "Prior Government Employment?", answer: "Yes" }, { question: "Prior Government Employment?", answer: "No" }];
+	const result = await engine.fill(document, { ...packet, answers, commonAnswers: { gender: "Male", priorGovernmentEmployment: "No", jobSource: "Job board" } });
+	assert.deepEqual(fields.map(field => field.value), ["Female", "", "", ""]);
+	assert.equal(result.filled.length, 1);
+	assert.ok(result.unmatched.some(field => /Conflicting/.test(field.reason)));
+});
+
+test("disabled exact answers veto common defaults while a more specific enabled answer can override a global disabled rule", async () => {
+	const subject = environment([{ label: "Gender" }]);
+	await subject.engine.fill(subject.document, { ...packet, answers: [{ question: "Gender", answer: "Female", approved: false }], commonAnswers: { gender: "Male" } });
+	assert.equal(subject.fields[0].value, "");
+	await subject.engine.fill(subject.document, { ...packet, answers: [{ question: "Gender", answer: "Female", approved: false }, { question: "Gender", answer: "Female", applicationId: packet.application.id }], commonAnswers: { gender: "Male" } });
+	assert.equal(subject.fields[0].value, "Female");
+});
+
+test("known EEO context permits opted-in self-identification but outer references and history contexts remain excluded", async () => {
+	const reference = { tagName: "SECTION", nodeType: 1, id: "references", children: [], parentElement: null, getAttribute: () => null, getRootNode: () => ({}), querySelector: () => ({ innerText: "References" }) };
+	const inner = { tagName: "FIELDSET", nodeType: 1, id: "reference-gender", children: [], parentElement: reference, getAttribute: () => null, getRootNode: () => ({}), querySelector: () => ({ innerText: "Gender" }) };
+	const { document, fields, engine } = environment([
+		{ label: "Gender", heading: "U.S. Equal Employment Opportunity Information (Completion is voluntary and will not subject you to adverse treatment)" },
+		{ label: "Gender", parent: inner },
+	]);
+	const result = await engine.fill(document, { ...packet, commonAnswers: { gender: "Female" } });
+	// The repeated question itself also prevents a broad answer from filling both.
+	assert.equal(result.filled.length, 0);
+	assert.equal(fields[1].value, "");
+	const eeo = environment([{ label: "Gender", heading: "U.S. Equal Employment Opportunity Information (Completion is voluntary and will not subject you to adverse treatment)" }]);
+	await eeo.engine.fill(eeo.document, { ...packet, commonAnswers: { gender: "Female" } });
+	assert.equal(eeo.fields[0].value, "Female");
+	const isolatedReference = environment([{ label: "Gender", parent: inner }]);
+	await isolatedReference.engine.fill(isolatedReference.document, { ...packet, commonAnswers: { gender: "Female" } });
+	assert.equal(isolatedReference.fields[0].value, "");
+});
+
+test("equivalent common option labels must identify exactly one option", async () => {
+	const { document, fields, engine } = environment([
+		{ label: "Gender", tag: "SELECT", options: [{ label: "Select", value: "" }, { label: "Male", value: "male" }, { label: "Man", value: "man" }] },
+		{ label: "Race", tag: "SELECT", options: [{ label: "Select", value: "" }, { label: "Asian", value: "asian" }] },
+		{ label: "Protected veteran status", tag: "SELECT", options: [{ label: "Select", value: "" }, { label: "I prefer not to answer", value: "decline" }] },
+	]);
+	const result = await engine.fill(document, { ...packet, commonAnswers: { gender: "Male", race: "Asian (Not Hispanic or Latino)", protectedVeteranStatus: "I decline to self-identify for protected veteran status" } });
+	assert.deepEqual(fields.map(field => field.value), ["", "", "decline"]);
+	assert.equal(result.filled.length, 1);
+	assert.equal(result.unsupported.length, 2);
+});
+
+test("Ashby wrapper titles label native radio groups without including descriptions or option labels", async () => {
+	const gender = questionWrapper("Gender"), race = questionWrapper("Race");
+	const { document, fields, engine } = environment([
+		{ type: "radio", name: "gender", value: "male", label: "Male", parent: gender, ashbyWrapper: gender },
+		{ type: "radio", name: "gender", value: "female", label: "Female", parent: gender, ashbyWrapper: gender },
+		{ type: "radio", name: "race", value: "asian", label: "Asian (Not Hispanic or Latino)", parent: race, ashbyWrapper: race },
+	]);
+	const plan = engine.plan(document, { ...packet, commonAnswers: { gender: "Female", race: "Asian (Not Hispanic or Latino)" } });
+	assert.deepEqual(Array.from(plan.fields, field => field.label), ["Gender", "Race"]);
+	await engine.fill(document, { ...packet, commonAnswers: { gender: "Female", race: "Asian (Not Hispanic or Latino)" } });
+	assert.deepEqual(fields.map(field => field.checked), [false, true, true]);
+});
+
+test("Ashby wrappers with duplicate titles or shared cross-question radio names stay manual", async () => {
+	const duplicate = questionWrapper("Gender", { duplicateTitle: true });
+	const first = questionWrapper("Gender"), second = questionWrapper("Protected veteran status");
+	const { document, fields, engine } = environment([
+		{ type: "radio", name: "duplicate", value: "female", label: "Female", parent: duplicate, ashbyWrapper: duplicate },
+		{ type: "radio", name: "shared", value: "male", label: "Male", parent: first, ashbyWrapper: first },
+		{ type: "radio", name: "shared", value: "no", label: "I am not a protected veteran", parent: second, ashbyWrapper: second },
+	]);
+	const result = await engine.fill(document, { ...packet, commonAnswers: { gender: "Female", protectedVeteranStatus: "I am not a protected veteran" } });
+	assert.equal(result.filled.length, 0);
+	assert.ok(fields.every(field => !field.checked && !field.clicks));
+});
+
+test("explicit ARIA radio groups use approved common answers but never submit-capable buttons", async () => {
+	const group = { getAttribute: (key) => key === "aria-label" ? "Gender" : null };
+	const unsafe = { getAttribute: (key) => key === "aria-label" ? "Prior Government Employment?" : null };
+	const { document, fields, engine } = environment([
+		{ tag: "BUTTON", type: "button", attributes: { role: "radio", "aria-checked": "false" }, text: "Male", radioGroup: group },
+		{ tag: "BUTTON", type: "button", attributes: { role: "radio", "aria-checked": "false" }, text: "Female", radioGroup: group },
+		{ tag: "BUTTON", type: "submit", attributes: { role: "radio", "aria-checked": "false" }, text: "No", radioGroup: unsafe },
+	]);
+	const result = await engine.fill(document, { ...packet, commonAnswers: { gender: "Female", priorGovernmentEmployment: "No" } });
+	assert.equal(result.filled.length, 1);
+	assert.equal(fields[1].getAttribute("aria-checked"), "true");
+	assert.equal(fields[2].clicks, 0);
+});
+
+test("checked disabled or hidden peers preserve a radio group's existing answer", async () => {
+	for (const omitted of [{ disabled: true }, { hidden: true }]) {
+		const wrapper = questionWrapper("Gender");
+		const { document, fields, engine } = environment([
+			{ type: "radio", name: "gender", value: "female", label: "Female", checked: true, ...omitted, parent: wrapper, ashbyWrapper: wrapper },
+			{ type: "radio", name: "gender", value: "male", label: "Male", parent: wrapper, ashbyWrapper: wrapper },
+		]);
+		const plan = engine.plan(document, { ...packet, commonAnswers: { gender: "Male" } });
+		assert.equal(plan.fields[0].status, "preserved");
+		await engine.fill(document, { ...packet, commonAnswers: { gender: "Male" } });
+		assert.deepEqual(fields.map(field => field.checked), [true, false]);
+		assert.ok(fields.every(field => !field.clicks));
+	}
+});
+
+test("disabled radio options are not selected or allowed to shift the chosen visible option index", async () => {
+	const wrapper = questionWrapper("Gender");
+	const { document, fields, engine } = environment([
+		{ type: "radio", name: "gender", value: "male", label: "Male", disabled: true, parent: wrapper, ashbyWrapper: wrapper },
+		{ type: "radio", name: "gender", value: "female", label: "Female", parent: wrapper, ashbyWrapper: wrapper },
+	]);
+	await engine.fill(document, { ...packet, commonAnswers: { gender: "Female" } });
+	assert.deepEqual(fields.map(field => field.checked), [false, true]);
+	assert.equal(fields[0].clicks, 0);
+});
+
+test("protected-veteran answers match Yes/No only for an explicitly protected-veteran question", async () => {
+	const options = [{ label: "Select", value: "" }, { label: "Yes", value: "yes" }, { label: "No", value: "no" }];
+	const { document, fields, engine } = environment([
+		{ label: "Are you a protected veteran?", tag: "SELECT", options },
+		{ label: "Are you a veteran?", tag: "SELECT", options },
+	]);
+	await engine.fill(document, { ...packet, commonAnswers: { protectedVeteranStatus: "I am not a protected veteran" } });
+	assert.deepEqual(fields.map(field => field.value), ["no", ""]);
+});
+
+test("own screening question legends do not become employer history context", async () => {
+	const government = { querySelector: () => ({ innerText: "Prior Government Employment?" }) };
+	const source = { querySelector: () => ({ innerText: "How did you hear about this company?" }) };
+	const { document, fields, engine } = environment([
+		{ type: "radio", name: "government", label: "Yes", value: "yes", heading: "Prior Government Employment?", fieldset: government },
+		{ type: "radio", name: "government", label: "No", value: "no", heading: "Prior Government Employment?", fieldset: government },
+		{ type: "radio", name: "source", label: "Job board", value: "board", heading: "How did you hear about this company?", fieldset: source },
+	]);
+	await engine.fill(document, { ...packet, commonAnswers: { priorGovernmentEmployment: "No", jobSource: "Job board" } });
+	assert.deepEqual(fields.map(field => field.checked), [false, true, true]);
+});
+
+test("meaningful empty-value select choices are preserved and duplicate target values stay unsupported", async () => {
+	const { document, fields, engine } = environment([
+		{ label: "Gender", tag: "SELECT", value: "", options: [{ label: "Prefer not to answer", value: "" }, { label: "Female", value: "female" }] },
+		{ label: "Protected veteran status", tag: "SELECT", value: "placeholder", options: [{ label: "Select", value: "placeholder" }, { label: "I am not a protected veteran", value: "shared" }, { label: "I identify as a protected veteran", value: "shared" }] },
+		{ label: "Gender identity", tag: "SELECT", value: "placeholder", options: [{ label: "Select", value: "placeholder" }, { label: "Male", value: "shared", disabled: true }, { label: "Female", value: "shared" }] },
+	]);
+	const plan = engine.plan(document, { ...packet, commonAnswers: { gender: "Female", protectedVeteranStatus: "I am not a protected veteran" } });
+	assert.equal(plan.fields[0].status, "preserved");
+	assert.equal(plan.fields[1].status, "unsupported");
+	assert.equal(plan.fields[2].status, "unsupported");
+	await engine.fill(document, { ...packet, commonAnswers: { gender: "Female", protectedVeteranStatus: "I am not a protected veteran" } });
+	assert.deepEqual(fields.map(field => field.value), ["", "placeholder", "placeholder"]);
+});
+
+test("profile values do not fill locations within work-experience sections", async () => {
+	const { document, fields, engine } = environment([{ label: "City", heading: "Work Experience", attributes: { autocomplete: "address-level2" } }]);
+	await engine.fill(document, { ...packet, profile: { ...packet.profile, city: "Austin" } });
+	assert.equal(fields[0].value, "");
+});
+
+test("a separate cover-letter PDF fills only clearly labelled cover-letter uploads", async () => {
+	const { document, fields, engine } = environment([
+		{ type: "file", label: "Resume" }, { type: "file", label: "Cover Letter" }, { type: "file", label: "Upload file" },
+		{ type: "file", label: "Resume or cover letter" }, { type: "file", label: "Cover Letter", heading: "Reference" },
+	]);
+	const resume = { base64: btoa("%PDF-1.7\nresume contents"), fileName: "Resume.pdf" };
+	const coverLetter = { base64: btoa("%PDF-1.7\ncover letter contents"), fileName: "Cover.pdf" };
+	const withoutCover = engine.plan(document, { ...packet, resume });
+	assert.equal(withoutCover.fields[1].status, "unmatched");
+	const result = await engine.fill(document, { ...packet, resume, coverLetter });
+	assert.equal(result.filled.length, 2);
+	assert.deepEqual(fields.map(field => field.files[0]?.name || ""), ["Resume.pdf", "Cover.pdf", "", "", ""]);
+	assert.equal(await fields[0].files[0].text(), "%PDF-1.7\nresume contents");
+	assert.equal(await fields[1].files[0].text(), "%PDF-1.7\ncover letter contents");
+});
 
 test("real engine maps approved identity fields and keeps field identities stable", async () => {
 	const { document, fields, engine } = environment([

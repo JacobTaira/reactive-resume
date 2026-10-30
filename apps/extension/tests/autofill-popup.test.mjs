@@ -22,6 +22,7 @@ class Element {
 	async emit(type) { for (const listener of this.listeners[type] || []) await listener({ currentTarget: this, preventDefault() {} }); }
 }
 const pdf = new File(["%PDF-1.7\nfictional manual resume"], "Example-Engineer.pdf", { type: "application/pdf" });
+const coverLetterPdf = new File(["%PDF-1.7\nfictional job-specific cover letter"], "Example-Engineer-Cover-Letter.pdf", { type: "application/pdf" });
 function fixture() {
 	const records = new Map();
 	const calls = [];
@@ -40,7 +41,7 @@ function fixture() {
 				if (writeError) return Promise.reject(new Error("Draft storage is full."));
 				// File contents are immutable. Keep the File itself while cloning metadata;
 				// Node's structuredClone does not retain File.name like browser IndexedDB.
-				records.set(key, { ...structuredClone({ ...draft, file: null }), file: draft.file });
+				records.set(key, { ...structuredClone({ ...draft, file: null, coverLetter: null }), file: draft.file, coverLetter: draft.coverLetter });
 				return Promise.resolve();
 			},
 			clear: async () => { records.delete(key); },
@@ -55,7 +56,8 @@ function fixture() {
 			await beforePreview();
 			state.previewToken = `preview-${++previewCount}`;
 			data = { token: state.previewToken, tabUrl: state.draftContext.tabUrl, application: message.applicationId ? job : { company: message.company, role: message.role },
-				fileName: message.manualResume?.fileName || "Linked-resume.pdf", message: "Review these fields.", fields: [
+				fileName: message.manualResume?.fileName || "Linked-resume.pdf", coverLetterName: message.manualCoverLetter?.fileName,
+				message: "Review these fields.", fields: [
 					{ id: "0:email", fieldId: "email", label: "Email", status: "matched", value: "example@example.test" },
 					{ id: "0:phone", fieldId: "phone", label: "Phone", status: "matched", value: "555-0100" },
 				] };
@@ -73,14 +75,15 @@ function fixture() {
 		return { ok: true, data };
 	} } };
 	async function open() {
-		const ids = ["message", "draft-status", "pdf-status", "workspace", "review", "selection", "page", "fields", "company", "role", "pdf", "application", "job", "manual", "load", "more", "capture", "preview", "fill", "clear"];
+		const ids = ["message", "draft-status", "pdf-status", "cover-letter-status", "workspace", "review", "selection", "page", "fields", "company", "role", "pdf", "cover-letter", "application", "job", "manual", "load", "more", "capture", "preview", "fill", "clear"];
 		const elements = Object.fromEntries(ids.map((id) => [id, new Element(["load", "more", "capture", "preview", "fill", "clear"].includes(id) ? "BUTTON" : "DIV")]));
-		elements.pdf.type = "file"; elements.review.hidden = true; elements.workspace.disabled = true;
+		elements.pdf.type = "file"; elements["cover-letter"].type = "file"; elements.review.hidden = true; elements.workspace.disabled = true;
 		const document = { getElementById: (id) => elements[id], createElement: (tag) => new Element(tag.toUpperCase()),
 			defaultView: { DataTransfer: class { constructor() { this.files = []; this.items = { add: (file) => this.files.push(file) }; } } } };
 		await mountAutofillPopup({ document, chromeApi, openDraftStore });
 		return { ...elements, type: async (id, value) => { elements[id].value = value; await elements[id].emit("input"); },
-			selectPdf: async (file = pdf) => { elements.pdf.files = [file]; await elements.pdf.emit("change"); } };
+			selectPdf: async (file = pdf) => { elements.pdf.files = [file]; await elements.pdf.emit("change"); },
+			selectCoverLetter: async (file = coverLetterPdf) => { elements["cover-letter"].files = [file]; await elements["cover-letter"].emit("change"); } };
 	}
 	return { open, state, calls, job, records, failWrites: () => { writeError = true; }, delayPreview: (callback) => { beforePreview = callback; },
 		delayFill: (callback) => { beforeFill = callback; }, rejectNextFill: (message) => { fillError = message; } };
@@ -269,4 +272,102 @@ test("an older rejected fill cannot clear or replace a newer review", async () =
 	assert.equal(reopened.review.hidden, false);
 	assert.equal(reopened.fill.disabled, false);
 	assert.equal(reopened.message.textContent, "Review these fields.");
+});
+
+test("resume and optional cover letter both survive reopening and use separate exact bytes in preview and fill", async () => {
+	const subject = fixture(); const first = await subject.open();
+	await first.type("company", "Example Robotics"); await first.type("role", "Autonomy Engineer");
+	await first.selectPdf(); await first.selectCoverLetter();
+	let reopened = await subject.open();
+	assert.equal(reopened.company.value, "Example Robotics");
+	assert.equal(reopened.role.value, "Autonomy Engineer");
+	assert.equal(reopened.pdf.files[0].name, pdf.name);
+	assert.equal(reopened["cover-letter"].files[0].name, coverLetterPdf.name);
+	assert.match(reopened["cover-letter-status"].textContent, /Example-Engineer-Cover-Letter.pdf/);
+	await reopened.preview.emit("click");
+	const message = subject.calls.find((item) => item.type === "autofill-preview");
+	assert.equal(atob(message.manualResume.base64), await pdf.text());
+	assert.equal(atob(message.manualCoverLetter.base64), await coverLetterPdf.text());
+	assert.notEqual(message.manualResume.base64, message.manualCoverLetter.base64);
+	assert.equal(message.manualCoverLetter.fileName, coverLetterPdf.name);
+	assert.equal(message.manualCoverLetter.mimeType, "application/pdf");
+	assert.equal(reopened.selection.textContent, `Example Robotics — Autonomy Engineer\nResume PDF: ${pdf.name}\nCover letter: ${coverLetterPdf.name}`);
+	// Recreate the popup a second time with an active field review.
+	reopened = await subject.open();
+	assert.equal(reopened.review.hidden, false);
+	await reopened.fill.emit("click");
+	const fill = subject.calls.find((item) => item.type === "autofill-fill");
+	assert.equal(fill.manualResume.fileName, pdf.name);
+	assert.equal(fill.manualCoverLetter.fileName, coverLetterPdf.name);
+	assert.equal(atob(fill.manualResume.base64), await pdf.text());
+	assert.equal(atob(fill.manualCoverLetter.base64), await coverLetterPdf.text());
+	const afterFill = await subject.open();
+	assert.equal(afterFill["cover-letter"].files[0].name, coverLetterPdf.name);
+});
+
+test("changing either PDF invalidates the saved review while retaining the other document", async () => {
+	const subject = fixture(); const first = await subject.open();
+	await first.selectPdf(); await first.selectCoverLetter(); await first.preview.emit("click");
+	const replacementCover = new File(["%PDF-1.7\nreplacement cover letter"], "Revised-Cover-Letter.pdf");
+	await first.selectCoverLetter(replacementCover);
+	assert.equal(first.review.hidden, true); assert.equal(first.fill.disabled, true);
+	let reopened = await subject.open();
+	assert.equal(reopened.review.hidden, true);
+	assert.equal(reopened.pdf.files[0].name, pdf.name);
+	assert.equal(reopened["cover-letter"].files[0].name, replacementCover.name);
+	await reopened.preview.emit("click");
+	const replacementResume = new File(["%PDF-1.7\nreplacement resume"], "Revised-Resume.pdf");
+	await reopened.selectPdf(replacementResume);
+	assert.equal(reopened.review.hidden, true); assert.equal(reopened.fill.disabled, true);
+	reopened = await subject.open();
+	assert.equal(reopened.review.hidden, true);
+	assert.equal(reopened.pdf.files[0].name, replacementResume.name);
+	assert.equal(reopened["cover-letter"].files[0].name, replacementCover.name);
+});
+
+test("changing jobs and clearing a draft both remove the resume and cover letter selections", async () => {
+	const subject = fixture(); const first = await subject.open();
+	await first.selectPdf(); await first.selectCoverLetter(); await first.load.emit("click");
+	first.application.value = subject.job.id; await first.application.emit("change");
+	let reopened = await subject.open();
+	assert.equal(reopened.application.value, subject.job.id);
+	assert.equal(reopened.pdf.files.length, 0);
+	assert.equal(reopened["cover-letter"].files.length, 0);
+	assert.equal(reopened["cover-letter-status"].textContent, "No cover letter selected.");
+	await reopened.selectPdf(); await reopened.selectCoverLetter(); await reopened.preview.emit("click");
+	await reopened.clear.emit("click");
+	reopened = await subject.open();
+	assert.equal(reopened.application.value, "");
+	assert.equal(reopened.pdf.files.length, 0);
+	assert.equal(reopened["cover-letter"].files.length, 0);
+	assert.equal(reopened.review.hidden, true);
+});
+
+test("an older resume-only draft restores without choosing a cover letter or reusing the resume", async () => {
+	const subject = fixture(); const first = await subject.open(); await first.selectPdf();
+	delete [...subject.records.values()][0].coverLetter;
+	const reopened = await subject.open();
+	assert.equal(reopened.pdf.files[0].name, pdf.name);
+	assert.equal(reopened["cover-letter"].files.length, 0);
+	assert.equal(reopened["cover-letter-status"].textContent, "No cover letter selected.");
+	await reopened.preview.emit("click"); await reopened.fill.emit("click");
+	for (const message of subject.calls.filter((item) => ["autofill-preview", "autofill-fill"].includes(item.type))) {
+		assert.equal(message.manualCoverLetter, null);
+		assert.equal(message.manualResume.fileName, pdf.name);
+	}
+});
+
+test("each PDF is limited to 10 MB and invalid cover letter replacements keep the approved selection", async () => {
+	const subject = fixture(); const first = await subject.open();
+	await first.selectPdf(); await first.selectCoverLetter();
+	const tooLarge = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "Too-Large.pdf");
+	await first.selectPdf(tooLarge);
+	assert.match(first.message.textContent, /no larger than 10 MB/);
+	await first.selectCoverLetter(tooLarge);
+	assert.match(first.message.textContent, /no larger than 10 MB/);
+	await first.selectCoverLetter(new File(["text"], "Not-A-PDF.txt"));
+	assert.match(first.message.textContent, /Choose a PDF/);
+	const reopened = await subject.open();
+	assert.equal(reopened.pdf.files[0].name, pdf.name);
+	assert.equal(reopened["cover-letter"].files[0].name, coverLetterPdf.name);
 });

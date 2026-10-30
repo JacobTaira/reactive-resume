@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "Reactive Resume Capture and Autofill",
-	"version": "0.2.2",
+	"version": "0.3.0",
 	"description": "Save jobs and fill applications with your approved profile and the correct resume, without Jobright credits.",
 	"minimum_chrome_version": "120",
 	"permissions": ["storage", "activeTab", "scripting", "alarms"],

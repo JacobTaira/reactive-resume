@@ -10,6 +10,7 @@
 	<header><h1>Autofill settings</h1><p>Your approved profile and answers are stored in this browser. Autofill uses no Jobright credits or AI calls.</p></header>
 	<nav><a href="options.html">Capture settings and outbox</a></nav>
 	<form id="settings">
+		<fieldset id="settings-fields" disabled>
 		<section>
 			<h2>Connect your prepared resumes</h2>
 			<p>Add your installation’s normal MCP API key to select saved jobs and their linked PDFs. The capture-only key remains separate. You can also use autofill with a manually selected PDF.</p>
@@ -23,12 +24,19 @@
 			<div id="profile" class="profile"></div>
 		</section>
 		<section>
+			<h2>Common answers</h2>
+			<p>Choose answers you approve for recognized versions of these questions across applications. Every field starts blank; blank means fill manually. Demographic answers are optional. Exact or job-specific approved answers below take precedence.</p>
+			<p class="muted">A job discovery source is a reusable default, not a record of where each job came from. Review it for every application.</p>
+			<div id="common-answers" class="profile"></div>
+		</section>
+		<section>
 			<h2>Approved answers</h2>
 			<p>Paste an array of exact question/answer pairs. Add an applicationId to restrict an answer to one saved job. Repeated questions need the fieldId shown in the popup preview; use applicationId with it. Set approved to false to disable a saved answer. Screening answers are never guessed. Review reused company names and dates.</p>
 			<label for="answers">Question and answer pairs (JSON)</label>
 			<textarea id="answers" rows="12" spellcheck="false" placeholder='[{"question":"When can you start?","answer":"Your confirmed answer","applicationId":"optional saved job ID"}]'></textarea>
 		</section>
 		<button type="submit">Save approved profile and answers</button>
+		</fieldset>
 		<p id="message" role="status" aria-live="polite"></p>
 	</form>
 	<script type="module" src="src/autofill-settings.js"></script>

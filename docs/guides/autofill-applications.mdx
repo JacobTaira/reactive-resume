@@ -15,15 +15,23 @@ You can also choose a PDF manually without configuring an MCP key.
 
 Approve recurring questions in settings as exact question/answer pairs. Restrict company-specific answers with `applicationId`. Do not save one company's answer as a global response to every employer. Unapproved screening and demographic answers remain manual.
 
+### Reuse common answers
+
+Open **Autofill settings → Common answers** to choose a default job discovery source, prior government employment answer, gender, combined U.S. EEO race/ethnicity category, or protected-veteran status. Every field starts blank: **Leave manual**. Choose only answers you explicitly want reused, then save. No background facts or demographic choices are inferred from your resume, name or Google Doc.
+
+Recognized wording variants can use these answers on other applications. Exact question/field/job answers take precedence. Review the proposed value each time, especially the job source, which can differ between applications. Current government employment, federal-only employment, sex assigned at birth, separate ethnicity questions, general military service, and checkbox multi-select demographics are different questions and are not automatically answered from these defaults. If no uniquely equivalent option exists, the extension leaves the field for you.
+
+Enter your approved website or portfolio URL in **Approved profile → Website URL**. It is separate from LinkedIn and GitHub; the extension does not choose a portfolio URL for you.
+
 ## Fill each application
 
 1. Open the employer's actual application form.
-2. Open the extension, choose **Load prepared jobs**, and select the intended company and role. The application supplies its linked resume. A manually chosen PDF replaces that attachment for this preview.
+2. Open the extension, choose **Load prepared jobs**, and select the intended company and role. The application supplies its linked resume. A manually chosen resume PDF replaces that attachment for this preview. Expand **Resume and optional cover letter PDFs** to select a separate, job-specific cover-letter PDF when wanted.
 3. Choose **Preview fields**. Check the displayed job, PDF filename, destination page, and proposed values; uncheck fields you want to leave manual.
 4. Choose **Fill selected empty fields**. Existing answers are preserved. Review the page and confirm the PDF has finished uploading.
 5. Complete remaining questions and submit on the employer's page. On a new form step, preview again. Record Applied only after the employer confirms submission.
 
-You can click onto the employer's page and reopen the extension without retyping your selections. The popup automatically saves the company, role, loaded jobs, selected job, manual PDF and field checkboxes for that exact tab and URL. Your selected PDF's filename remains visible after reopening. A valid field review is restored; an expired or invalidated preview requires **Preview fields** again.
+You can click onto the employer's page and reopen the extension without retyping your selections. The popup automatically saves the company, role, loaded jobs, selected job, selected resume and cover-letter PDFs and field checkboxes for that exact tab and URL. Selected filenames remain visible after reopening. A valid field review is restored; an expired or invalidated preview requires **Preview fields** again.
 
 Each application tab has its own draft. **Clear this draft** removes its choices and manual PDF. Closing the employer tab also removes its drafts. Drafts belong to the current browser/extension session; old-session drafts and drafts older than 24 hours are removed when draft storage next opens. Manual PDFs are held in extension-local browser storage for this recovery, and are not uploaded until you fill a selected resume field.
 
@@ -33,6 +41,8 @@ Use [Review prepared resumes](./reviewing-prepared-resumes.mdx) to compare the a
 
 ## Supported fields
 
-The engine handles ordinary labelled contact fields, native selects, approved radio/checkbox answers, selected-PDF inputs, open Shadow DOM, and supported ARIA dropdowns. Some embedded forms require opening the application directly so Chrome can grant access. Complex custom widgets and repeated employment or education sections can need manual entry. Unsupported or ambiguous controls remain visible for review; support for every Workday or other ATS form is not assumed.
+The engine handles ordinary labelled contact fields, native selects, approved choices, separately selected resume/cover-letter PDFs, open Shadow DOM, and supported ARIA controls. Ashby question containers can supply the question title for grouped choices, rather than treating the first option as the question. Some embedded forms require opening the application directly so Chrome can grant access. Complex custom widgets and repeated employment or education sections can need manual entry. Unsupported or ambiguous controls remain visible for review; support for every Workday or other ATS form is not assumed.
+
+A cover letter is attached only when you select its PDF and approve a clearly labelled cover-letter field. The resume is never substituted for it. Uploading a file still requires the employer's page to finish its upload before you submit.
 
 Profile data and keys stay in trusted extension contexts. Employer pages receive the selected form values and PDF bytes, never your installation key or signed download link. A preview is bound to its tab, document, and form. Changed pages or expired previews require another preview before filling.

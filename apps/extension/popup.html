@@ -17,11 +17,13 @@
 		<select id="application"><option value="">Choose a PDF manually</option></select>
 		<div class="actions"><button type="button" id="load" class="secondary">Load prepared jobs</button><button type="button" id="more" class="secondary" hidden>Load more</button></div>
 		<p id="job" class="muted"></p>
-		<details id="manual"><summary>Manual PDF or replacement PDF</summary>
+		<details id="manual"><summary>Resume and optional cover letter PDFs</summary>
 			<label for="company">Company</label><input id="company" maxlength="300" autocomplete="off">
 			<label for="role">Role</label><input id="role" maxlength="300" autocomplete="off">
 			<label for="pdf">Exact resume PDF for this job</label><input id="pdf" type="file" accept="application/pdf,.pdf">
 			<p id="pdf-status" class="muted">No manual PDF selected.</p>
+			<label for="cover-letter">Cover letter PDF for this job (optional)</label><input id="cover-letter" type="file" accept="application/pdf,.pdf">
+			<p id="cover-letter-status" class="muted">No cover letter selected.</p>
 		</details>
 		<button type="button" id="preview">Preview fields</button>
 	</section>

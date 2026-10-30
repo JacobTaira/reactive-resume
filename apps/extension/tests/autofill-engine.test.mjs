@@ -213,6 +213,36 @@ test("Workday-style listbox button and wrapping native label are both supported"
 	});
 });
 
+test("common approvals fill bounded Ashby/native/ARIA questions and preserve manual opt-out by default", { skip: skipReason }, async () => {
+	await withPage(async (page) => {
+		await page.evaluate((packet) => globalThis.ReactiveResumeAutofill.fill(document, packet), demoPacket);
+		assert.equal(await page.locator("#government-no").isChecked(), false);
+		assert.equal(await page.locator("#race-decline").isChecked(), false);
+		assert.equal(await page.locator("#aria-female").getAttribute("aria-checked"), "false");
+		const packet = { ...demoPacket, commonAnswers: { priorGovernmentEmployment: "No", gender: "Female", race: "Decline to self-identify" } };
+		const plan = await page.evaluate((value) => globalThis.ReactiveResumeAutofill.plan(document, value), packet);
+		assert.ok(plan.fields.some((field) => field.label === "Prior Government Employment?" && field.status === "matched"));
+		assert.ok(plan.fields.some((field) => field.label === "Race" && field.status === "matched"));
+		await page.evaluate((value) => globalThis.ReactiveResumeAutofill.fill(document, value), packet);
+		assert.equal(await page.locator("#government-no").isChecked(), true);
+		assert.equal(await page.locator("#race-decline").isChecked(), true);
+		assert.equal(await page.locator("#aria-female").getAttribute("aria-checked"), "true");
+		assert.equal(await page.evaluate(() => window.fixtureSubmits), 0);
+	});
+});
+
+test("separate resume and cover-letter PDFs retain their own bytes in native file inputs", { skip: skipReason }, async () => {
+	await withPage(async (page) => {
+		const resume = { base64: Buffer.from("%PDF-1.7\nfictional resume").toString("base64"), fileName: "Resume.pdf" };
+		const coverLetter = { base64: Buffer.from("%PDF-1.7\nfictional cover letter").toString("base64"), fileName: "Cover.pdf" };
+		await page.evaluate((packet) => globalThis.ReactiveResumeAutofill.fill(document, packet), { ...demoPacket, resume, coverLetter });
+		assert.deepEqual(await page.evaluate(async () => ({
+			resume: await document.querySelector("#resume").files[0].text(),
+			cover: await document.querySelector("#cover").files[0].text(),
+		})), { resume: "%PDF-1.7\nfictional resume", cover: "%PDF-1.7\nfictional cover letter" });
+	});
+});
+
 async function withPopupPages(run) {
 	const browser = await chromium.launch({ executablePath: executable, headless: true, args: ["--no-sandbox"] });
 	try {
