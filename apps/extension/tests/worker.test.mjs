@@ -19,6 +19,11 @@ function chromeMock(storage) {
 	});
 	const chrome = {
 		storage: {
+			session: {
+				setAccessLevel: async value => assert.equal(value.accessLevel, "TRUSTED_CONTEXTS"),
+				get: async defaults => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, clone(storage[`session:${key}`] ?? value)])),
+				set: async data => { for (const [key, value] of Object.entries(data)) storage[`session:${key}`] = clone(value); },
+			},
 			local: {
 				setAccessLevel: async value => {
 					assert.equal(value.accessLevel, "TRUSTED_CONTEXTS");
@@ -193,7 +198,7 @@ test("settings access rejects other extensions, web pages and lookalike extensio
 	}
 	assert.deepEqual(storage.config, config);
 });
-test("toolbar capture waits for Jobright content and sends the completed description once", async () => {
+test("keyboard capture waits for Jobright content and sends the completed description once", async () => {
 	const storage = { config };
 	const uploaded = [];
 	const instance = await worker(storage, async (_url, options) => {
@@ -207,23 +212,66 @@ test("toolbar capture waits for Jobright content and sends the completed descrip
 		extractions++;
 		return [{ result: extractions === 1 ? { ...payload, description: "", descriptionIncomplete: true } : payload }];
 	} };
-	instance.listeners.clicked({ id: 1, url: payload.url });
+	instance.chrome.tabs = { query: async () => [{ id: 1, url: payload.url }] };
+	instance.listeners.command("capture-job");
 	await until(() => storage.outbox?.[0]?.status === "saved", 2500);
 	assert.equal(extractions, 2);
 	assert.equal(uploaded.length, 1);
 	assert.equal(uploaded[0].description, payload.description);
 });
-test("toolbar capture aborts if the tab navigates to a different posting", async () => {
+test("keyboard capture aborts if the tab navigates to a different posting", async () => {
 	const storage = { config };
 	let calls = 0;
 	const instance = await worker(storage, async () => { calls++; throw new Error("No upload expected"); });
 	instance.chrome.scripting = { executeScript: async (request) => request.files ? []
 		: [{ result: { ...payload, url: "https://jobright.ai/jobs/info/different" } }] };
-	instance.listeners.clicked({ id: 1, url: payload.url });
+	instance.chrome.tabs = { query: async () => [{ id: 1, url: payload.url }] };
+	instance.listeners.command("capture-job");
 	await until(() => Boolean(storage.lastError));
 	assert.match(storage.lastError, /posting changed during capture/);
 	assert.equal(storage.outbox, undefined);
 	assert.equal(calls, 0);
+});
+
+test("first toolbar click configures the exact native panel before opening it, without capturing a job", async () => {
+	const storage = {};
+	let network = 0;
+	const instance = await worker(storage, async () => { network++; throw new Error("No network expected"); });
+	const calls = [];
+	const source = { id: 1, windowId: 5, url: payload.url };
+	instance.chrome.sidePanel = {
+		setOptions: (value) => { calls.push(["options", value]); return Promise.resolve(); },
+		open: (value) => { calls.push(["open", value]); return Promise.resolve(); },
+	};
+	instance.chrome.tabs = { get: async (id) => { assert.equal(id, source.id); return structuredClone(source); } };
+	instance.listeners.clicked(source);
+	// No storage/query await may separate user activation from these calls.
+	assert.equal(calls.length, 2);
+	assert.equal(calls[0][0], "options");
+	assert.equal(calls[0][1].tabId, source.id);
+	assert.match(calls[0][1].path, /^popup\.html\?mode=sidepanel&context=/u);
+	assert.equal(calls[1][0], "open");
+	assert.equal(calls[1][1].tabId, source.id);
+	await until(() => Boolean(storage["session:autofillApplicationWindows"]));
+	const url = `chrome-extension://fixture/${calls[0][1].path}`;
+	instance.chrome.runtime.getContexts = async () => [{ contextType: "SIDE_PANEL", documentId: "panel-doc", windowId: 5, documentUrl: url }];
+	const state = await instance.message({ type: "autofill-state" }, { id: "fixture", url, documentId: "panel-doc" });
+	assert.equal(state.viewMode, "sidepanel");
+	assert.equal(state.draftContext.tabId, source.id);
+	assert.equal(state.draftContext.tabUrl, source.url);
+	assert.equal(storage.outbox, undefined);
+	assert.equal(network, 0);
+});
+
+test("native panel errors are visible without falling back to job capture", async () => {
+	const storage = {};
+	const instance = await worker(storage, async () => { throw new Error("No request expected"); });
+	instance.chrome.sidePanel = { setOptions: async () => {}, open: async () => { throw new Error("Panel permission denied"); } };
+	instance.listeners.clicked({ id: 1, windowId: 5, url: payload.url });
+	await until(() => Boolean(storage.lastError));
+	assert.match(storage.lastError, /Panel permission denied/u);
+	assert.equal(storage.outbox, undefined);
+	assert.deepEqual(storage["session:autofillApplicationWindows"], {});
 });
 test("actual worker saves locally before configuration and preserves pending data across restart", async () => {
 	const storage = {};
@@ -419,3 +467,4 @@ test("progress from an old tab cannot replace a newer bulk run", async () => {
 	assert.equal(storage.bulk.id, "bulk-new");
 	assert.equal(storage.bulk.phase, "collecting");
 });
+

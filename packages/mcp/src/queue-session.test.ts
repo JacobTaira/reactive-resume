@@ -60,6 +60,27 @@ function fixture() {
 }
 
 describe("queued-resume preparation", () => {
+	it("resolves Master_Resume and Master Resume without requiring a rename", async () => {
+		for (const name of ["Master_Resume", "  MASTER   RESUME  "]) {
+			const { client, documents } = fixture();
+			const master = documents[0];
+			if (!master) throw new Error("Missing fixture master");
+			master.name = name;
+			const result = await prepareQueuedResume(client as never, { applicationId: "job" });
+			expect(result.base.id).toBe("base");
+		}
+	});
+
+	it("requires an explicit base ID when old and new master names both exist", async () => {
+		const { client, documents } = fixture();
+		documents.push(document("other", "Master_Resume"));
+		await expect(prepareQueuedResume(client as never, { applicationId: "job" }))
+			.rejects.toMatchObject({ code: "BAD_REQUEST" });
+		expect(client.applications.queue.claim).not.toHaveBeenCalled();
+		const result = await prepareQueuedResume(client as never, { applicationId: "job", baseResumeId: "base" });
+		expect(result.base.id).toBe("base");
+	});
+
 	it("claims, copies for the job, records progress, then reads the final linked draft once", async () => {
 		const { client, events } = fixture();
 		const result = await prepareQueuedResume(client as never, { applicationId: "job" });
@@ -240,3 +261,4 @@ describe("queued-resume preparation", () => {
 		expect(client.applications.queue.claim).toHaveBeenCalledOnce();
 	});
 });
+

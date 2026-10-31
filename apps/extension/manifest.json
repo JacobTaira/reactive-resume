@@ -1,14 +1,14 @@
 {
 	"manifest_version": 3,
-	"name": "Reactive Resume Capture Queue",
-	"version": "0.1.3",
-	"description": "Save job postings to your own Reactive Resume installation without AI calls.",
+	"name": "Reactive Resume Capture and Autofill",
+	"version": "0.5.1",
+	"description": "Save jobs and fill applications with your approved profile and the correct resume, without Jobright credits.",
 	"minimum_chrome_version": "120",
-	"permissions": ["storage", "activeTab", "scripting", "alarms"],
+	"permissions": ["storage", "activeTab", "scripting", "alarms", "sidePanel"],
 	"host_permissions": ["https://jobright.ai/*"],
 	"optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
 	"background": { "service_worker": "src/background.js", "type": "module" },
-	"action": { "default_title": "Queue this job in Reactive Resume" },
+	"action": { "default_title": "Reactive Resume: open application assistant" },
 	"options_ui": { "page": "options.html", "open_in_tab": true },
 	"commands": {
 		"capture-job": {
@@ -24,3 +24,4 @@
 		}
 	]
 }
+

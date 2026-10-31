@@ -11,7 +11,9 @@ import { Skeleton } from "@reactive-resume/ui/components/skeleton";
 import { toast } from "@reactive-resume/ui/components/toast";
 import { cn } from "@reactive-resume/utils/style";
 import { QueueDetailsSheet } from "./queue-details-sheet";
+import { QueueReviewSheet } from "./queue-review-sheet";
 import { queueCanRequeue, queueFilterStates } from "./queue-model";
+import { CLAUDE_QUEUE_PROMPT } from "./queue-prompt";
 import { getOrpcErrorMessage } from "@/libs/error-message";
 import { orpc } from "@/libs/orpc/client";
 
@@ -24,6 +26,7 @@ export function QueueView({ query, onOpen, onAdd }: QueueViewProps) {
 	const [filter, setFilter] = useState<QueueFilter>("active");
 	const [offset, setOffset] = useState(0);
 	const [editingId, setEditingId] = useState<string | null>(null);
+	const [reviewingId, setReviewingId] = useState<string | null>(null);
 	const [searchValue, setSearchValue] = useState(query);
 	if (query !== searchValue) {
 		setSearchValue(query);
@@ -43,6 +46,10 @@ export function QueueView({ query, onOpen, onAdd }: QueueViewProps) {
 	});
 	const action = useMutation(orpc.applications.queue.action.mutationOptions());
 	const counts = list.data?.counts;
+	const readyItems = list.data?.items.filter((item) => item.preparation.state === "ready") ?? [];
+	const reviewIndex = readyItems.findIndex((item) => item.id === reviewingId);
+	const previousReady = reviewIndex > 0 ? readyItems[reviewIndex - 1] : undefined;
+	const nextReady = reviewIndex >= 0 ? readyItems[reviewIndex + 1] : undefined;
 	const filters: { value: QueueFilter; label: string; count?: number | undefined }[] = [
 		{ value: "active", label: t`Needs work` },
 		{ value: "pending", label: t`Queued`, count: counts?.pending },
@@ -77,12 +84,7 @@ export function QueueView({ query, onOpen, onAdd }: QueueViewProps) {
 
 	const copyPrompt = async () => {
 		try {
-			await navigator.clipboard.writeText(
-				[
-					t`Process my Reactive Resume queue following my Claude project instructions. List saved jobs once with list_tailoring_queue(includeDescription=true). For each job use prepare_queued_resume(applicationId): it resolves Base Resume, resumes or creates Company — Role, links it and returns current source plus related-resume and company references. Use useful references and reuse verified evidence across similar jobs; never invent facts. Ask once only about material unknowns, not confirmed experience gaps. Select the relevant content from the full Base Resume for the final one-page draft, preserving its design. Use finish_queued_resume with applicationId, leaseToken, expectedUpdatedAt=draft.updatedAt, sectionEdits by returned sectionId and/or inclusive lineEdits from numberedSource, and expectedPageCount=1. Omit newText to delete; send only final replacement text, never old/deleted source or NUMBER| prefixes. Preamble/PDF metadata/header stay locked; remove unwanted sections with their local spacing; include a score or brief notes when requested. The server saves, compiles, checks page count/text, returns overflow warnings and records progress. For a real compile/page-fit failure make at most one consolidated content correction using returned diagnostics; stop when checks pass and report remaining failures. Do not create local files, run shell/TeX, calculate checksums, fetch PDFs, repeatedly polish spacing, or produce citation maps, rubric/diff reports or review timestamps. Keep routine records in the app. Reply only with brief unsupported requirements, material questions or failures. Never submit applications or mark Applied.`,
-					t`Final requirement: the compiled resume must fit on exactly one page. Preserve readable fonts and margins, trim less relevant content as needed, and report completion only after finish_queued_resume with expectedPageCount=1 confirms one page.`,
-				].join("\n\n"),
-			);
+			await navigator.clipboard.writeText(CLAUDE_QUEUE_PROMPT);
 			toast.add({
 				type: "success",
 				description: t`Prompt copied. Paste it into Claude connected to this installation.`,
@@ -191,6 +193,7 @@ export function QueueView({ query, onOpen, onAdd }: QueueViewProps) {
 							busy={action.isPending}
 							onOpen={() => onOpen(item.id)}
 							onEdit={() => setEditingId(item.id)}
+							onReview={() => setReviewingId(item.id)}
 							onAction={(next) => void change(item, next)}
 						/>
 					))}
@@ -219,6 +222,15 @@ export function QueueView({ query, onOpen, onAdd }: QueueViewProps) {
 				</div>
 			)}
 			{editingId && <QueueDetailsSheet id={editingId} onClose={() => setEditingId(null)} />}
+			{reviewingId && (
+				<QueueReviewSheet
+					key={reviewingId}
+					id={reviewingId}
+					onClose={() => setReviewingId(null)}
+					onPrevious={previousReady ? () => setReviewingId(previousReady.id) : undefined}
+					onNext={nextReady ? () => setReviewingId(nextReady.id) : undefined}
+				/>
+			)}
 		</section>
 	);
 }
@@ -228,10 +240,11 @@ type QueueCardProps = {
 	busy: boolean;
 	onOpen: () => void;
 	onEdit: () => void;
+	onReview: () => void;
 	onAction: (action: "skip" | "requeue") => void;
 };
 
-function QueueCard({ item, busy, onOpen, onEdit, onAction }: QueueCardProps) {
+function QueueCard({ item, busy, onOpen, onEdit, onReview, onAction }: QueueCardProps) {
 	const { preparation } = item;
 	const captured = item.capturedAt ?? item.createdAt;
 	const date = new Date(captured);
@@ -291,7 +304,9 @@ function QueueCard({ item, busy, onOpen, onEdit, onAction }: QueueCardProps) {
 					<Button
 						size="sm"
 						variant={preparation.state === "ready" ? "primary" : "secondary"}
-						render={<Link to="/builder/$resumeId" params={{ resumeId: preparation.draftResumeId }} />}
+						{...(preparation.state === "ready"
+							? { onClick: onReview }
+							: { render: <Link to="/builder/$resumeId" params={{ resumeId: preparation.draftResumeId }} /> })}
 					>
 						<Icon name="file-text" size={16} />
 						{preparation.state === "ready" ? <Trans>Review resume</Trans> : <Trans>Open draft</Trans>}
@@ -345,3 +360,4 @@ function QueueStateBadge({ state }: QueueStateBadgeProps) {
 		</span>
 	);
 }
+

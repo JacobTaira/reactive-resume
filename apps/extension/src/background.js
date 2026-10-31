@@ -1,5 +1,7 @@
 /* global chrome */
 import { addCapture, captureFailed, captureSucceeded, dueCaptures, normalizedBaseUrl } from "./outbox.js";
+import { createAutofillService } from "./autofill-background.js";
+import { deleteAutofillTabDrafts } from "./autofill-drafts.js";
 import "./extractor.js";
 
 let serial = Promise.resolve();
@@ -125,15 +127,30 @@ async function captureTab(tab) {
 		await chrome.runtime.openOptionsPage();
 	}
 }
-chrome.action.onClicked.addListener((tab) => { void captureTab(tab); });
+chrome.action.onClicked.addListener((tab) => {
+	// No awaits before this call: the native panel must open in this user gesture.
+	void autofill.openSidePanel(tab).catch(async (error) => {
+		await chrome.storage.local.set({ lastError: error.message });
+		await badge("!", "#b42318");
+		await chrome.runtime.openOptionsPage();
+	});
+});
 chrome.commands.onCommand.addListener((command) => {
 	if (command === "capture-job") void chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => captureTab(tab));
 });
 chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === "capture-sync") void flush(); });
 chrome.runtime.onInstalled.addListener(() => { void chrome.alarms.create("capture-sync", { periodInMinutes: 0.5 }); });
-chrome.runtime.onStartup.addListener(() => { void chrome.alarms.create("capture-sync", { periodInMinutes: 0.5 }); void flush(); });
+chrome.runtime.onStartup.addListener(() => {
+	void chrome.alarms.create("capture-sync", { periodInMinutes: 0.5 }); void flush();
+});
+chrome.tabs?.onRemoved?.addListener((tabId) => { void deleteAutofillTabDrafts(tabId).catch(() => {}); });
 
+const autofill = createAutofillService(chrome, { captureTab });
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
+	if (typeof message?.type === "string" && message.type.startsWith("autofill-")) {
+		autofill(message, sender).then((data) => respond({ ok: true, data }), (error) => respond({ ok: false, error: error.message }));
+		return true;
+	}
 	const run = async () => {
 		if (message.type === "capture" && jobrightPage(sender)) {
 			const payload = message.payload;
@@ -193,3 +210,4 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 // Recreate the alarm if Chrome discarded it. Pending entries survive worker termination.
 void chrome.alarms.get("capture-sync").then((alarm) => { if (!alarm) return chrome.alarms.create("capture-sync", { periodInMinutes: 0.5 }); });
 void flush();
+

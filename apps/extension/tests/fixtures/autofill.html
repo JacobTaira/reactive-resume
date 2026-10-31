@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Fictional application autofill fixture</title>
+	</head>
+	<body>
+		<form id="application">
+			<label for="first">First name</label><input id="first" autocomplete="given-name" />
+			<label for="last">Last name</label><input id="last" autocomplete="family-name" />
+			<label for="full">Full name</label><input id="full" autocomplete="name" />
+			<label for="email">Email address</label><input id="email" type="email" autocomplete="email" />
+			<label for="phone">Phone number</label><input id="phone" type="tel" autocomplete="tel" />
+			<label for="city">City</label><input id="city" autocomplete="address-level2" />
+			<label for="state">State</label>
+			<select id="state" autocomplete="address-level1"><option value="">Select state</option><option value="TX">Texas</option></select>
+			<label>Country<select id="country" autocomplete="country-name"><option value="">Select country</option><option value="US">United States</option></select></label>
+			<label for="linkedin">LinkedIn profile</label><input id="linkedin" type="url" />
+			<label for="github">GitHub profile</label><input id="github" type="url" />
+			<label for="website">Personal website</label><input id="website" type="url" />
+			<label for="company">Current employer name</label><input id="company" name="employerName" />
+			<fieldset><legend>Reference</legend><label for="reference-email">Email</label><input id="reference-email" autocomplete="email" /></fieldset>
+			<label for="emergency-phone">Phone</label><input id="emergency-phone" name="emergencyPhone" autocomplete="tel" />
+			<label for="employer-city">City</label><input id="employer-city" name="employerCity" autocomplete="address-level2" />
+			<label for="preserved">Preferred name</label><input id="preserved" autocomplete="given-name" value="Already edited" />
+			<label for="reason">Why do you want to work at this company?</label><textarea id="reason"></textarea>
+			<label for="unapproved">How many years of management experience do you have?</label><input id="unapproved" type="number" />
+			<fieldset>
+				<legend>Will you require visa sponsorship?</legend>
+				<label><input id="visa-yes" type="radio" name="visa" value="yes" />Yes</label>
+				<label><input id="visa-no" type="radio" name="visa" value="no" />No</label>
+			</fieldset>
+			<fieldset>
+				<legend>Gender</legend>
+				<label><input id="gender-a" type="radio" name="gender" value="a" />Woman</label>
+				<label><input id="gender-b" type="radio" name="gender" value="b" />Man</label>
+			</fieldset>
+			<label><input id="consent" type="checkbox" />I agree to the terms and consent to data processing</label>
+			<label for="password">Password</label><input id="password" type="password" />
+			<label for="hidden">First name</label><input id="hidden" type="hidden" />
+			<label for="disabled">Email address</label><input id="disabled" type="email" disabled />
+			<label for="readonly">Email address</label><input id="readonly" type="email" readonly />
+			<label for="resume">Resume</label><input id="resume" type="file" accept="application/pdf,.pdf" />
+			<label for="cover">Cover letter</label><input id="cover" type="file" accept="application/pdf,.pdf" />
+			<div class="ashby-application-form-field-entry">
+				<h3 class="ashby-application-form-question-title">Prior Government Employment?</h3>
+				<p class="ashby-application-form-question-description">Fictional question description.</p>
+				<label><input id="government-yes" type="radio" name="government" value="yes" />Yes</label>
+				<label><input id="government-no" type="radio" name="government" value="no" />No</label>
+			</div>
+			<section>
+				<h2>U.S. Equal Employment Opportunity Information</h2>
+				<div role="radiogroup" aria-label="Gender identity" id="aria-gender">
+					<button id="aria-male" type="button" role="radio" aria-checked="false">Male</button>
+					<button id="aria-female" type="button" role="radio" aria-checked="false">Female</button>
+				</div>
+				<div class="ashby-application-form-field-entry">
+					<h3 class="ashby-application-form-question-title">Race</h3>
+					<label><input id="race-asian" type="radio" name="race" value="asian" />Asian (Not Hispanic or Latino)</label>
+					<label><input id="race-decline" type="radio" name="race" value="decline" />Decline to self-identify</label>
+				</div>
+			</section>
+			<label for="unsupported-combo">Favorite framework</label>
+			<div id="unsupported-combo" role="combobox" aria-labelledby="unsupported-label" aria-expanded="false" tabindex="0"></div>
+			<span id="unsupported-label">Favorite framework</span>
+			<label id="button-country-label">Country</label>
+			<button id="button-country" type="button" aria-haspopup="listbox" aria-controls="country-menu" aria-labelledby="button-country-label">Select country</button>
+			<div id="country-menu" role="listbox" hidden><div role="option" data-value="US">United States</div><div role="option" data-value="CA">Canada</div></div>
+			<button id="next" type="button">Next</button>
+			<button id="submit" type="submit">Submit application</button>
+		</form>
+		<div id="shadow-host"></div>
+		<!-- Independent minimal fixture of observed Ashby structures; inert until a test mounts it. -->
+		<template id="captured-ashby-shapes">
+			<div class="ashby-application-form-container">
+				<div class="ashby-application-form-field-entry" data-field-path="prior-government" data-field-entry-id="application-prior-government">
+					<label class="ashby-application-form-question-title" for="prior-government">Prior Government Employment?</label>
+					<div class="_container_fixture _yesno_fixture">
+						<button id="captured-government-yes" class="_container_fixture _option_fixture">Yes</button>
+						<button id="captured-government-no" class="_container_fixture _option_fixture">No</button>
+						<input type="checkbox" class="_input_fixture" name="prior-government" tabindex="-1" style="position:absolute;opacity:0;width:1px;height:1px">
+					</div>
+				</div>
+				<div data-field-path="gender" data-field-entry-id="survey-gender">
+					<fieldset><label class="ashby-application-form-question-title" for="gender">Gender</label>
+						<div><span><input id="captured-gender-male" type="radio" name="survey-gender"></span><label for="captured-gender-male">Male</label></div>
+						<div><span><input id="captured-gender-female" type="radio" name="survey-gender"></span><label for="captured-gender-female">Female</label></div>
+					</fieldset>
+				</div>
+				<div data-field-path="race" data-field-entry-id="survey-race">
+					<fieldset><label class="ashby-application-form-question-title" for="race">Race</label>
+						<div class="ashby-application-form-question-description">Fictional explanatory description, separate from the title.</div>
+						<div><span><input id="captured-race-asian" type="radio" name="survey-race"></span><label for="captured-race-asian">Asian (Not Hispanic or Latino)</label></div>
+						<div><span><input id="captured-race-decline" type="radio" name="survey-race"></span><label for="captured-race-decline">Decline to self-identify</label></div>
+					</fieldset>
+				</div>
+				<div data-field-path="veteran" data-field-entry-id="survey-veteran">
+					<fieldset><label class="ashby-application-form-question-title" for="veteran">Veteran Status</label>
+						<div><span><input id="captured-veteran-no" type="radio" name="survey-veteran"></span><label for="captured-veteran-no">I am not a protected veteran</label></div>
+						<div><span><input id="captured-veteran-decline" type="radio" name="survey-veteran"></span><label for="captured-veteran-decline">I decline to self-identify for protected veteran status</label></div>
+					</fieldset>
+				</div>
+			</div>
+		</template>
+		<script>
+			window.fixtureEvents = [];
+			window.fixtureSubmits = 0;
+			window.fixtureNext = 0;
+			window.fixtureChoiceState = { visa: null, consent: false, country: "" };
+			for (const radio of document.querySelectorAll('#aria-gender [role="radio"]')) radio.addEventListener("click", () => {
+				for (const option of document.querySelectorAll('#aria-gender [role="radio"]')) option.setAttribute("aria-checked", String(option === radio));
+			});
+			document.querySelector("#application").addEventListener("submit", (event) => {
+				event.preventDefault();
+				window.fixtureSubmits++;
+			});
+			document.querySelector("#next").addEventListener("click", () => window.fixtureNext++);
+			for (const radio of document.querySelectorAll('[name="visa"]')) radio.addEventListener("click", (event) => {
+				if (event.target.checked) window.fixtureChoiceState.visa = event.target.value;
+			});
+			document.querySelector("#consent").addEventListener("click", (event) => { window.fixtureChoiceState.consent = event.target.checked; });
+			document.querySelector("#button-country").addEventListener("click", () => { document.querySelector("#country-menu").hidden = false; });
+			for (const option of document.querySelectorAll("#country-menu [role=option]")) option.addEventListener("click", () => {
+				window.fixtureChoiceState.country = option.dataset.value;
+				document.querySelector("#button-country").textContent = option.textContent;
+				document.querySelector("#country-menu").hidden = true;
+			});
+			for (const eventName of ["input", "change", "blur"]) {
+				document.querySelector("#first").addEventListener(eventName, (event) => {
+					window.fixtureEvents.push({ type: event.type, value: event.target.value });
+				});
+			}
+			const shadow = document.querySelector("#shadow-host").attachShadow({ mode: "open" });
+			shadow.innerHTML = '<label for="shadow-email">Email address</label><input id="shadow-email" type="email" autocomplete="email">';
+		</script>
+	</body>
+</html>

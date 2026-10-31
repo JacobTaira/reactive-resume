@@ -23,12 +23,17 @@ describe("queue processing workflow", () => {
 		expect(prompt).toContain("Never bypass another worker's claim");
 	});
 
-	it("delegates saved-source checks and progress to the server with one actual correction", () => {
+	it("keeps the draft processing through content and PDF quality review without correction caps", () => {
 		const prompt = buildQueueProcessingInstructions({});
-		for (const requirement of ["one batch", "sectionEdits", "lineEdits", "never echo deleted source", "numberedSource", "page count and extractable text", "overflow warnings", "at most one consolidated content correction", "After a passing result, stop", "draft", "unverified"]) {
+		for (const requirement of ["one batch", "sectionEdits", "lineEdits", "never echo deleted source", "numberedSource", "page count and extractable text", "overflow warnings", "finalize=false", "finalize=true", "download_resume_pdf", "no fixed correction count or time limit", "draft", "unverified"]) {
 			expect(prompt).toContain(requirement);
 		}
-		expect(prompt).toContain("Do not create local files, run shell/TeX, check hashes, fetch PDFs");
+		expect(prompt).toContain("Reuse server compilation instead of duplicate local TeX");
+		expect(prompt).toContain("Google Doc as authoritative background and preferences");
+		expect(prompt).toContain("Facts supported by the Google Doc can be used even when absent from the master");
+		expect(prompt).not.toContain("at most one consolidated content correction");
+		expect(prompt).not.toContain("After a passing result, stop");
+		expect(prompt.indexOf("with finalize=false")).toBeLessThan(prompt.indexOf("with finalize=true"));
 		expect(prompt.includes("reviewedResumeUpdatedAt")).toBe(false);
 		expect(prompt.includes("requirementEvidence")).toBe(false);
 		expect(prompt.includes("tailoringChanges")).toBe(false);
@@ -49,3 +54,4 @@ describe("queue processing workflow", () => {
 		expect(prompt).toContain("not an ATS prediction or hiring guarantee");
 	});
 });
+
